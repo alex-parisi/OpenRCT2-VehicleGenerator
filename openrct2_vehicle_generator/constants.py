@@ -115,7 +115,10 @@ COLOR_NAMES = [
     "saturated_red", "bright_red", "dark_pink", "bright_pink", "light_pink",
 ]
 
-CATEGORY_NAMES = ["transport", "gentle", "water", "rollercoaster"]
+# Indexed by the Category enum value (NOT a free-standing order). Must stay
+# aligned with the Category IntEnum above so CATEGORY_NAMES[Category.X] is the
+# OpenRCT2 object.json category string for X.
+CATEGORY_NAMES = ["transport", "gentle", "rollercoaster", "thrill", "water", "shop"]
 
 # friction_sound_id table, indexed by running_sound enum index (Constants.hpp
 # kRunningSoundValues + the engine value appended by ProjectExporter.cpp).

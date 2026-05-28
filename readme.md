@@ -63,6 +63,24 @@ the repo root unless you've copied assets elsewhere.
 
 ---
 
+## Tests
+
+`uv sync` installs the `dev` dependency group (pytest). The Python suite
+covers the parts of the port that don't need Embree — palette tables and
+nearest-color search, OBJ/MTL parsing and material classification, atlas
+packing + blit/crop, the `images.dat` (G1) blob format, JSON loading +
+validation + implied sprite flags, and the invariant that `count_sprites`
+agrees with what `render_vehicle_frame` actually emits (the renderer is
+stubbed so this runs without the native extension):
+
+```bash
+uv run pytest
+```
+
+The native C++ has its own unit tests under `native/test/`.
+
+---
+
 ## Examples
 
 One example vehicle is included under `examples/`.
@@ -276,7 +294,11 @@ future contributors don't repeat the debugging.
 
    Use the explicit list when you want a minimal render for a vehicle
    that will only ever live on its native ride type — the loader ORs in
-   implied flags too (`banking` → `diagonal_bank_transition`, etc).
+   implied flags too (`banking` → `diagonal_bank_transition`,
+   `dive_loops` → `zero_g_rolls`, etc). The dive-loop implication is
+   required: dive-loop sprites reuse the 8-frame zero-g rotations, so
+   without `zero_g_rolls` the declared sprite count would not match the
+   rendered set.
 
    Use `"all"` when you want the vehicle to look correct even if a
    player swaps it onto a more capable ride type in-game (e.g. a

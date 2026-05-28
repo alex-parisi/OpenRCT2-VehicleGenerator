@@ -269,6 +269,14 @@ def load_ride(json_path: Path | str) -> Ride:
                 sf |= SpriteFlag.SLOPE_BANK_TRANSITION
             if sf & SpriteFlag.SLOPED_BANKED_TURN:
                 sf |= SpriteFlag.SLOPED_BANK_TRANSITION | SpriteFlag.BANKED_SLOPE_TRANSITION
+        # Dive-loop sprites reuse the 8-frame zero-g sb22 rotations, so the
+        # two groups must travel together: count_sprites budgets dive loops as
+        # 96 own sprites + the 16-sprite sb22 upgrade that only renders when
+        # ZERO_G_ROLL is present. Every OpenRCT2 ride type pairs them already;
+        # imply it here so a hand-written sprites list can't desync the
+        # declared sprite count from what render_vehicle_frame emits.
+        if sf & SpriteFlag.DIVE_LOOP:
+            sf |= SpriteFlag.ZERO_G_ROLL
         ride.sprite_flags = int(sf)
 
     ride.zero_cars = _require_int(root, "zero_cars")
@@ -341,5 +349,5 @@ def load_ride(json_path: Path | str) -> Ride:
         ride.num_sprites += veh.num_sprites
         ride.vehicles.append(veh)
 
-    ride.category = int(Category.THRILL_RIDE)
+    ride.category = int(Category.ROLLERCOASTER)
     return ride

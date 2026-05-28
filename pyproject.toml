@@ -12,6 +12,13 @@ dependencies = [
 [project.scripts]
 openrct2-vehicle-generator = "openrct2_vehicle_generator.__main__:main"
 
+[dependency-groups]
+dev = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
 [build-system]
 requires = ["scikit-build-core>=0.10", "pybind11>=2.12"]
 build-backend = "scikit_build_core.build"
