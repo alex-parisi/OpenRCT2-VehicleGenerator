@@ -69,7 +69,7 @@ One example vehicle is included under `examples/`.
 
 | Example | Ride type | Notes |
 |---|---|---|
-| `wooden/` | `classic_wooden_rc` | A single-rail-styled car (mesh, materials, restraint animation, peep + peep_restraint mesh swap, 8 custom lights) running on the classic wooden coaster track. Renders **all 16 sprite groups** via `"sprites": "all"` so the vehicle looks correct if swapped onto more complex ride types in-game. |
+| `wooden/` | `classic_wooden_rc` | A 4-rider classic wooden car (2 rows × 2 seats, lap-bar restraint animation, 8 custom lights). Geometry is generated procedurally by `scripts/build_wooden_car.py` + `scripts/build_wooden_restraint.py` (see [Procedural mesh generation](#procedural-mesh-generation) below). Renders **all 16 sprite groups** via `"sprites": "all"` so the vehicle looks correct if swapped onto more complex ride types in-game. |
 
 Shared assets:
 
@@ -159,12 +159,14 @@ OpenRCT2-VehicleGenerator/
 │       ├── Mesh.{hpp,cpp}          # Mesh struct + texture_sample (assimp/PNG loaders stripped)
 │       └── {Image.hpp,Color.hpp}   # Minimal struct definitions
 ├── examples/
-│   └── wooden/                      # Single-rail-styled vehicle on classic wooden track
+│   └── wooden/                      # 4-rider classic wooden coaster car (procedurally generated meshes)
 ├── textures/                        # Shared material + remap textures
 ├── data/track_types.json            # OpenRCT2 ride-type definitions (sprite groups, car counts)
 ├── scripts/                         # Utility scripts
 │   ├── ride_gen.py
 │   ├── build_track_types.py
+│   ├── build_wooden_car.py          # Blender script: chassis + body + seats -> examples/wooden/car.obj
+│   ├── build_wooden_restraint.py    # Blender script: lap bar mesh    -> examples/wooden/restraint.obj
 │   ├── split_atlas.py               # Post-process: split atlas PNGs into per-sprite PNGs
 │   └── merge_parkobj.py             # Post-process: merge maketrack output into a parkobj
 ├── CMakeLists.txt                   # Top-level (currently passthrough; build is driven by native/)
@@ -234,6 +236,9 @@ future contributors don't repeat the debugging.
 | **Two RCT2 palettes** | OpenRCT2's source has *two* near-identical 256-color palette tables: the **internal** one (Palette.cpp `palette_rct2`) used for nearest-color quantization, and the **image** one (Image.cpp `rct2_palette`) written into PNG PLTE chunks. They differ at indices 0–9 (placeholder ramp vs all zeros) and 243–254 (red/orange remap1 vs green remap). PNG output **must** use the image palette — the engine recognizes the remap region by the PLTE layout. `palette.py` sources from Image.cpp. |
 | **Vehicle objects don't bundle track sprites** | Track piece sprites come from OpenRCT2's built-in data per `ride_type`. A custom `.parkobj` only needs to provide vehicle sprites (4640 for a fully-fledged coaster + 3 preview entries = 4643 image entries — matches vanilla). The `maketrack` / `merge_parkobj.py` step from the C++ pipeline isn't required for vehicle-only customization. |
 | **Object cache** | OpenRCT2 caches object metadata in `~/Library/Application Support/OpenRCT2/objects.idx`. After installing a new parkobj, **restart OpenRCT2** — it doesn't hot-reload the object dir. |
+| **Coordinate convention** | Mesh OBJs use **+X = direction of travel (front of car)**, **+Y = up**, **+Z = passenger's right looking forward**. Geometry that should appear at the front of the moving train must sit at *positive* X. Get this wrong and the car renders backwards (rear seat back leads the train, etc.) even though the riders themselves face correctly — the peep mesh's facing is baked in. |
+| **Orientation array axis order** | The `orientation` array in JSON is `[a, b, c]` but maps to `rotate_y(a) * rotate_z(b) * rotate_x(c)` per `exporter.py`. So `[0, 90, 0]` rotates around the **Z** (cross-car) axis, not Y. A lap bar that should swing top-to-bottom uses `[0, ±angle, 0]`; setting `[0, 0, angle]` would tip it sideways around the travel axis instead. |
+| **Riders array = rows, not individuals** | Each entry in `riders[]` is one **seat row**, and `numSeatRows` is set to `len(riders)`. For a 2-across × 2-rows car (capacity 4), use **2** rider entries, each containing 2 peep mesh entries (left + right at ±Z). Using 4 separate single-peep entries makes the engine think it has 4 rows; the wooden-coaster ride type then only fills 2 of them and you see half-empty cars. |
 
 ---
 
@@ -294,6 +299,50 @@ future contributors don't repeat the debugging.
    build menu as its own entry (with the `name` you gave it) and is
    also offered as a swap-in vehicle option for any placed ride with
    matching `ride_type`.
+
+---
+
+## Procedural mesh generation
+
+For simple vehicles (boxy chassis, bench seats, lap bars, etc.) it's often
+faster to **generate the OBJ from a Blender Python script** than to model
+by hand. The `examples/wooden/` car + restraint are built this way:
+
+```bash
+# Regenerate examples/wooden/car.obj from primitives
+blender --background --python scripts/build_wooden_car.py
+
+# Regenerate examples/wooden/restraint.obj (the lap bar)
+blender --background --python scripts/build_wooden_restraint.py
+```
+
+Each script defines dimensions as constants at the top, builds the parts
+out of `bpy.ops.mesh.primitive_*` calls, and exports through Blender's
+OBJ exporter. A post-process step rewrites the `mtllib` line so the OBJ
+points at the hand-authored `materials.mtl` instead of the auto-generated
+sidecar `.mtl`. Iteration loop: edit constants → re-run script → run
+`uv run openrct2-vehicle-generator --test …` → check sprite → repeat.
+
+A few conventions worth knowing:
+
+- **Build in OBJ space, not Blender space.** Blender's default OBJ
+  exporter maps Blender `(X, Y, Z)` → OBJ `(X, -Z, Y)`. The build
+  scripts use tiny `loc()` and `scl()` helpers that take coordinates in
+  OBJ space (+X forward, +Y up, +Z right) and emit Blender-space
+  positions and box scales. Saves you from doing the swap in your head
+  for every primitive.
+- **Pivot location matters for animated parts.** The lap bar's pivot is
+  the bar's *forward-bottom* edge — i.e. the mesh is modelled extending
+  from origin in the −X direction, so when it rotates around Z the free
+  end swings up and over the riders. If you model with origin at the
+  bar's center, the bar rotates around its center and tears through the
+  body instead.
+- **Don't fight the existing `materials.mtl`.** The scripts assign
+  materials by name (`Remap1`, `Metal`, `Seat`, `ShinyMetal_Edge`, …)
+  to leverage the name-based classification in `mesh.py`. Blender
+  itself doesn't need the materials to be defined — just create empty
+  `bpy.data.materials.new(name)` slots; the rendering pipeline picks
+  them up from the `.mtl` file at OBJ load time.
 
 ---
 
