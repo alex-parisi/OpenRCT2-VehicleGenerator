@@ -176,38 +176,49 @@ OpenRCT2-VehicleGenerator/
 
 ## Sprite output format
 
-The exporter writes **one PNG per sprite** (`images/car_<vehicle>_<NNNN>.png`)
-with image entries shaped like
+The exporter writes a single binary blob `images.dat` containing all
+sprites, with a one-element `images` field in `object.json` referencing
+it via OpenRCT2's `$LGX:` syntax:
 
 ```json
-{
-  "path": "images/car_0_0042.png",
-  "x": -10,
-  "y": -11,
-  "palette": "keep"
-}
+"images": ["$LGX:images.dat[0..2322]"]
 ```
 
-It does **not** atlas-pack into one large PNG per car with `src_x` /
-`src_y` / `src_width` / `src_height` sub-rect refs.
+This is the same format the vanilla OpenRCT2 ride parkobjs use. It is
+**not** the `src_x`-atlas PNG format that the upstream C++ `makevehicle`
+emits — that format is silently rejected by current OpenRCT2 (see notes
+below).
 
-### Why no atlases?
+### images.dat layout
 
-OpenRCT2's `ImageImporter` silently rejects any PNG larger than 256×256.
-Fully-loaded single-rail atlases come out around 720×720 — way over the
-limit, so every sprite in the atlas renders invisible in-game (you can
-select the vehicle in the build menu but it draws as a blank tile, and
-the preview thumbnail is empty too). This is the same reason the
-upstream C++ `makevehicle` output requires a post-process pass through
-`scripts/split_atlas.py` before it'll work in current OpenRCT2.
+```
++--------------------+--------------------+
+| num_entries (u32)  | total_pixels (u32) |   8-byte header
++--------------------+--------------------+
+| element 0          (16 bytes)           |
+| element 1          (16 bytes)           |   num_entries * 16 bytes
+| ...                                     |
+| element N-1        (16 bytes)           |
++-----------------------------------------+
+| sprite 0 pixels    (w * h bytes)        |
+| sprite 1 pixels    (w * h bytes)        |   total_pixels bytes
+| ...                                     |
++-----------------------------------------+
+```
 
-By emitting per-sprite PNGs directly, the exporter produces a working
-parkobj in one step, no post-processing required. Tradeoff: the parkobj
-is ~10× larger on disk (5 MB vs 500 KB), because each tiny sprite is
-its own zlib-compressed PNG with separate headers and a 768-byte PLTE
-chunk. For ride vehicle objects this is fine; for thousands of tiny
-sprites a binary `$LGX:images.dat[…]` blob (the vanilla OpenRCT2
-format) would be more compact, but that path isn't implemented yet.
+Each element is `u32 offset, i16 width, i16 height, i16 x_offset,
+i16 y_offset, u16 flags, u16 zoom`. `flags = 0x0001` (`G1_FLAG_BMP`)
+indicates raw indexed pixel data — palette index 0 is transparent. RLE
+compression (`flags = 0x0008`) would be more compact but is not
+implemented; raw BMP already loads in ~10ms in OpenRCT2's object picker.
+
+### Why this format vs per-PNG or atlas-PNG
+
+| Format | File size | Object-picker load | Status |
+|---|---|---|---|
+| Atlas PNG with `src_x` (upstream C++ `makevehicle`) | smallest | n/a | **Rejected** by OpenRCT2 (256×256 PNG size limit) |
+| One PNG per sprite | 10× the blob size — PNG headers + 768B palette + zlib framing per sprite | seconds of lag (libpng called once per sprite) | Works but slow |
+| `$LGX:images.dat` (current) | matches vanilla | ~one read, near-instant | Works, matches vanilla |
 
 ---
 
@@ -218,7 +229,7 @@ future contributors don't repeat the debugging.
 
 | Gotcha | What |
 |---|---|
-| **PNG ≤ 256×256** | OpenRCT2's `ImageImporter` silently skips larger PNGs. Vehicles end up invisible even though the JSON parses and the object loads. See the per-sprite output approach above. |
+| **PNG ≤ 256×256** | OpenRCT2's `ImageImporter` silently skips larger PNGs. The C++ pipeline's atlas-with-`src_x` format trips this. We sidestep it entirely by emitting `images.dat` (binary blob, no PNG involved). |
 | **Object ID collisions** | A custom parkobj whose `id` matches a vanilla one (e.g. `rct1.ride.wooden_rc_trains`) won't override it cleanly — the engine keeps both around and you can't tell them apart in the dropdown. Use the `openrct2vg.ride.*` namespace (or your own `<author>.ride.*`) to avoid collision. |
 | **Two RCT2 palettes** | OpenRCT2's source has *two* near-identical 256-color palette tables: the **internal** one (Palette.cpp `palette_rct2`) used for nearest-color quantization, and the **image** one (Image.cpp `rct2_palette`) written into PNG PLTE chunks. They differ at indices 0–9 (placeholder ramp vs all zeros) and 243–254 (red/orange remap1 vs green remap). PNG output **must** use the image palette — the engine recognizes the remap region by the PLTE layout. `palette.py` sources from Image.cpp. |
 | **Vehicle objects don't bundle track sprites** | Track piece sprites come from OpenRCT2's built-in data per `ride_type`. A custom `.parkobj` only needs to provide vehicle sprites (4640 for a fully-fledged coaster + 3 preview entries = 4643 image entries — matches vanilla). The `maketrack` / `merge_parkobj.py` step from the C++ pipeline isn't required for vehicle-only customization. |
