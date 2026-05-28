@@ -36,6 +36,9 @@ OUT_PATH  = os.path.join(REPO_ROOT, "examples", "wooden", "car.obj")
 
 # --- Dimensions (OBJ space, units ~= meters) -------------------------------
 
+# Uniform scale applied to the whole car at export (about the origin).
+SCALE = 0.80
+
 # Chassis floor plate
 CHASSIS_LEN   = 1.85                  # +X = direction of travel (front of car)
 CHASSIS_WIDTH = 1.50
@@ -91,11 +94,11 @@ REAR_BACK_X      = BACK_BENCH_X  - BENCH_DEPTH / 2 - SEAT_BACK_THICK / 2   # tra
 
 def loc(x, y, z):
     """OBJ position -> Blender location."""
-    return (x, -z, y)
+    return (x * SCALE, -z * SCALE, y * SCALE)
 
 def scl(dx, dy, dz):
     """OBJ box dimensions -> Blender (x,y,z) extents."""
-    return (dx, dz, dy)
+    return (dx * SCALE, dz * SCALE, dy * SCALE)
 
 # --- Scene setup -----------------------------------------------------------
 
@@ -131,7 +134,7 @@ def add_wheel(name, center, material_name, radius=WHEEL_R, width=WHEEL_W, segs=1
     # Default cylinder axis is Blender Z; rotate 90° about X to align with Blender Y
     # (= OBJ Z). Cylinders are symmetric so direction is irrelevant.
     bpy.ops.mesh.primitive_cylinder_add(
-        vertices=segs, radius=radius, depth=width,
+        vertices=segs, radius=radius * SCALE, depth=width * SCALE,
         location=loc(cx, cy, cz),
         rotation=(math.radians(90), 0, 0),
     )

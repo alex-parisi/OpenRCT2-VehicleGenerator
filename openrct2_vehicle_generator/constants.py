@@ -2,7 +2,7 @@
 src/iso-render/Renderer.hpp / Mesh.hpp.
 """
 
-from enum import IntEnum, IntFlag
+from enum import IntEnum, IntFlag, auto
 
 TILE_SIZE = 3.3
 
@@ -16,34 +16,34 @@ MAX_REGIONS = 8
 
 
 class SpriteFlag(IntFlag):
-    FLAT_SLOPE = 1 << 0
-    GENTLE_SLOPE = 1 << 1
-    STEEP_SLOPE = 1 << 2
-    VERTICAL_SLOPE = 1 << 3
-    DIAGONAL_SLOPE = 1 << 4
-    BANKING = 1 << 5
-    INLINE_TWIST = 1 << 6
-    SLOPE_BANK_TRANSITION = 1 << 7
-    DIAGONAL_BANK_TRANSITION = 1 << 8
-    SLOPED_BANK_TRANSITION = 1 << 9
-    SLOPED_BANKED_TURN = 1 << 10
-    BANKED_SLOPE_TRANSITION = 1 << 11
-    CORKSCREW = 1 << 12
-    ZERO_G_ROLL = 1 << 13
-    DIAGONAL_SLOPED_BANK_TRANSITION = 1 << 14
-    DIVE_LOOP = 1 << 15
+    FLAT_SLOPE = auto()
+    GENTLE_SLOPE = auto()
+    STEEP_SLOPE = auto()
+    VERTICAL_SLOPE = auto()
+    DIAGONAL_SLOPE = auto()
+    BANKING = auto()
+    INLINE_TWIST = auto()
+    SLOPE_BANK_TRANSITION = auto()
+    DIAGONAL_BANK_TRANSITION = auto()
+    SLOPED_BANK_TRANSITION = auto()
+    SLOPED_BANKED_TURN = auto()
+    BANKED_SLOPE_TRANSITION = auto()
+    CORKSCREW = auto()
+    ZERO_G_ROLL = auto()
+    DIAGONAL_SLOPED_BANK_TRANSITION = auto()
+    DIVE_LOOP = auto()
 
 
 class RideFlag(IntFlag):
-    NO_COLLISION_CRASHES = 1 << 0
-    RIDER_CONTROLS_SPEED = 1 << 1
+    NO_COLLISION_CRASHES = auto()
+    RIDER_CONTROLS_SPEED = auto()
 
 
 class VehicleFlag(IntFlag):
-    SECONDARY_REMAP = 1 << 0
-    TERTIARY_REMAP = 1 << 1
-    RIDERS_SCREAM = 1 << 2
-    RESTRAINT_ANIMATION = 1 << 3
+    SECONDARY_REMAP = auto()
+    TERTIARY_REMAP = auto()
+    RIDERS_SCREAM = auto()
+    RESTRAINT_ANIMATION = auto()
 
 
 class RunningSound(IntEnum):

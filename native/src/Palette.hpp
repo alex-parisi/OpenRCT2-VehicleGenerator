@@ -26,14 +26,18 @@ namespace RCTGen {
         std::array<Color, 16> remap_colors;
     };
 
+    struct PaletteResult {
+        std::uint8_t index{};
+        Vector3 error{};
+    };
+
     constexpr Color color(std::uint8_t r, std::uint8_t g, std::uint8_t b) noexcept { return {r, g, b}; }
 
     Vector3 vector_from_color(Color c);
 
     Color color_from_vector(Vector3 vec);
 
-    // ASSUME: region < MAX_REGION
-    std::uint8_t palette_get_nearest(Palette *palette, std::uint8_t region, Vector3 color, Vector3 *error);
+    PaletteResult palette_get_nearest(const Palette& palette, std::uint8_t region, Vector3 color);
 
     Palette palette_rct2();
 }

@@ -1,81 +1,65 @@
-// Verbatim port of the C-era palette implementation with only the minimum
-// changes needed to compile against the modernized palette.h (std::array
-// instead of C arrays). All math is left exactly as written -- this file is
-// the source of truth for byte-equivalent palette quantization vs the
-// goldens captured at commit edea916, and any "modernization" (float-only
-// literals, std::clamp, etc.) breaks that equivalence by 1 ULP on borderline
-// pixels.
-
 #include "Palette.hpp"
 
+#include <algorithm>
 #include <cmath>
-#include <cstdio>
+#include <limits>
 
 namespace RCTGen {
     float vector3_get_luma(Vector3 color) noexcept {
-        return 0.299 * color.x + 0.587 * color.y + 0.114 * color.z;
-    }
-
-    float vector3_get_max(Vector3 color) noexcept {
-        return fmax(fmax(color.x, color.y), color.z);
+        return 0.299f * color.x + 0.587f * color.y + 0.114f * color.z;
     }
 
     float srgb2linear(float x) noexcept {
-        if (x <= 0.04045) return x / 12.92;
-        return std::pow((x + 0.055) / 1.055, 2.4);
+        if (x <= 0.04045f) return x / 12.92f;
+        return std::pow((x + 0.055f) / 1.055f, 2.4f);
     }
 
     float linear2srgb(float x) noexcept {
-        if (x <= 0.0031308) return x * 12.92;
-        return 1.055 * std::pow(x, 1.0 / 2.4) - 0.055;
+        if (x <= 0.0031308f) return x * 12.92f;
+        return 1.055f * std::pow(x, 1.0f / 2.4f) - 0.055f;
     }
 
     Vector3 vector_from_color(Color color) {
-        return vector3(srgb2linear(color.r / 255.0), srgb2linear(color.g / 255.0), srgb2linear(color.b / 255.0));
+        return vector3(srgb2linear(color.r / 255.0f), srgb2linear(color.g / 255.0f), srgb2linear(color.b / 255.0f));
     }
 
     Color color_from_vector(Vector3 v) {
-        // Math is deliberately written so every intermediate is double: fmax/fmin
-        // promote float to double, and `* 255.0 + 0.4999` keeps it in double until
-        // the final uint8 cast. Replacing this with std::clamp + std::floor on a
-        // float chain drops 1 ULP and flips a few dozen palette picks vs golden.
         const auto to_u8 = [](float x) -> std::uint8_t {
             return static_cast<std::uint8_t>(
-                std::floor(std::fmax(0.0, std::fmin(1.0, linear2srgb(x))) * 255.0 + 0.4999));
+                std::floor(std::clamp(linear2srgb(x), 0.0f, 1.0f) * 255.0f + 0.4999f));
         };
         return {to_u8(v.x), to_u8(v.y), to_u8(v.z)};
     }
 
-    uint8_t palette_get_nearest(Palette *palette, uint8_t region, Vector3 target, Vector3 *error) {
-        uint8_t nearest_index = palette->regions[region].start_indices[0];
-        float minimum_error = INFINITY;
-        int num_subregions = palette->regions[region].subregions;
+    PaletteResult palette_get_nearest(const Palette& palette, std::uint8_t region, Vector3 target) {
+        std::uint8_t nearest_index = palette.regions[region].start_indices[0];
+        float minimum_error = std::numeric_limits<float>::infinity();
+        int num_subregions = palette.regions[region].subregions;
         for (int s = 0; s < num_subregions; s++) {
-            uint8_t start_index = palette->regions[region].start_indices[s];
-            uint8_t end_index = palette->regions[region].end_indices[s];
+            std::uint8_t start_index = palette.regions[region].start_indices[s];
+            std::uint8_t end_index = palette.regions[region].end_indices[s];
             for (int i = start_index; i < end_index; i++) {
-                float error;
-                Vector3 color = vector_from_color(palette->regions[region].remap
-                                                      ? palette->remap_colors[i - start_index]
-                                                      : palette->colors[i]);
-                error = vector3_norm(vector3_sub(target, color));
-
-                if (error < minimum_error) {
-                    nearest_index = i;
-                    minimum_error = error;
+                Vector3 pal_color = vector_from_color(palette.regions[region].remap
+                                                      ? palette.remap_colors[i - start_index]
+                                                      : palette.colors[i]);
+                float err = vector3_norm(vector3_sub(target, pal_color));
+                if (err < minimum_error) {
+                    nearest_index = static_cast<std::uint8_t>(i);
+                    minimum_error = err;
                 }
             }
         }
 
-        if (error != NULL && palette->regions[region].remap)
-            *error = vector3_sub(
-                vector3(vector3_get_luma(target), 0.0, 0.0),
-                vector3(vector3_get_luma(
-                            vector_from_color(
-                                palette->colors[nearest_index])), 0.0,
-                        0.0));
-        else if (error != NULL) *error = vector3_sub(target, vector_from_color(palette->colors[nearest_index]));
-        return nearest_index;
+        PaletteResult result;
+        result.index = nearest_index;
+        if (palette.regions[region].remap) {
+            result.error = vector3_sub(
+                vector3(vector3_get_luma(target), 0.0f, 0.0f),
+                vector3(vector3_get_luma(vector_from_color(palette.colors[nearest_index])), 0.0f, 0.0f));
+        } else {
+            result.error = vector3_sub(target, vector_from_color(palette.colors[nearest_index]));
+        }
+        return result;
     }
 
     Palette palette_rct2() {

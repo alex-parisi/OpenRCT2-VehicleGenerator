@@ -4,7 +4,8 @@ Ports src/iso-render/Palette.cpp and the palette data from
 src/iso-render/Image.cpp / Palette.cpp.
 """
 
-from __future__ import annotations
+
+import math
 
 import numpy as np
 
@@ -164,11 +165,9 @@ def color_from_vector(vec: np.ndarray) -> tuple[int, int, int]:
     Mirrors color_from_vector in Palette.cpp: clamp, convert, then
     `floor(x*255 + 0.4999)`.
     """
-    out = []
-    for component in vec:
-        c = _linear2srgb_scalar(max(0.0, min(1.0, float(component))))
-        out.append(int(np.floor(c * 255.0 + 0.4999)))
-    return out[0], out[1], out[2]
+    def _to_u8(x: float) -> int:
+        return int(math.floor(_linear2srgb_scalar(max(0.0, min(1.0, x))) * 255.0 + 0.4999))
+    return _to_u8(float(vec[0])), _to_u8(float(vec[1])), _to_u8(float(vec[2]))
 
 
 # ---------------------------------------------------------------------------
@@ -192,9 +191,7 @@ def _build_region_table() -> list[tuple[np.ndarray, np.ndarray, bool]]:
     for subregions, starts, ends, remap in _REGIONS_RAW:
         indices = []
         colors = []
-        for s in range(subregions):
-            start = starts[s]
-            end = ends[s]
+        for start, end in zip(starts[:subregions], ends[:subregions]):
             for i in range(start, end):
                 indices.append(i)
                 if remap:

@@ -1,13 +1,10 @@
-"""Build object.json and assemble the .parkobj ZIP.
-
-Ports src/rct2-ride-gen/ProjectExporter.cpp.
+"""
+Build object.json and assemble the .parkobj ZIP.
 """
 
-from __future__ import annotations
 
 import json
 import math
-import os
 import struct
 import zipfile
 from pathlib import Path
@@ -26,7 +23,7 @@ from .constants import (
     VehicleFlag,
 )
 from .image import write_png
-from .ray_trace import Context, render_view, rotate_y
+from .ray_trace import Context, render_view, rotate_x, rotate_y, rotate_z
 from .sprite_renderer import count_sprites, render_vehicle_frame
 from .types import Model, Ride, Vehicle
 
@@ -237,27 +234,10 @@ def _add_model_to_context(ride: Ride, context: Context, model: Model,
         # * rotate_z(deg2rad(orientation.y))
         # * rotate_x(deg2rad(orientation.z))
         rx, ry, rz = (mf.orientation * math.pi / 180.0)
-        matrix = (rotate_y_local(rx)
-                  @ rotate_z_local(ry)
-                  @ rotate_x_local(rz))
+        matrix = rotate_y(rx) @ rotate_z(ry) @ rotate_x(rz)
         translation = mf.position.astype(np.float64)
         context.add_model(ride.meshes[mf.mesh_index], matrix, translation, mask)
 
-
-# Local copies to avoid importing the public names twice.
-def rotate_x_local(theta: float) -> np.ndarray:
-    c, s = math.cos(theta), math.sin(theta)
-    return np.array([[1, 0, 0], [0, c, -s], [0, s, c]], dtype=np.float64)
-
-
-def rotate_y_local(theta: float) -> np.ndarray:
-    c, s = math.cos(theta), math.sin(theta)
-    return np.array([[c, 0, s], [0, 1, 0], [-s, 0, c]], dtype=np.float64)
-
-
-def rotate_z_local(theta: float) -> np.ndarray:
-    c, s = math.cos(theta), math.sin(theta)
-    return np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]], dtype=np.float64)
 
 
 def _render_sprites(ride: Ride, context: Context, object_dir: Path) -> list:
@@ -273,8 +253,7 @@ def _render_sprites(ride: Ride, context: Context, object_dir: Path) -> list:
     # Three preview entries (same image, three copies in the blob — that's
     # how vanilla parkobjs are laid out; OpenRCT2 references them at
     # specific indices for the build-menu icon stack).
-    for _ in range(3):
-        all_images.append(ride.preview)
+    all_images.extend([ride.preview] * 3)
 
     for i, vehicle in enumerate(ride.vehicles):
         sf = ride.sprite_flags
@@ -336,8 +315,7 @@ def _make_parkobj(ride: Ride, object_dir: Path, output_path: Path) -> None:
 
 def _clean_working_dir(ride: Ride, object_dir: Path) -> None:
     for p in (object_dir / "object.json", object_dir / "images.dat"):
-        if p.exists():
-            p.unlink()
+        p.unlink(missing_ok=True)
     # Also sweep any leftover per-PNG output from older runs.
     images_dir = object_dir / "images"
     if images_dir.exists():
@@ -355,8 +333,7 @@ def export_ride(ride: Ride, context: Context, output_directory: Path | str,
 
     if skip_render:
         # Re-use the images array from a previous run.
-        with open(object_dir / "object.json", "r") as f:
-            prev = json.load(f)
+        prev = json.loads((object_dir / "object.json").read_text())
         images_json = prev.get("images")
         if not isinstance(images_json, list):
             raise RuntimeError("Property \"images\" is not an array")
@@ -366,8 +343,7 @@ def export_ride(ride: Ride, context: Context, output_directory: Path | str,
 
     ride_json["images"] = images_json
 
-    with open(object_dir / "object.json", "w") as f:
-        json.dump(ride_json, f, indent=4)
+    (object_dir / "object.json").write_text(json.dumps(ride_json, indent=4))
 
     output_directory.mkdir(parents=True, exist_ok=True)
     parkobj_path = output_directory / f"{ride.id}.parkobj"

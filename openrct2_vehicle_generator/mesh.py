@@ -6,7 +6,6 @@ the OBJ lacks them (area-weighted face normals, averaged at shared
 vertices).
 """
 
-from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -36,14 +35,14 @@ from .palette import _srgb2linear
 class Texture:
     width: int
     height: int
-    pixels: np.ndarray  # float64 (H, W, 3) linear-RGB
+    pixels: np.ndarray  # float32 (H, W, 3) linear-RGB
 
 
 def load_texture(path: Path | str) -> Texture:
     img = PILImage.open(path).convert("RGB")
     arr = np.asarray(img, dtype=np.uint8)
     h, w, _ = arr.shape
-    linear = _srgb2linear(arr.astype(np.float64) / 255.0)
+    linear = _srgb2linear(arr.astype(np.float64) / 255.0).astype(np.float32)
     return Texture(width=w, height=h, pixels=linear)
 
 
@@ -182,10 +181,10 @@ def _parse_mtl(path: Path, base_dir: Path) -> dict[str, Material]:
 
 @dataclass
 class Mesh:
-    # vertices, normals: (N, 3) float64
-    # uvs: (N, 2) float64
-    # faces: (F, 3) int32 (vertex indices)
-    # face_materials: (F,) int32
+    # vertices, normals: (N, 3) float32
+    # uvs: (N, 2) float32
+    # faces: (F, 3) uint32 (vertex indices)
+    # face_materials: (F,) uint32
     vertices: np.ndarray
     normals: np.ndarray
     uvs: np.ndarray
@@ -204,9 +203,9 @@ def _generate_normals(vertices: np.ndarray, faces: np.ndarray) -> np.ndarray:
     v1 = vertices[faces[:, 1]]
     v2 = vertices[faces[:, 2]]
     face_normals = np.cross(v1 - v0, v2 - v0)  # area-weighted
-    for f in range(faces.shape[0]):
-        for k in range(3):
-            normals[faces[f, k]] += face_normals[f]
+    np.add.at(normals, faces[:, 0], face_normals)
+    np.add.at(normals, faces[:, 1], face_normals)
+    np.add.at(normals, faces[:, 2], face_normals)
     norms = np.linalg.norm(normals, axis=1)
     norms[norms == 0] = 1.0
     return normals / norms[:, None]
@@ -288,11 +287,11 @@ def load_mesh(filename: str | Path, transform: np.ndarray | None = None) -> Mesh
     if not has_any_face:
         # Empty mesh — still produce a valid (degenerate) Mesh.
         return Mesh(
-            vertices=np.zeros((0, 3), dtype=np.float64),
-            normals=np.zeros((0, 3), dtype=np.float64),
-            uvs=np.zeros((0, 2), dtype=np.float64),
-            faces=np.zeros((0, 3), dtype=np.int32),
-            face_materials=np.zeros((0,), dtype=np.int32),
+            vertices=np.zeros((0, 3), dtype=np.float32),
+            normals=np.zeros((0, 3), dtype=np.float32),
+            uvs=np.zeros((0, 2), dtype=np.float32),
+            faces=np.zeros((0, 3), dtype=np.uint32),
+            face_materials=np.zeros((0,), dtype=np.uint32),
             materials=[],
         )
 
@@ -335,37 +334,38 @@ def load_mesh(filename: str | Path, transform: np.ndarray | None = None) -> Mesh
         out_faces.append((face_idx[0], face_idx[1], face_idx[2]))
         out_face_materials.append(mat_idx)
 
-    vertices = np.array(out_vertices, dtype=np.float64)
-    uvs = np.array(out_uvs, dtype=np.float64)
-    faces = np.array(out_faces, dtype=np.int32)
-    face_materials = np.array(out_face_materials, dtype=np.int32)
+    # Keep float64 throughout geometry processing for precision; convert to
+    # the C++ target dtypes only at the end so add_model's astype(copy=False)
+    # calls are true no-ops.
+    vertices_f64 = np.array(out_vertices, dtype=np.float64)
+    uvs_f64 = np.array(out_uvs, dtype=np.float64)
+    faces_u32 = np.array(out_faces, dtype=np.uint32)
+    face_materials_u32 = np.array(out_face_materials, dtype=np.uint32)
 
     # Apply transform.
-    vertices = vertices @ transform.T
+    vertices_f64 = vertices_f64 @ transform.T
 
     if has_any_normal_input and all(n is not None for n in out_normals_raw):
-        normals = np.array(out_normals_raw, dtype=np.float64)
-        normals = normals @ transform.T
+        normals_f64 = np.array(out_normals_raw, dtype=np.float64)
+        normals_f64 = normals_f64 @ transform.T
     else:
-        normals = _generate_normals(vertices, faces)
+        normals_f64 = _generate_normals(vertices_f64, faces_u32)
 
     # Re-normalize normals (transform may scale).
-    n_norms = np.linalg.norm(normals, axis=1)
-    n_norms[n_norms == 0] = 1.0
-    normals = normals / n_norms[:, None]
+    n_norms = np.linalg.norm(normals_f64, axis=1, keepdims=True)
+    n_norms = np.where(n_norms == 0, 1.0, n_norms)
+    normals_f64 = normals_f64 / n_norms
 
     # Assemble material list in the same order as referenced in OBJ.
-    mat_list: list[Material] = []
-    for name in material_order:
-        mat_list.append(materials.get(name, Material()))
+    mat_list = [materials.get(name, Material()) for name in material_order]
 
-    print(f"Loading model with {vertices.shape[0]} vertices and {faces.shape[0]} faces")
+    print(f"Loading model with {vertices_f64.shape[0]} vertices and {faces_u32.shape[0]} faces")
 
     return Mesh(
-        vertices=vertices,
-        normals=normals,
-        uvs=uvs,
-        faces=faces,
-        face_materials=face_materials,
+        vertices=vertices_f64.astype(np.float32),
+        normals=normals_f64.astype(np.float32),
+        uvs=uvs_f64.astype(np.float32),
+        faces=faces_u32,
+        face_materials=face_materials_u32,
         materials=mat_list,
     )

@@ -1,3 +1,5 @@
+native/.cache/
+
 uv.lock
 .idea/
 

@@ -5,7 +5,6 @@ required fields, enum-name resolution, implied sprite flags, model
 animation frame broadcasting.
 """
 
-from __future__ import annotations
 
 import json
 from pathlib import Path
@@ -95,8 +94,7 @@ def _flag_bits(value: Any, names: list[str], prop: str, label: str) -> int:
 def _read_vector3(arr: Any) -> np.ndarray:
     if not isinstance(arr, list) or len(arr) != 3:
         raise LoadError("Vector must be an array of 3 numbers")
-    out = np.array([float(x) for x in arr], dtype=np.float64)
-    return out
+    return np.array([float(x) for x in arr], dtype=np.float64)
 
 
 def _as_array_or_wrap(value: Any) -> list:
@@ -178,27 +176,18 @@ def _load_model(value: Any, num_meshes: int, num_frames: int) -> Model:
         for key in ("position", "orientation"):
             prop = elem.get(key)
             if not isinstance(prop, list):
-                raise LoadError(
-                    f"Property \"{key}\" not found or is not an array")
-            sz = len(prop)
-            if sz == 3:
+                raise LoadError(f'Property "{key}" not found or is not an array')
+            if len(prop) == 3:
                 vec = _read_vector3(prop)
-                for j in range(num_frames):
-                    if key == "position":
-                        frames[j].position = vec.copy()
-                    else:
-                        frames[j].orientation = vec.copy()
-            elif sz == num_frames:
-                for j in range(num_frames):
-                    vec = _read_vector3(prop[j])
-                    if key == "position":
-                        frames[j].position = vec
-                    else:
-                        frames[j].orientation = vec
+                for frame in frames[:num_frames]:
+                    setattr(frame, key, vec.copy())
+            elif len(prop) == num_frames:
+                for frame, val in zip(frames, prop):
+                    setattr(frame, key, _read_vector3(val))
             else:
                 raise LoadError(
-                    f"Number of elements in \"{key}\" ({sz}) does not match "
-                    f"number of frames ({num_frames})")
+                    f'Number of elements in "{key}" ({len(prop)}) does not match '
+                    f'number of frames ({num_frames})')
         meshes_out.append(frames)
     return Model(meshes=meshes_out)
 
@@ -232,8 +221,7 @@ def _load_vehicle(value: dict, ride: Ride) -> Vehicle:
 
 def load_ride(json_path: Path | str) -> Ride:
     path = Path(json_path)
-    with open(path, "r") as f:
-        root = json.load(f)
+    root = json.loads(path.read_text())
 
     ride = Ride()
     ride.id = _require_string(root, "id")

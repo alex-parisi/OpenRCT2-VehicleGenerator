@@ -3,7 +3,6 @@
 Ports src/rct2-ride-gen/SpriteRenderer.cpp.
 """
 
-from __future__ import annotations
 
 import math
 from dataclasses import dataclass
@@ -19,29 +18,22 @@ from .types import IndexedImage
 # Angle constants
 # ---------------------------------------------------------------------------
 
-_PI = math.pi
-_PI2 = _PI / 2.0
-_PI4 = _PI / 4.0
-_PI8 = _PI / 8.0
-_PI12 = _PI / 12.0
-_SQRT12 = 1.0 / math.sqrt(2.0)
-
 # Track tile rises 1 unit over sqrt(6) of horizontal run.
 _TILE_SLOPE = 1.0 / math.sqrt(6.0)
 
 _FLAT = 0.0
 _GENTLE = math.atan(_TILE_SLOPE)
 _STEEP = math.atan(4.0 * _TILE_SLOPE)
-_VERTICAL = _PI2
+_VERTICAL = math.pi / 2
 _FLAT_GENTLE_T = (_FLAT + _GENTLE) / 2.0
 _GENTLE_STEEP_T = (_GENTLE + _STEEP) / 2.0
 _STEEP_VERTICAL_T = (_STEEP + _VERTICAL) / 2.0
 
-_GENTLE_DIAG = math.atan(_TILE_SLOPE * _SQRT12)
-_STEEP_DIAG = math.atan(4.0 * _TILE_SLOPE * _SQRT12)
+_GENTLE_DIAG = math.atan(_TILE_SLOPE / math.sqrt(2))
+_STEEP_DIAG = math.atan(4.0 * _TILE_SLOPE / math.sqrt(2))
 _FLAT_GENTLE_T_DIAG = (_FLAT + _GENTLE_DIAG) / 2.0
 
-_BANK = _PI4
+_BANK = math.pi / 4
 _BANK_T = _BANK / 2.0
 
 
@@ -81,18 +73,18 @@ _STEEP_SLOPE_ROT = [
 _VERTICAL_SLOPE_ROT = [
     _Rot(4, _STEEP_VERTICAL_T, 0, 0), _Rot(4, -_STEEP_VERTICAL_T, 0, 0),
     _Rot(32, _VERTICAL, 0, 0), _Rot(32, -_VERTICAL, 0, 0),
-    _Rot(4, _VERTICAL + 1.0 * _PI12, 0, 0), _Rot(4, -_VERTICAL - 1.0 * _PI12, 0, 0),
-    _Rot(4, _VERTICAL + 2.0 * _PI12, 0, 0), _Rot(4, -_VERTICAL - 2.0 * _PI12, 0, 0),
-    _Rot(4, _VERTICAL + 3.0 * _PI12, 0, 0), _Rot(4, -_VERTICAL - 3.0 * _PI12, 0, 0),
-    _Rot(4, _VERTICAL + 4.0 * _PI12, 0, 0), _Rot(4, -_VERTICAL - 4.0 * _PI12, 0, 0),
-    _Rot(4, _VERTICAL + 5.0 * _PI12, 0, 0), _Rot(4, -_VERTICAL - 5.0 * _PI12, 0, 0),
-    _Rot(4, _PI, 0, 0),
+    _Rot(4, _VERTICAL + 1 * math.pi / 12, 0, 0), _Rot(4, -_VERTICAL - 1 * math.pi / 12, 0, 0),
+    _Rot(4, _VERTICAL + 2 * math.pi / 12, 0, 0), _Rot(4, -_VERTICAL - 2 * math.pi / 12, 0, 0),
+    _Rot(4, _VERTICAL + 3 * math.pi / 12, 0, 0), _Rot(4, -_VERTICAL - 3 * math.pi / 12, 0, 0),
+    _Rot(4, _VERTICAL + 4 * math.pi / 12, 0, 0), _Rot(4, -_VERTICAL - 4 * math.pi / 12, 0, 0),
+    _Rot(4, _VERTICAL + 5 * math.pi / 12, 0, 0), _Rot(4, -_VERTICAL - 5 * math.pi / 12, 0, 0),
+    _Rot(4, math.pi, 0, 0),
 ]
 
 _DIAGONAL_SLOPE_ROT = [
-    _Rot(4, _FLAT_GENTLE_T_DIAG, 0, _PI4), _Rot(4, -_FLAT_GENTLE_T_DIAG, 0, _PI4),
-    _Rot(4, _GENTLE_DIAG, 0, _PI4), _Rot(4, -_GENTLE_DIAG, 0, _PI4),
-    _Rot(4, _STEEP_DIAG, 0, _PI4), _Rot(4, -_STEEP_DIAG, 0, _PI4),
+    _Rot(4, _FLAT_GENTLE_T_DIAG, 0, math.pi / 4), _Rot(4, -_FLAT_GENTLE_T_DIAG, 0, math.pi / 4),
+    _Rot(4, _GENTLE_DIAG, 0, math.pi / 4), _Rot(4, -_GENTLE_DIAG, 0, math.pi / 4),
+    _Rot(4, _STEEP_DIAG, 0, math.pi / 4), _Rot(4, -_STEEP_DIAG, 0, math.pi / 4),
 ]
 
 _BANKING_ROT = [
@@ -101,11 +93,11 @@ _BANKING_ROT = [
 ]
 
 _INLINE_TWIST_ROT = [
-    _Rot(4, _FLAT, 3.0 * _PI8, 0), _Rot(4, _FLAT, -3.0 * _PI8, 0),
-    _Rot(4, _FLAT, _PI2, 0), _Rot(4, _FLAT, -_PI2, 0),
-    _Rot(4, _FLAT, 5.0 * _PI8, 0), _Rot(4, _FLAT, -5.0 * _PI8, 0),
-    _Rot(4, _FLAT, 3.0 * _PI4, 0), _Rot(4, _FLAT, -3.0 * _PI4, 0),
-    _Rot(4, _FLAT, 7.0 * _PI8, 0), _Rot(4, _FLAT, -7.0 * _PI8, 0),
+    _Rot(4, _FLAT, 3 * math.pi / 8, 0), _Rot(4, _FLAT, -3 * math.pi / 8, 0),
+    _Rot(4, _FLAT, math.pi / 2, 0), _Rot(4, _FLAT, -math.pi / 2, 0),
+    _Rot(4, _FLAT, 5 * math.pi / 8, 0), _Rot(4, _FLAT, -5 * math.pi / 8, 0),
+    _Rot(4, _FLAT, 3 * math.pi / 4, 0), _Rot(4, _FLAT, -3 * math.pi / 4, 0),
+    _Rot(4, _FLAT, 7 * math.pi / 8, 0), _Rot(4, _FLAT, -7 * math.pi / 8, 0),
 ]
 
 _SLOPE_BANK_T_ROT = [
@@ -116,10 +108,10 @@ _SLOPE_BANK_T_ROT = [
 ]
 
 _DIAG_BANK_T_ROT = [
-    _Rot(4, _FLAT_GENTLE_T_DIAG, _BANK_T, _PI4),
-    _Rot(4, _FLAT_GENTLE_T_DIAG, -_BANK_T, _PI4),
-    _Rot(4, -_FLAT_GENTLE_T_DIAG, _BANK_T, _PI4),
-    _Rot(4, -_FLAT_GENTLE_T_DIAG, -_BANK_T, _PI4),
+    _Rot(4, _FLAT_GENTLE_T_DIAG, _BANK_T, math.pi / 4),
+    _Rot(4, _FLAT_GENTLE_T_DIAG, -_BANK_T, math.pi / 4),
+    _Rot(4, -_FLAT_GENTLE_T_DIAG, _BANK_T, math.pi / 4),
+    _Rot(4, -_FLAT_GENTLE_T_DIAG, -_BANK_T, math.pi / 4),
 ]
 
 _SLOPED_BANK_T_ROT = [
@@ -128,18 +120,18 @@ _SLOPED_BANK_T_ROT = [
 ]
 
 _DIAG_SLOPED_BANK_T_ROT = [
-    _Rot(4, _FLAT_GENTLE_T_DIAG, _BANK, _PI4),
-    _Rot(4, _FLAT_GENTLE_T_DIAG, -_BANK, _PI4),
-    _Rot(4, -_FLAT_GENTLE_T_DIAG, _BANK, _PI4),
-    _Rot(4, -_FLAT_GENTLE_T_DIAG, -_BANK, _PI4),
-    _Rot(4, _GENTLE_DIAG, _BANK_T, _PI4),
-    _Rot(4, _GENTLE_DIAG, -_BANK_T, _PI4),
-    _Rot(4, -_GENTLE_DIAG, _BANK_T, _PI4),
-    _Rot(4, -_GENTLE_DIAG, -_BANK_T, _PI4),
-    _Rot(4, _GENTLE_DIAG, _BANK, _PI4),
-    _Rot(4, _GENTLE_DIAG, -_BANK, _PI4),
-    _Rot(4, -_GENTLE_DIAG, _BANK, _PI4),
-    _Rot(4, -_GENTLE_DIAG, -_BANK, _PI4),
+    _Rot(4, _FLAT_GENTLE_T_DIAG, _BANK, math.pi / 4),
+    _Rot(4, _FLAT_GENTLE_T_DIAG, -_BANK, math.pi / 4),
+    _Rot(4, -_FLAT_GENTLE_T_DIAG, _BANK, math.pi / 4),
+    _Rot(4, -_FLAT_GENTLE_T_DIAG, -_BANK, math.pi / 4),
+    _Rot(4, _GENTLE_DIAG, _BANK_T, math.pi / 4),
+    _Rot(4, _GENTLE_DIAG, -_BANK_T, math.pi / 4),
+    _Rot(4, -_GENTLE_DIAG, _BANK_T, math.pi / 4),
+    _Rot(4, -_GENTLE_DIAG, -_BANK_T, math.pi / 4),
+    _Rot(4, _GENTLE_DIAG, _BANK, math.pi / 4),
+    _Rot(4, _GENTLE_DIAG, -_BANK, math.pi / 4),
+    _Rot(4, -_GENTLE_DIAG, _BANK, math.pi / 4),
+    _Rot(4, -_GENTLE_DIAG, -_BANK, math.pi / 4),
 ]
 
 _SLOPED_BANKED_TURN_ROT = [
@@ -153,45 +145,47 @@ _BANKED_SLOPE_T_ROT = [
 ]
 
 _ZERO_G_BASE_ROT = [
-    _Rot(4, _GENTLE, 3.0 * _PI8, 0), _Rot(4, _GENTLE, -3.0 * _PI8, 0),
-    _Rot(4, -_GENTLE, 3.0 * _PI8, 0), _Rot(4, -_GENTLE, -3.0 * _PI8, 0),
-    _Rot(4, _GENTLE, _PI2, 0), _Rot(4, _GENTLE, -_PI2, 0),
-    _Rot(4, -_GENTLE, _PI2, 0), _Rot(4, -_GENTLE, -_PI2, 0),
-    _Rot(4, _GENTLE, 5.0 * _PI8, 0), _Rot(4, _GENTLE, -5.0 * _PI8, 0),
-    _Rot(4, -_GENTLE, 5.0 * _PI8, 0), _Rot(4, -_GENTLE, -5.0 * _PI8, 0),
-    _Rot(4, _GENTLE, 3.0 * _PI4, 0), _Rot(4, _GENTLE, -3.0 * _PI4, 0),
-    _Rot(4, -_GENTLE, 3.0 * _PI4, 0), _Rot(4, -_GENTLE, -3.0 * _PI4, 0),
-    _Rot(4, _GENTLE, 7.0 * _PI8, 0), _Rot(4, _GENTLE, -7.0 * _PI8, 0),
-    _Rot(4, -_GENTLE, 7.0 * _PI8, 0), _Rot(4, -_GENTLE, -7.0 * _PI8, 0),
-    _Rot(4, _GENTLE_STEEP_T, _PI8, 0), _Rot(4, _GENTLE_STEEP_T, -_PI8, 0),
-    _Rot(4, -_GENTLE_STEEP_T, _PI8, 0), _Rot(4, -_GENTLE_STEEP_T, -_PI8, 0),
-    _Rot(4, _GENTLE_STEEP_T, 2.0 * _PI8, 0), _Rot(4, _GENTLE_STEEP_T, -2.0 * _PI8, 0),
-    _Rot(4, -_GENTLE_STEEP_T, 2.0 * _PI8, 0), _Rot(4, -_GENTLE_STEEP_T, -2.0 * _PI8, 0),
-    _Rot(4, _GENTLE_STEEP_T, 3.0 * _PI8, 0), _Rot(4, _GENTLE_STEEP_T, -3.0 * _PI8, 0),
-    _Rot(4, -_GENTLE_STEEP_T, 3.0 * _PI8, 0), _Rot(4, -_GENTLE_STEEP_T, -3.0 * _PI8, 0),
-    _Rot(4, _GENTLE_STEEP_T, _PI2, 0), _Rot(4, _GENTLE_STEEP_T, -_PI2, 0),
-    _Rot(4, -_GENTLE_STEEP_T, _PI2, 0), _Rot(4, -_GENTLE_STEEP_T, -_PI2, 0),
+    _Rot(4, _GENTLE, 3 * math.pi / 8, 0), _Rot(4, _GENTLE, -3 * math.pi / 8, 0),
+    _Rot(4, -_GENTLE, 3 * math.pi / 8, 0), _Rot(4, -_GENTLE, -3 * math.pi / 8, 0),
+    _Rot(4, _GENTLE, math.pi / 2, 0), _Rot(4, _GENTLE, -math.pi / 2, 0),
+    _Rot(4, -_GENTLE, math.pi / 2, 0), _Rot(4, -_GENTLE, -math.pi / 2, 0),
+    _Rot(4, _GENTLE, 5 * math.pi / 8, 0), _Rot(4, _GENTLE, -5 * math.pi / 8, 0),
+    _Rot(4, -_GENTLE, 5 * math.pi / 8, 0), _Rot(4, -_GENTLE, -5 * math.pi / 8, 0),
+    _Rot(4, _GENTLE, 3 * math.pi / 4, 0), _Rot(4, _GENTLE, -3 * math.pi / 4, 0),
+    _Rot(4, -_GENTLE, 3 * math.pi / 4, 0), _Rot(4, -_GENTLE, -3 * math.pi / 4, 0),
+    _Rot(4, _GENTLE, 7 * math.pi / 8, 0), _Rot(4, _GENTLE, -7 * math.pi / 8, 0),
+    _Rot(4, -_GENTLE, 7 * math.pi / 8, 0), _Rot(4, -_GENTLE, -7 * math.pi / 8, 0),
+    _Rot(4, _GENTLE_STEEP_T, math.pi / 8, 0), _Rot(4, _GENTLE_STEEP_T, -math.pi / 8, 0),
+    _Rot(4, -_GENTLE_STEEP_T, math.pi / 8, 0), _Rot(4, -_GENTLE_STEEP_T, -math.pi / 8, 0),
+    _Rot(4, _GENTLE_STEEP_T, 2 * math.pi / 8, 0), _Rot(4, _GENTLE_STEEP_T, -2 * math.pi / 8, 0),
+    _Rot(4, -_GENTLE_STEEP_T, 2 * math.pi / 8, 0), _Rot(4, -_GENTLE_STEEP_T, -2 * math.pi / 8, 0),
+    _Rot(4, _GENTLE_STEEP_T, 3 * math.pi / 8, 0), _Rot(4, _GENTLE_STEEP_T, -3 * math.pi / 8, 0),
+    _Rot(4, -_GENTLE_STEEP_T, 3 * math.pi / 8, 0), _Rot(4, -_GENTLE_STEEP_T, -3 * math.pi / 8, 0),
+    _Rot(4, _GENTLE_STEEP_T, math.pi / 2, 0), _Rot(4, _GENTLE_STEEP_T, -math.pi / 2, 0),
+    _Rot(4, -_GENTLE_STEEP_T, math.pi / 2, 0), _Rot(4, -_GENTLE_STEEP_T, -math.pi / 2, 0),
 ]
 
 _ZERO_G_SB22_4 = [
-    _Rot(4, _STEEP, _PI8, 0), _Rot(4, _STEEP, -_PI8, 0),
-    _Rot(4, -_STEEP, _PI8, 0), _Rot(4, -_STEEP, -_PI8, 0),
+    _Rot(4, _STEEP, math.pi / 8, 0), _Rot(4, _STEEP, -math.pi / 8, 0),
+    _Rot(4, -_STEEP, math.pi / 8, 0), _Rot(4, -_STEEP, -math.pi / 8, 0),
 ]
 _ZERO_G_SB22_8 = [
-    _Rot(8, _STEEP, _PI8, 0), _Rot(8, _STEEP, -_PI8, 0),
-    _Rot(8, -_STEEP, _PI8, 0), _Rot(8, -_STEEP, -_PI8, 0),
+    _Rot(8, _STEEP, math.pi / 8, 0), _Rot(8, _STEEP, -math.pi / 8, 0),
+    _Rot(8, -_STEEP, math.pi / 8, 0), _Rot(8, -_STEEP, -math.pi / 8, 0),
 ]
 
 _DIVE_LOOP_ROT = [
-    _Rot(8, _STEEP_DIAG, _PI4, _PI8), _Rot(8, _STEEP_DIAG, -_PI4, _PI8),
-    _Rot(8, -_STEEP_DIAG, _PI4, _PI8), _Rot(8, -_STEEP_DIAG, -_PI4, _PI8),
-    _Rot(8, _STEEP_DIAG, 3.0 * _PI8, _PI8), _Rot(8, _STEEP_DIAG, -3.0 * _PI8, _PI8),
-    _Rot(8, -_STEEP_DIAG, 3.0 * _PI8, _PI8), _Rot(8, -_STEEP_DIAG, -3.0 * _PI8, _PI8),
-    _Rot(8, _STEEP_DIAG, _PI2, _PI8), _Rot(8, _STEEP_DIAG, -_PI2, _PI8),
-    _Rot(8, -_STEEP_DIAG, _PI2, _PI8), _Rot(8, -_STEEP_DIAG, -_PI2, _PI8),
+    _Rot(8, _STEEP_DIAG, math.pi / 4, math.pi / 8), _Rot(8, _STEEP_DIAG, -math.pi / 4, math.pi / 8),
+    _Rot(8, -_STEEP_DIAG, math.pi / 4, math.pi / 8), _Rot(8, -_STEEP_DIAG, -math.pi / 4, math.pi / 8),
+    _Rot(8, _STEEP_DIAG, 3 * math.pi / 8, math.pi / 8), _Rot(8, _STEEP_DIAG, -3 * math.pi / 8, math.pi / 8),
+    _Rot(8, -_STEEP_DIAG, 3 * math.pi / 8, math.pi / 8), _Rot(8, -_STEEP_DIAG, -3 * math.pi / 8, math.pi / 8),
+    _Rot(8, _STEEP_DIAG, math.pi / 2, math.pi / 8), _Rot(8, _STEEP_DIAG, -math.pi / 2, math.pi / 8),
+    _Rot(8, -_STEEP_DIAG, math.pi / 2, math.pi / 8), _Rot(8, -_STEEP_DIAG, -math.pi / 2, math.pi / 8),
 ]
 
-_CORKSCREW_ANGLES = [2.0 * _PI12, 4.0 * _PI12, _PI2, 8.0 * _PI12, 10.0 * _PI12]
+_CORKSCREW_ANGLES = [
+    2 * math.pi / 12, 4 * math.pi / 12, math.pi / 2, 8 * math.pi / 12, 10 * math.pi / 12,
+]
 
 
 def _build_corkscrew_rotations() -> list[_Rot]:

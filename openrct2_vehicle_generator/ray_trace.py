@@ -8,7 +8,6 @@ The heavy lifting (ray tracing, AA/AO, dithering, palette quantization)
 all happens inside `openrct2_vehicle_generator._native` against Embree.
 """
 
-from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
@@ -98,6 +97,8 @@ class Context:
                   mask: int = 0) -> None:
         if mesh.faces.shape[0] == 0:
             return
+        # Mesh arrays are already float32/uint32 (see load_mesh), so astype
+        # copy=False is a true no-op — no allocation on the hot path.
         self._inner.add_mesh(
             vertices=mesh.vertices.astype(np.float32, copy=False),
             normals=mesh.normals.astype(np.float32, copy=False),

@@ -3,7 +3,6 @@
 Ports src/iso-render/Image.cpp and Pack.cpp.
 """
 
-from __future__ import annotations
 
 from pathlib import Path
 from typing import Iterable
@@ -20,7 +19,7 @@ from .types import IndexedImage
 # ---------------------------------------------------------------------------
 
 def _palette_bytes() -> bytes:
-    return bytes(int(v) for v in PALETTE_RGB.reshape(-1))
+    return PALETTE_RGB.tobytes()
 
 
 def read_png(path: Path | str) -> IndexedImage:
@@ -168,7 +167,7 @@ def _pack_rects(images: list[IndexedImage]) -> tuple[int, int, list[int], list[i
     dimensions. Mirrors pack_rects in Pack.cpp.
     """
     keys = [
-        lambda i, im=None: images[i].width * images[i].height,           # area
+        lambda i: images[i].width * images[i].height,                     # area
         lambda i: images[i].width + images[i].height,                    # perimeter
         lambda i: max(images[i].width, images[i].height),                # max dim
         lambda i: images[i].width,                                       # width

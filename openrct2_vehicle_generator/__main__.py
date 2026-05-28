@@ -1,11 +1,9 @@
-"""CLI entry point.
-
+"""
 Usage:
     openrct2-vehicle-generator [--test|--skip-render] <input.json>
     python -m openrct2_vehicle_generator [--test|--skip-render] <input.json>
 """
 
-from __future__ import annotations
 
 import argparse
 import json
@@ -55,8 +53,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        with open(args.input, "r") as f:
-            root = json.load(f)
+        root = json.loads(args.input.read_text())
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1
