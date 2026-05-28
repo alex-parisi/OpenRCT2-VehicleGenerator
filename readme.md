@@ -17,11 +17,11 @@ modern Mac.
 # Build
 uv sync
 
-# Render single_rail and write openrct2vg.ride.single_rail_coaster.parkobj
-uv run openrct2-vehicle-generator examples/single_rail/single_rail.json
+# Render the wooden example and write openrct2vg.ride.single_rail_on_wooden.parkobj
+uv run openrct2-vehicle-generator examples/wooden/classic_wooden.json
 
 # Install into OpenRCT2 (macOS path; adjust for Linux/Windows)
-cp openrct2vg.ride.single_rail_coaster.parkobj \
+cp openrct2vg.ride.single_rail_on_wooden.parkobj \
    ~/Library/Application\ Support/OpenRCT2/object/
 
 # Restart OpenRCT2 and the new train shows up in the vehicle dropdown
@@ -65,12 +65,11 @@ the repo root unless you've copied assets elsewhere.
 
 ## Examples
 
-Two example vehicles are included under `examples/`.
+One example vehicle is included under `examples/`.
 
 | Example | Ride type | Notes |
 |---|---|---|
-| `single_rail/` | `single_rail_rc` | Full single-rail train: 2 vehicles (front + standard car), restraint animation, peep + peep_restraint mesh swap, 8 lights, all 16 sprite groups |
-| `wooden/` | `classic_wooden_rc` | The same single-rail visuals reskinned onto the classic wooden track type — exercises the cross-ride-type path with a reduced sprite set (8 of 16 groups) and a single car |
+| `wooden/` | `classic_wooden_rc` | A single-rail-styled car (mesh, materials, restraint animation, peep + peep_restraint mesh swap, 8 custom lights) running on the classic wooden coaster track. Renders **all 16 sprite groups** via `"sprites": "all"` so the vehicle looks correct if swapped onto more complex ride types in-game. |
 
 Shared assets:
 
@@ -160,8 +159,7 @@ OpenRCT2-VehicleGenerator/
 │       ├── Mesh.{hpp,cpp}          # Mesh struct + texture_sample (assimp/PNG loaders stripped)
 │       └── {Image.hpp,Color.hpp}   # Minimal struct definitions
 ├── examples/
-│   ├── single_rail/                 # Full single-rail vehicle config
-│   └── wooden/                      # Same visuals on classic wooden track
+│   └── wooden/                      # Single-rail-styled vehicle on classic wooden track
 ├── textures/                        # Shared material + remap textures
 ├── data/track_types.json            # OpenRCT2 ride-type definitions (sprite groups, car counts)
 ├── scripts/                         # Utility scripts
@@ -221,7 +219,7 @@ future contributors don't repeat the debugging.
 | Gotcha | What |
 |---|---|
 | **PNG ≤ 256×256** | OpenRCT2's `ImageImporter` silently skips larger PNGs. Vehicles end up invisible even though the JSON parses and the object loads. See the per-sprite output approach above. |
-| **Object ID collisions** | A custom parkobj whose `id` matches a vanilla one (e.g. `openrct2.ride.single_rail_coaster`) won't override it cleanly — the engine keeps both around and you can't tell them apart in the dropdown. All examples use the `openrct2vg.ride.*` namespace to avoid collision. |
+| **Object ID collisions** | A custom parkobj whose `id` matches a vanilla one (e.g. `rct1.ride.wooden_rc_trains`) won't override it cleanly — the engine keeps both around and you can't tell them apart in the dropdown. Use the `openrct2vg.ride.*` namespace (or your own `<author>.ride.*`) to avoid collision. |
 | **Two RCT2 palettes** | OpenRCT2's source has *two* near-identical 256-color palette tables: the **internal** one (Palette.cpp `palette_rct2`) used for nearest-color quantization, and the **image** one (Image.cpp `rct2_palette`) written into PNG PLTE chunks. They differ at indices 0–9 (placeholder ramp vs all zeros) and 243–254 (red/orange remap1 vs green remap). PNG output **must** use the image palette — the engine recognizes the remap region by the PLTE layout. `palette.py` sources from Image.cpp. |
 | **Vehicle objects don't bundle track sprites** | Track piece sprites come from OpenRCT2's built-in data per `ride_type`. A custom `.parkobj` only needs to provide vehicle sprites (4640 for a fully-fledged coaster + 3 preview entries = 4643 image entries — matches vanilla). The `maketrack` / `merge_parkobj.py` step from the C++ pipeline isn't required for vehicle-only customization. |
 | **Object cache** | OpenRCT2 caches object metadata in `~/Library/Application Support/OpenRCT2/objects.idx`. After installing a new parkobj, **restart OpenRCT2** — it doesn't hot-reload the object dir. |
@@ -250,9 +248,27 @@ future contributors don't repeat the debugging.
 
 2. **Write the JSON config.** Use one of the `examples/` configs as a
    starting point. Required fields are validated by `loader.py` — error
-   messages will tell you what's missing or misshapen. The `sprites`
-   array picks which of the 16 sprite groups to render; the loader
-   ORs-in implied flags (banking → diagonal_bank_transition, etc).
+   messages will tell you what's missing or misshapen.
+
+   The `sprites` field controls which of the 16 sprite groups to
+   render. Two forms accepted:
+
+   ```json
+   "sprites": ["flat", "gentle_slopes", "banked_turns"]   // explicit list
+   "sprites": "all"                                        // every group
+   ```
+
+   Use the explicit list when you want a minimal render for a vehicle
+   that will only ever live on its native ride type — the loader ORs in
+   implied flags too (`banking` → `diagonal_bank_transition`, etc).
+
+   Use `"all"` when you want the vehicle to look correct even if a
+   player swaps it onto a more capable ride type in-game (e.g. a
+   wooden-coaster vehicle being placed on a hyper-coaster track with
+   loops and corkscrews). This renders the full set of 16 sprite
+   groups regardless of what `ride_type` normally uses — a few seconds
+   more render time, larger parkobj, but no glitchy fallback sprites.
+   The `examples/wooden/` config uses `"all"` for this reason.
 
 3. **Pick a unique `id`.** Use the `openrct2vg.ride.<name>` namespace
    or your own (`<author>.ride.<name>`) — must not collide with
@@ -263,7 +279,10 @@ future contributors don't repeat the debugging.
    happy with the model + lighting.
 
 5. **Install.** Copy the `.parkobj` into OpenRCT2's `object/`
-   directory; restart OpenRCT2.
+   directory; restart OpenRCT2. It appears in the Roller Coasters
+   build menu as its own entry (with the `name` you gave it) and is
+   also offered as a swap-in vehicle option for any placed ride with
+   matching `ride_type`.
 
 ---
 

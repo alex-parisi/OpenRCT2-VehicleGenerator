@@ -263,17 +263,25 @@ def load_ride(json_path: Path | str) -> Ride:
 
     ride.flags = _flag_bits(root.get("flags", []), RIDE_FLAG_NAMES, "flags", "flag") if "flags" in root else 0
 
-    ride.sprite_flags = _flag_bits(root.get("sprites"), SPRITE_GROUP_NAMES,
-                                   "sprites", "sprite group")
-    # Implied sprite flags.
-    sf = ride.sprite_flags
-    if sf & SpriteFlag.BANKING:
-        sf |= SpriteFlag.DIAGONAL_BANK_TRANSITION
-        if sf & SpriteFlag.GENTLE_SLOPE:
-            sf |= SpriteFlag.SLOPE_BANK_TRANSITION
-        if sf & SpriteFlag.SLOPED_BANKED_TURN:
-            sf |= SpriteFlag.SLOPED_BANK_TRANSITION | SpriteFlag.BANKED_SLOPE_TRANSITION
-    ride.sprite_flags = int(sf)
+    # "sprites" may be either an array of group names, or the string "all"
+    # to render every group. "all" guarantees the vehicle has correct
+    # sprites if someone swaps it onto a ride type with track pieces this
+    # ride_type doesn't normally support (avoids glitchy fallbacks in-game).
+    sprites_raw = root.get("sprites")
+    if sprites_raw == "all":
+        ride.sprite_flags = (1 << len(SPRITE_GROUP_NAMES)) - 1  # all 16 bits
+    else:
+        ride.sprite_flags = _flag_bits(sprites_raw, SPRITE_GROUP_NAMES,
+                                       "sprites", "sprite group")
+        # Implied sprite flags.
+        sf = ride.sprite_flags
+        if sf & SpriteFlag.BANKING:
+            sf |= SpriteFlag.DIAGONAL_BANK_TRANSITION
+            if sf & SpriteFlag.GENTLE_SLOPE:
+                sf |= SpriteFlag.SLOPE_BANK_TRANSITION
+            if sf & SpriteFlag.SLOPED_BANKED_TURN:
+                sf |= SpriteFlag.SLOPED_BANK_TRANSITION | SpriteFlag.BANKED_SLOPE_TRANSITION
+        ride.sprite_flags = int(sf)
 
     ride.zero_cars = _require_int(root, "zero_cars")
     ride.tab_car = _require_int(root, "preview_tab_car")

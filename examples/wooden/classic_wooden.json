@@ -5,7 +5,7 @@
 "description":"Single-rail vehicle reskinned onto the classic wooden coaster track for cross-track-type testing",
 "capacity":"1 passenger per car",
 "preview":"examples/wooden/preview.png",
-"sprites":["flat","gentle_slopes","steep_slopes","vertical_slopes","diagonals","banked_turns","slope_bank_transition","diagonal_bank_transition"],
+"sprites":"all",
 "zero_cars":0,
 "min_cars_per_train":5,
 "max_cars_per_train":12,
