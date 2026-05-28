@@ -28,8 +28,8 @@
 		"model":
 			[
 			{"mesh_index":0,"position":[0,0,0],"orientation":[0,0,0]},
-			{"mesh_index":2,"position":[ 0.68,0.62,0],"orientation":[[0,0,0],[0,-30,0],[0,-60,0],[0,-90,0]]},
-			{"mesh_index":2,"position":[ 0.04,0.62,0],"orientation":[[0,0,0],[0,-30,0],[0,-60,0],[0,-90,0]]}
+			{"mesh_index":2,"position":[ 0.78,0.62,0],"orientation":[[0,0,0],[0,-30,0],[0,-60,0],[0,-90,0]]},
+			{"mesh_index":2,"position":[ 0.14,0.62,0],"orientation":[[0,0,0],[0,-30,0],[0,-60,0],[0,-90,0]]}
 			],
 		"mass":200,
 		"spacing":2.15,
@@ -37,12 +37,12 @@
 		"capacity":4,
 		"riders":[
 			[
-				{"mesh_index":1,"position":[ 0.40,0,-0.38],"orientation":[0,0,0]},
-				{"mesh_index":1,"position":[ 0.40,0, 0.38],"orientation":[0,0,0]}
+				{"mesh_index":1,"position":[ 0.50,0,-0.38],"orientation":[0,0,0]},
+				{"mesh_index":1,"position":[ 0.50,0, 0.38],"orientation":[0,0,0]}
 			],
 			[
-				{"mesh_index":1,"position":[-0.35,0,-0.38],"orientation":[0,0,0]},
-				{"mesh_index":1,"position":[-0.35,0, 0.38],"orientation":[0,0,0]}
+				{"mesh_index":1,"position":[-0.25,0,-0.38],"orientation":[0,0,0]},
+				{"mesh_index":1,"position":[-0.25,0, 0.38],"orientation":[0,0,0]}
 			]
 			]
 		}
