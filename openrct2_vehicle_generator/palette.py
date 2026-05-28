@@ -13,12 +13,15 @@ import numpy as np
 # Palette data
 # ---------------------------------------------------------------------------
 
-# Full 256-color RCT2 palette (sRGB, 0..255). Indices 9 entries plus 247
-# meaningful colors -- matches the C++ `Palette palette_rct2()` colors[]
-# array exactly (entries 226..237 are the green-remap range).
+# Full 256-color RCT2 palette (sRGB, 0..255). Mirrors the C++ `rct2_palette`
+# in src/iso-render/Image.cpp -- the one that gets written into PNG PLTE
+# chunks. This is intentionally NOT the Palette.cpp `palette_rct2()` table
+# (which is the renderer's internal nearest-color table); they differ at
+# indices 0..9 and 243..254. OpenRCT2 keys remap regions off the *image*
+# palette layout, so PNG output must use these exact entries.
 _RCT2_COLORS: list[tuple[int, int, int]] = [
-    (0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0),
-    (0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0),
+    (0, 0, 0), (1, 1, 1), (2, 2, 2), (3, 3, 3), (4, 4, 4),
+    (5, 5, 5), (6, 6, 6), (7, 7, 7), (8, 8, 8), (9, 9, 9),
     (23, 35, 35), (35, 51, 51), (47, 67, 67), (63, 83, 83), (75, 99, 99),
     (91, 115, 115), (111, 131, 131), (131, 151, 151), (159, 175, 175),
     (183, 195, 195), (211, 219, 219), (239, 243, 243),
@@ -80,12 +83,14 @@ _RCT2_COLORS: list[tuple[int, int, int]] = [
     (55, 155, 151), (55, 155, 151), (55, 155, 151),
     (115, 203, 203),
     (67, 91, 91), (83, 107, 107), (99, 123, 123),
-    # Green remap (indices 226..237) -- present in Palette.cpp `colors`,
-    # absent in Image.cpp's rct2_palette (which has different entries for
-    # those positions). Palette.cpp is the source-of-truth for quantization.
-    (8, 67, 8), (16, 85, 16), (24, 103, 24), (32, 121, 32), (40, 139, 40),
-    (48, 157, 48), (56, 175, 56), (64, 193, 64), (72, 211, 72), (80, 219, 80),
-    (88, 237, 88), (92, 255, 92),
+    # Indices 243..254: red/orange ramp that OpenRCT2 keys as remap region 1
+    # (player primary color). Pixel values from the renderer in that range
+    # get remapped at runtime; the PLTE RGB values here are descriptive but
+    # must match the OpenRCT2 image-palette layout so the engine accepts
+    # the PNG as a valid RCT2 palette. (Image.cpp `rct2_palette`.)
+    (111, 51, 47), (131, 55, 47), (151, 63, 51), (171, 67, 51), (191, 75, 47),
+    (211, 79, 43), (231, 87, 35), (255, 95, 31), (255, 127, 39), (255, 155, 51),
+    (255, 183, 63), (255, 207, 75),
 ]
 
 # The C++ declares Palette::colors as std::array<Color, 256> but the

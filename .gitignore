@@ -11,3 +11,7 @@ __pycache__/
 # scikit-build-core build artifacts
 build/
 *.so
+
+object/
+test/
+*.parkobj

@@ -24,7 +24,7 @@ from .constants import (
     TILE_SIZE,
     VehicleFlag,
 )
-from .image import create_atlas, write_png
+from .image import write_png
 from .ray_trace import Context, render_view, rotate_y
 from .sprite_renderer import count_sprites, render_vehicle_frame
 from .types import Model, Ride, Vehicle
@@ -272,17 +272,20 @@ def _render_sprites(ride: Ride, context: Context,
                 base += len(frame_imgs)
                 context.end_render()
 
-        atlas, x_coords, y_coords = create_atlas(all_images)
-        image_path = f"images/car_{i}.png"
+        # One PNG per sprite. OpenRCT2's ImageImporter silently rejects any
+        # PNG larger than 256x256, so the atlas-with-src_x format the C++
+        # pipeline emits doesn't render in current OpenRCT2 (every sprite
+        # in an oversized atlas comes out invisible). Individual PNGs cost
+        # more disk space but actually load.
         for k, img in enumerate(all_images):
+            sprite_path = f"images/car_{i}_{k:04d}.png"
+            out_sprite = object_dir / sprite_path
+            out_sprite.parent.mkdir(parents=True, exist_ok=True)
+            write_png(img, out_sprite)
             images_json.append(_make_image_object(
-                image_path,
+                sprite_path,
                 img.x_offset, img.y_offset,
-                x_coords[k], y_coords[k],
-                img.width, img.height))
-        out_atlas = object_dir / image_path
-        out_atlas.parent.mkdir(parents=True, exist_ok=True)
-        write_png(atlas, out_atlas)
+                -1, -1, -1, -1))
     return images_json
 
 
@@ -291,24 +294,20 @@ def _render_sprites(ride: Ride, context: Context,
 # ---------------------------------------------------------------------------
 
 def _make_parkobj(ride: Ride, object_dir: Path, output_path: Path) -> None:
+    images_dir = object_dir / "images"
     with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         zf.write(object_dir / "object.json", "object.json")
-        zf.write(object_dir / "images/preview.png", "images/preview.png")
-        for i in range(len(ride.vehicles)):
-            arc = f"images/car_{i}.png"
-            zf.write(object_dir / arc, arc)
+        for png in sorted(images_dir.glob("*.png")):
+            zf.write(png, f"images/{png.name}")
 
 
 def _clean_working_dir(ride: Ride, object_dir: Path) -> None:
-    for p in [
-        object_dir / "object.json",
-        object_dir / "images/preview.png",
-    ]:
-        if p.exists():
-            p.unlink()
-    for i in range(len(ride.vehicles)):
-        p = object_dir / f"images/car_{i}.png"
-        if p.exists():
+    images_dir = object_dir / "images"
+    obj_json = object_dir / "object.json"
+    if obj_json.exists():
+        obj_json.unlink()
+    if images_dir.exists():
+        for p in images_dir.glob("*.png"):
             p.unlink()
 
 
