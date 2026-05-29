@@ -1,5 +1,5 @@
 blender_addon/wheels/
-native/.cache/
+x7_renderer/.cache/
 
 uv.lock
 .idea/

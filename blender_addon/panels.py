@@ -28,7 +28,7 @@ class VG_PT_ride(Panel):
         box.label(text="Sprites", icon="IMAGE_DATA")
         box.prop(rs, "sprites_all")
         if not rs.sprites_all:
-            box.prop(rs, "sprites")
+            box.prop(rs, "sprites", expand=True)
 
         box = layout.box()
         box.label(text="Train", icon="AUTO")
@@ -38,7 +38,7 @@ class VG_PT_ride(Panel):
         box.prop(rs, "build_menu_priority")
         box.prop(rs, "running_sound")
         box.prop(rs, "secondary_sound")
-        box.prop(rs, "ride_flags")
+        box.prop(rs, "ride_flags", expand=True)
 
         box = layout.box()
         box.label(text="Default Colours", icon="COLOR")
@@ -48,7 +48,7 @@ class VG_PT_ride(Panel):
 
         box = layout.box()
         box.label(text="Vehicle", icon="MOD_PHYSICS")
-        box.prop(rs, "vehicle_flags")
+        box.prop(rs, "vehicle_flags", expand=True)
         row = box.row(align=True)
         row.prop(rs, "mass")
         row.prop(rs, "spacing")

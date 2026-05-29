@@ -4,8 +4,8 @@ extends: default
 
 ignore: |
   build/
-  native/build/
-  native/cmake-build-debug/
+  x7_renderer/build/
+  x7_renderer/cmake-build-debug/
   dist/
 
 rules:
