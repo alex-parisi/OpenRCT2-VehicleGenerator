@@ -1,8 +1,8 @@
 {
-  "id": "openrct2.ride.single_rail_on_wooden",
+  "id": "openrct2.ride.wooden_rc_custom",
   "ride_type": "classic_wooden_rc",
-  "name": "Single Rail Car (Classic Wooden Test)",
-  "description": "Single-rail vehicle reskinned onto the classic wooden coaster track for cross-track-type testing",
+  "name": "Wooden Roller Coaster Trains (Custom)",
+  "description": "Wooden roller coaster trains with padded seats and lap bar restraints",
   "capacity": "4 passengers per car",
   "authors": [
     "Alex Parisi"
