@@ -1,0 +1,158 @@
+name: build-plugin
+
+# Build the self-contained, Embree-vendored renderer wheels (cp311 + cp313 per
+# platform), then package the Blender add-on into per-platform extension zips.
+# Triggered manually or on a tag.
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+env:
+  EMBREE_VERSION: "4.4.1"
+  # Blender used only to PACKAGE the extension (it just zips the wheels; any
+  # 4.2+ works). Confirmed present at download.blender.org.
+  BLENDER_SERIES: "4.5"
+  BLENDER_VERSION: "4.5.4"
+
+jobs:
+  build-wheels:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux-x86_64
+          - os: macos-14
+            name: macos-arm64
+          - os: windows-latest
+            name: windows-x64
+    steps:
+      - uses: actions/checkout@v4
+
+      # Linux Embree is fetched inside the manylinux container by
+      # scripts/ci/install_embree_linux.sh (wired via [tool.cibuildwheel.linux]
+      # before-all). macOS/Windows build on the host, so fetch Embree here and
+      # export the paths cibuildwheel forwards into the build.
+      - name: Install Embree (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          EMB="$GITHUB_WORKSPACE/embree"
+          BASE="https://github.com/RenderKit/embree/releases/download"
+          curl -fL -o embree.zip "$BASE/v$EMBREE_VERSION/embree-$EMBREE_VERSION.arm64.macosx.zip"
+          mkdir -p "$EMB"
+          unzip -q embree.zip -d "$EMB"
+          # Releases unzip into a versioned subdir; flatten if so.
+          inner=$(find "$EMB" -maxdepth 1 -mindepth 1 -type d -name 'embree*' | head -n1)
+          [ -n "$inner" ] && cp -R "$inner"/* "$EMB/" || true
+          echo "EMBREE_ROOT=$EMB" >> "$GITHUB_ENV"
+          echo "CMAKE_PREFIX_PATH=$EMB" >> "$GITHUB_ENV"
+          echo "DYLD_FALLBACK_LIBRARY_PATH=$EMB/lib" >> "$GITHUB_ENV"
+
+      - name: Install Embree (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          EMB="$GITHUB_WORKSPACE/embree"
+          BASE="https://github.com/RenderKit/embree/releases/download"
+          curl -fL -o embree.zip "$BASE/v$EMBREE_VERSION/embree-$EMBREE_VERSION.x64.windows.zip"
+          mkdir -p "$EMB"
+          unzip -q embree.zip -d "$EMB"
+          inner=$(find "$EMB" -maxdepth 1 -mindepth 1 -type d -name 'embree*' | head -n1)
+          [ -n "$inner" ] && cp -R "$inner"/* "$EMB/" || true
+          # GITHUB_ENV wants native (back-slash) paths on Windows.
+          echo "EMBREE_ROOT=$GITHUB_WORKSPACE\\embree" >> "$GITHUB_ENV"
+          echo "CMAKE_PREFIX_PATH=$GITHUB_WORKSPACE\\embree" >> "$GITHUB_ENV"
+
+      # Forward EMBREE_VERSION into the manylinux container for the
+      # before-all script.
+      - name: Configure cibuildwheel env passthrough (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: echo "CIBW_ENVIRONMENT_PASS_LINUX=EMBREE_VERSION" >> "$GITHUB_ENV"
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.21
+        # Per-platform config (build selection, Embree paths, repair commands)
+        # lives in [tool.cibuildwheel] in pyproject.toml.
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.name }}
+          path: ./wheelhouse/*.whl
+
+  # Assemble the final, installable Blender extension: gather the renderer
+  # wheels from every matrix job, bundle the dependency wheels, regenerate the
+  # manifest, and build one zip per platform. This runs on Linux only -- the
+  # extension build just packages files, so it needs no per-OS runner.
+  package-extension:
+    name: package-extension
+    needs: build-wheels
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Renderer wheels (cp311 + cp313 x 3 platforms) from the matrix jobs.
+      - name: Download renderer wheels
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          path: renderer-wheels
+          merge-multiple: true
+
+      # Stage renderer wheels, fetch the dependency wheels for every target, and
+      # regenerate the manifest's wheel list using the same script run locally.
+      - name: Bundle wheels + regenerate manifest
+        run: |
+          mkdir -p blender_addon/wheels
+          cp renderer-wheels/*.whl blender_addon/wheels/
+          python -m pip install --upgrade pip
+          pip install "numpy>=1.26" "pillow>=10.0" "pyyaml>=6.0"
+          python scripts/collect_wheels.py
+
+      - name: Install Blender runtime libs
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libxrender1 libxxf86vm1 \
+            libxfixes3 libxi6 libxkbcommon0 libsm6 libgl1
+
+      - name: Install Blender (for packaging only)
+        run: |
+          base="https://download.blender.org/release/Blender${BLENDER_SERIES}"
+          tarball="blender-${BLENDER_VERSION}-linux-x64.tar.xz"
+          curl -fL -o /tmp/blender.tar.xz "$base/$tarball"
+          sudo mkdir -p /opt/blender
+          sudo tar -xJf /tmp/blender.tar.xz -C /opt/blender --strip-components=1
+          echo "/opt/blender" >> "$GITHUB_PATH"
+
+      - name: Build per-platform extensions
+        run: |
+          xvfb-run -a blender --version
+          mkdir -p dist
+          xvfb-run -a blender --command extension build \
+            --source-dir blender_addon --split-platforms --output-dir dist
+          ls -lh dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blender-extension
+          path: dist/*.zip
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/*.zip \
+            --title "$GITHUB_REF_NAME" --generate-notes \
+          || gh release upload "$GITHUB_REF_NAME" dist/*.zip --clobber
