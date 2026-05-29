@@ -69,7 +69,7 @@ class Ride:
     name: str = ""
     description: str = ""
     capacity: str = ""
-    author: str = ""
+    authors: list[str] = field(default_factory=list)
     version: str = "1.0"
     ride_type: str = ""
 

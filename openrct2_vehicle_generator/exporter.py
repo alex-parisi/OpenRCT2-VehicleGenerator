@@ -140,7 +140,7 @@ def build_ride_json(ride: Ride) -> dict[str, Any]:
         out["originalId"] = ride.original_id
     out["version"] = ride.version
 
-    out["authors"] = [ride.author] if ride.author else []
+    out["authors"] = list(ride.authors)
     out["objectType"] = "ride"
 
     properties: dict[str, Any] = {}

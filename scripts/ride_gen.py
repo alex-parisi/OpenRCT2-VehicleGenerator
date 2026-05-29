@@ -111,7 +111,7 @@ def cmd_generate(track_types: dict, args) -> None:
         "name": args.name,
         "description": args.description,
         "capacity": args.capacity,
-        "author": args.author,
+        "authors": args.authors,
         "version": "1.0",
         "sprites": info["sprites"],
         "flags": [],
@@ -162,7 +162,8 @@ def main() -> None:
     p_gen.add_argument("--description", default="", metavar="TEXT")
     p_gen.add_argument("--capacity",    default="", metavar="TEXT",
                        help="Capacity string shown in the ride info window")
-    p_gen.add_argument("--author",      default="")
+    p_gen.add_argument("--authors",     nargs="*", default=[], metavar="NAME",
+                       help="One or more author names")
     p_gen.add_argument("--meshes", nargs="+", default=["vehicle.obj"], metavar="FILE",
                        help=(
                            "Mesh file path(s) for each car type. Provide one path per car "

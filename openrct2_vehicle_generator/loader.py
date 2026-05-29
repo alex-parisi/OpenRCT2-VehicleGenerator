@@ -56,6 +56,22 @@ def _optional_string(obj: dict, key: str) -> str:
     return v
 
 
+def _optional_string_list(obj: dict, key: str) -> list[str]:
+    v = obj.get(key)
+    if v is None:
+        return []
+    if isinstance(v, str):
+        v = [v]
+    if not isinstance(v, list):
+        raise LoadError(f"Property \"{key}\" is not a string or array of strings")
+    out = []
+    for item in v:
+        if not isinstance(item, str):
+            raise LoadError(f"Array \"{key}\" contains a non-string value")
+        out.append(item)
+    return out
+
+
 def _require_int(obj: dict, key: str) -> int:
     v = obj.get(key)
     if not isinstance(v, int) or isinstance(v, bool):
@@ -229,7 +245,7 @@ def load_ride(json_path: Path | str) -> Ride:
     ride.name = _require_string(root, "name")
     ride.description = _require_string(root, "description")
     ride.capacity = _require_string(root, "capacity")
-    ride.author = _optional_string(root, "author")
+    ride.authors = _optional_string_list(root, "authors")
     v_str = _optional_string(root, "version")
     if v_str:
         ride.version = v_str
