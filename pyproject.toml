@@ -3,7 +3,9 @@ name = "OpenRCT2-VehicleGenerator"
 version = "0.1.0"
 description = "Python interface to the OpenRCT2 vehicle sprite generator (Embree-backed)."
 readme = "readme.md"
-requires-python = ">=3.10"
+# Pinned to 3.11 to match the CPython that Blender 4.2/4.5 LTS ships, so local
+# builds produce the same cp311 ABI as the bundled add-on wheels.
+requires-python = ">=3.11"
 dependencies = [
     "numpy>=1.26",
     "pillow>=10.0",
@@ -28,6 +30,7 @@ addopts = "-q"
 
 [tool.ruff]
 line-length = 100
+target-version = "py311"
 src = ["openrct2_vehicle_generator", "scripts", "tests"]
 
 [tool.ruff.lint]
@@ -35,7 +38,7 @@ src = ["openrct2_vehicle_generator", "scripts", "tests"]
 select = ["E", "F", "I", "UP", "B", "W"]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 files = ["openrct2_vehicle_generator"]
 warn_unused_ignores = true
 warn_redundant_casts = true
