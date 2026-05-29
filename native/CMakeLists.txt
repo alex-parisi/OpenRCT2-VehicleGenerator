@@ -6,6 +6,21 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Opt-in clang-tidy: -DENABLE_CLANG_TIDY=ON runs .clang-tidy during the build
+# for every target defined below. Off by default so normal/CI builds stay fast.
+# Homebrew keeps clang-tidy off PATH, hence the HINTS.
+option(ENABLE_CLANG_TIDY "Run clang-tidy as part of the build" OFF)
+if(ENABLE_CLANG_TIDY)
+    find_program(CLANG_TIDY_EXE NAMES clang-tidy
+        HINTS /opt/homebrew/opt/llvm/bin /usr/local/opt/llvm/bin)
+    if(CLANG_TIDY_EXE)
+        set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_EXE}")
+        message(STATUS "clang-tidy enabled: ${CLANG_TIDY_EXE}")
+    else()
+        message(WARNING "ENABLE_CLANG_TIDY is ON but clang-tidy was not found")
+    endif()
+endif()
+
 # Embree discovery. Priority:
 #   1. An explicit -Dembree_DIR=... (honoured by find_package directly).
 #   2. $ENV{EMBREE_ROOT} — set by the wheel-build CI, which downloads Embree's
