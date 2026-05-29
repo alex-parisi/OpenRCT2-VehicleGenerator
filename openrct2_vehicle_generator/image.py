@@ -12,13 +12,6 @@ from PIL import Image as PILImage
 from .palette import PALETTE_RGB, TRANSPARENT_INDEX
 from .types import IndexedImage
 
-# ---------------------------------------------------------------------------
-# PNG I/O
-# ---------------------------------------------------------------------------
-
-def _palette_bytes() -> bytes:
-    return PALETTE_RGB.tobytes()
-
 
 def read_png(path: Path | str) -> IndexedImage:
     """Read a paletted PNG into an IndexedImage. Mirrors image_read_png."""
@@ -39,6 +32,6 @@ def read_png(path: Path | str) -> IndexedImage:
 def write_png(image: IndexedImage, path: Path | str) -> None:
     """Write IndexedImage as a paletted PNG with transparent index 0."""
     img = PILImage.fromarray(image.pixels, mode="P")
-    img.putpalette(_palette_bytes())
+    img.putpalette(PALETTE_RGB.tobytes())
     img.info["transparency"] = TRANSPARENT_INDEX
     img.save(path, format="PNG", optimize=False)
