@@ -6,8 +6,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Homebrew on macOS — `find_package(embree 4 CONFIG)` will then pick up
-# /opt/homebrew/lib/cmake/embree-4.x.
+# Embree discovery. Priority:
+#   1. An explicit -Dembree_DIR=... (honoured by find_package directly).
+#   2. $ENV{EMBREE_ROOT} — set by the wheel-build CI, which downloads Embree's
+#      official prebuilt release (the lib/cmake/embree-4.x config lives under it).
+#   3. Homebrew on macOS for local dev (/opt/homebrew/lib/cmake/embree-4.x).
+if(NOT DEFINED embree_DIR AND DEFINED ENV{EMBREE_ROOT})
+    list(PREPEND CMAKE_PREFIX_PATH "$ENV{EMBREE_ROOT}")
+endif()
 if(APPLE AND NOT DEFINED embree_DIR)
     file(GLOB _brew_embree_cfg "/opt/homebrew/lib/cmake/embree-4*")
     if(_brew_embree_cfg)

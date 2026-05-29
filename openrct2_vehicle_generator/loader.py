@@ -29,7 +29,7 @@ from .constants import (
 from .image import read_png
 from .mesh import load_mesh
 from .sprite_renderer import count_sprites
-from .types import MAX_FRAMES, Light, MeshFrame, Model, Ride, Vehicle
+from .types import MAX_FRAMES, IndexedImage, Light, MeshFrame, Model, Ride, Vehicle
 
 
 class LoadError(Exception):
@@ -277,8 +277,18 @@ def _load_vehicle(value: dict, ride: Ride) -> Vehicle:
 # Top-level load
 # ---------------------------------------------------------------------------
 
-def load_ride(json_path: Path | str) -> Ride:
-    root = parse_config(json_path)
+def build_ride(config: dict, meshes: list, preview: IndexedImage | None = None) -> Ride:
+    """Build a Ride from an already-parsed config dict + in-memory meshes.
+
+    This is the filesystem-free seam: callers that don't have config/meshes on
+    disk (e.g. the Blender add-on, which reads geometry straight from the
+    scene) construct the same dict shape `load_ride` parses, hand over loaded
+    `Mesh` objects and an optional preview image, and get back the identical
+    `Ride`. `load_ride` is now a thin wrapper that reads files and delegates
+    here. The `config` dict's `meshes`/`preview` keys (if present) are ignored
+    — geometry and preview come from the arguments.
+    """
+    root = config
 
     ride = Ride()
     ride.id = _require_string(root, "id")
@@ -291,18 +301,7 @@ def load_ride(json_path: Path | str) -> Ride:
     if v_str:
         ride.version = v_str
 
-    # Preview image (optional).
-    preview_path = root.get("preview")
-    if preview_path is None:
-        from .types import IndexedImage
-        ride.preview = IndexedImage.blank(1, 1)
-    else:
-        if not isinstance(preview_path, str):
-            raise LoadError("Property \"preview\" is not a string")
-        try:
-            ride.preview = read_png(preview_path)
-        except Exception as e:
-            raise LoadError(f"Unable to open image file {preview_path}: {e}") from e
+    ride.preview = preview if preview is not None else IndexedImage.blank(1, 1)
 
     ride.ride_type = _require_string(root, "ride_type")
 
@@ -390,15 +389,8 @@ def load_ride(json_path: Path | str) -> Ride:
             triple[j] = _enum_index(color, COLOR_NAMES, "default_colors", "color")
         ride.colors.append(triple)
 
-    # Meshes.
-    mesh_paths = root.get("meshes")
-    if not isinstance(mesh_paths, list):
-        raise LoadError("Property \"meshes\" does not exist or is not an array")
-    ride.meshes = []
-    for mp in mesh_paths:
-        if not isinstance(mp, str):
-            raise LoadError("Mesh path is not a string")
-        ride.meshes.append(load_mesh(mp))
+    # Meshes are supplied by the caller (already loaded), not read from paths.
+    ride.meshes = list(meshes)
 
     # Vehicles.
     vehicles = root.get("vehicles")
@@ -413,3 +405,31 @@ def load_ride(json_path: Path | str) -> Ride:
 
     ride.category = int(Category.ROLLERCOASTER)
     return ride
+
+
+def load_ride(json_path: Path | str) -> Ride:
+    """Parse a config file, load its meshes + preview from disk, build a Ride."""
+    root = parse_config(json_path)
+
+    # Preview image (optional).
+    preview: IndexedImage | None = None
+    preview_path = root.get("preview")
+    if preview_path is not None:
+        if not isinstance(preview_path, str):
+            raise LoadError("Property \"preview\" is not a string")
+        try:
+            preview = read_png(preview_path)
+        except Exception as e:
+            raise LoadError(f"Unable to open image file {preview_path}: {e}") from e
+
+    # Meshes.
+    mesh_paths = root.get("meshes")
+    if not isinstance(mesh_paths, list):
+        raise LoadError("Property \"meshes\" does not exist or is not an array")
+    meshes = []
+    for mp in mesh_paths:
+        if not isinstance(mp, str):
+            raise LoadError("Mesh path is not a string")
+        meshes.append(load_mesh(mp))
+
+    return build_ride(root, meshes, preview)

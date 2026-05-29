@@ -231,7 +231,15 @@ class RenderContext {
             py::array_t<float, py::array::c_style | py::array::forcecast> view,
             bool silhouette) {
         Matrix3 m = matrix3_from_array(view);
-        Image img = silhouette ? context_render_silhouette(ctx_, m) : context_render_view(ctx_, m);
+        // Release the GIL for the ray-tracing hot path so a Python worker
+        // thread (e.g. the Blender add-on's modal export) keeps its host UI
+        // responsive while a render is in flight. No Python objects are
+        // touched between release and reacquire.
+        Image img;
+        {
+            py::gil_scoped_release release;
+            img = silhouette ? context_render_silhouette(ctx_, m) : context_render_view(ctx_, m);
+        }
 
         // Copy pixels into a numpy array.
         const py::ssize_t H = img.height;

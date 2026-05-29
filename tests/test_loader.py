@@ -5,7 +5,13 @@ import json
 import numpy as np
 import pytest
 from openrct2_vehicle_generator.constants import Category, SpriteFlag
-from openrct2_vehicle_generator.loader import LoadError, load_lights, load_ride
+from openrct2_vehicle_generator.loader import (
+    LoadError,
+    build_ride,
+    load_lights,
+    load_ride,
+)
+from openrct2_vehicle_generator.mesh import load_mesh
 
 ALL_SPRITE_FLAGS = (1 << len(SpriteFlag)) - 1
 
@@ -174,6 +180,40 @@ def test_optional_fields_default(tmp_path):
     frame = ride.vehicles[0].model.meshes[0][0]
     assert np.allclose(frame.position, [0, 0, 0])
     assert np.allclose(frame.orientation, [0, 0, 0])
+
+
+def test_build_ride_matches_load_ride(tmp_path):
+    # The in-memory seam (build_ride) must produce the same Ride as the
+    # file-based load_ride: config dict + already-loaded meshes, no disk reads
+    # for geometry/preview. This is what the Blender add-on drives.
+    path = _make_ride(tmp_path)
+    config = json.loads(path.read_text())
+    meshes = [load_mesh(p) for p in config["meshes"]]
+
+    via_build = build_ride(config, meshes)
+    via_load = load_ride(path)
+
+    assert via_build.id == via_load.id
+    assert via_build.ride_type == via_load.ride_type
+    assert via_build.sprite_flags == via_load.sprite_flags
+    assert via_build.num_sprites == via_load.num_sprites
+    assert len(via_build.meshes) == len(via_load.meshes) == 1
+    assert len(via_build.vehicles) == len(via_load.vehicles) == 1
+    assert via_build.vehicles[0].num_sprites == via_load.vehicles[0].num_sprites
+
+
+def test_build_ride_ignores_config_paths_uses_args(tmp_path):
+    # build_ride must not touch the filesystem: a bogus meshes/preview path in
+    # the config is ignored in favor of the passed-in meshes, and an omitted
+    # preview falls back to a blank 1x1 image.
+    config = json.loads(_make_ride(tmp_path).read_text())
+    real_meshes = [load_mesh(p) for p in config["meshes"]]
+    config["meshes"] = ["/does/not/exist.obj"]
+    config["preview"] = "/does/not/exist.png"
+
+    ride = build_ride(config, real_meshes)
+    assert len(ride.meshes) == 1
+    assert ride.preview.width == 1 and ride.preview.height == 1
 
 
 def test_load_lights_normalizes_direction():

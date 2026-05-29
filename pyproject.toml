@@ -50,3 +50,34 @@ cmake.source-dir = "native"
 cmake.version = ">=3.25"
 wheel.packages = ["openrct2_vehicle_generator"]
 build-dir = "build/{wheel_tag}"
+
+# ---------------------------------------------------------------------------
+# Wheel building for the Blender add-on bundle.
+#
+# Target CPython 3.11 — the interpreter Blender 4.2/4.5 LTS ships. (Building
+# against the limited API / abi3 to collapse this to one wheel per platform is
+# possible via pybind11's STABLE_ABI, but cp311-only keeps the toolchain simple
+# and the matrix small.) Embree (+ its bundled TBB) is downloaded by CI and
+# vendored into each wheel by the platform repair tool (auditwheel / delocate /
+# delvewheel) so the resulting wheel needs no system Embree at runtime.
+# ---------------------------------------------------------------------------
+[tool.cibuildwheel]
+build = "cp311-*"
+build-frontend = "build"
+skip = ["*-musllinux*", "*_i686", "*-win32"]
+# Sanity check: the extension imports and Embree resolves from vendored libs.
+test-command = "python -c \"import openrct2_vehicle_generator._native as n; print('embree ok', n.LIGHT_DIFFUSE)\""
+
+[tool.cibuildwheel.linux]
+# Runs inside the manylinux container; installs Embree to /embree.
+before-all = "bash {project}/scripts/ci/install_embree_linux.sh"
+environment = { EMBREE_ROOT = "/embree", CMAKE_PREFIX_PATH = "/embree", LD_LIBRARY_PATH = "/embree/lib" }
+
+[tool.cibuildwheel.macos]
+# EMBREE_ROOT / DYLD path are exported by the workflow step before cibuildwheel.
+environment = { MACOSX_DEPLOYMENT_TARGET = "11.0" }
+
+[tool.cibuildwheel.windows]
+before-build = "pip install delvewheel"
+# Embree DLLs live in <EMBREE_ROOT>\bin; delvewheel vendors them into the wheel.
+repair-wheel-command = "delvewheel repair --add-path {env:EMBREE_ROOT}\\bin -w {dest_dir} {wheel}"

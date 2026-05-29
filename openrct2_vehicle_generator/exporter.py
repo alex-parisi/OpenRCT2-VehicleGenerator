@@ -339,31 +339,45 @@ def _clean_working_dir(ride: Ride, object_dir: Path) -> None:
             p.unlink()
 
 
-def export_ride(ride: Ride, context: Context, output_directory: Path | str,
-                skip_render: bool = False) -> None:
-    output_directory = Path(output_directory)
-    object_dir = Path("object")
-    object_dir.mkdir(exist_ok=True)
+def export_ride_to(ride: Ride, context: Context, parkobj_path: Path | str,
+                   work_dir: Path | str, skip_render: bool = False) -> None:
+    """Render and assemble a .parkobj using explicit, caller-chosen paths.
+
+    `work_dir` holds the intermediate `object.json` + `images.dat`;
+    `parkobj_path` is the final archive. Neither depends on the process CWD,
+    so this is safe to drive from environments (e.g. Blender) where CWD is
+    unpredictable. `export_ride` is a thin wrapper preserving the legacy
+    CWD-relative `object/` working dir + `<output>/<id>.parkobj` layout.
+    """
+    parkobj_path = Path(parkobj_path)
+    work_dir = Path(work_dir)
+    work_dir.mkdir(parents=True, exist_ok=True)
 
     ride_json = build_ride_json(ride)
 
     if skip_render:
         # Re-use the images array from a previous run.
-        prev = json.loads((object_dir / "object.json").read_text())
+        prev = json.loads((work_dir / "object.json").read_text())
         images_json = prev.get("images")
         if not isinstance(images_json, list):
             raise RuntimeError("Property \"images\" is not an array")
     else:
-        _clean_working_dir(ride, object_dir)
-        images_json = _render_sprites(ride, context, object_dir)
+        _clean_working_dir(ride, work_dir)
+        images_json = _render_sprites(ride, context, work_dir)
 
     ride_json["images"] = images_json
 
-    (object_dir / "object.json").write_text(json.dumps(ride_json, indent=4))
+    (work_dir / "object.json").write_text(json.dumps(ride_json, indent=4))
 
-    output_directory.mkdir(parents=True, exist_ok=True)
-    parkobj_path = output_directory / f"{ride.id}.parkobj"
-    _make_parkobj(ride, object_dir, parkobj_path)
+    parkobj_path.parent.mkdir(parents=True, exist_ok=True)
+    _make_parkobj(ride, work_dir, parkobj_path)
+
+
+def export_ride(ride: Ride, context: Context, output_directory: Path | str,
+                skip_render: bool = False) -> None:
+    output_directory = Path(output_directory)
+    export_ride_to(ride, context, output_directory / f"{ride.id}.parkobj",
+                   Path("object"), skip_render=skip_render)
 
 
 def export_ride_test(ride: Ride, context: Context, test_dir: Path | str = "test") -> None:
