@@ -6,7 +6,7 @@ id = "openrct2vg"
 version = "0.1.0"
 name = "OpenRCT2 Vehicle Generator"
 tagline = "Author and export OpenRCT2 ride vehicles from the scene"
-maintainer = "Alex Parisi <alex.t.parisi@gmail.com>"
+maintainer = "Alex Parisi <alex@atparisi.com>"
 type = "add-on"
 
 tags = ["Import-Export", "Render"]

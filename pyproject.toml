@@ -71,7 +71,7 @@ test-command = "python -c \"import openrct2_vehicle_generator._native as n; prin
 [tool.cibuildwheel.linux]
 # Runs inside the manylinux container; installs Embree to /embree.
 before-all = "bash {project}/scripts/ci/install_embree_linux.sh"
-environment = { EMBREE_ROOT = "/embree", CMAKE_PREFIX_PATH = "/embree", LD_LIBRARY_PATH = "/embree/lib" }
+environment = { EMBREE_ROOT = "/embree", CMAKE_PREFIX_PATH = "/embree", LD_LIBRARY_PATH = "/embree/lib64" }
 
 [tool.cibuildwheel.macos]
 # EMBREE_ROOT / DYLD path are exported by the workflow step before cibuildwheel.
@@ -80,4 +80,6 @@ environment = { MACOSX_DEPLOYMENT_TARGET = "11.0" }
 [tool.cibuildwheel.windows]
 before-build = "pip install delvewheel"
 # Embree DLLs live in <EMBREE_ROOT>\bin; delvewheel vendors them into the wheel.
-repair-wheel-command = "delvewheel repair --add-path {env:EMBREE_ROOT}\\bin -w {dest_dir} {wheel}"
+# cibuildwheel runs the repair command via cmd.exe and does not expand its own
+# {env:...} placeholder here, so reference the variable with cmd's %VAR% syntax.
+repair-wheel-command = "delvewheel repair --add-path %EMBREE_ROOT%\\bin -w {dest_dir} {wheel}"
