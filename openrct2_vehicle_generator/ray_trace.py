@@ -132,11 +132,12 @@ def _dict_to_image(d: dict) -> IndexedImage:
     )
 
 
-def render_view(context: Context, view: np.ndarray, **_ignored) -> IndexedImage:
+def render_view(context: Context, view: np.ndarray) -> IndexedImage:
     """Render the current scene under `view`.
 
-    `_ignored` swallows legacy keyword args (e.g. `rng_seed`) — the native
-    renderer manages its own random state.
+    The native renderer manages its own random state (AO is seeded
+    per-pixel from a hit-position hash), so there is no seed to thread
+    through from Python.
     """
     return _dict_to_image(
         context._inner.render_view(view=np.ascontiguousarray(view, dtype=np.float32)))

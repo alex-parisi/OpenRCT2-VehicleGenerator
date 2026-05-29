@@ -238,8 +238,7 @@ def count_sprites(sprite_flags: int, vehicle_flags: int) -> int:
     return n
 
 
-def _render_rotation(context: Context, rot: _Rot,
-                     base_seed: int) -> list[IndexedImage]:
+def _render_rotation(context: Context, rot: _Rot) -> list[IndexedImage]:
     """Render `rot.num_frames` yaw-stepped variants of a (pitch, roll, yaw)
     orientation.
     """
@@ -251,20 +250,19 @@ def _render_rotation(context: Context, rot: _Rot,
     for i in range(rot.num_frames):
         yaw = yaw_base + (2.0 * i * math.pi) / rot.num_frames
         view = rotate_y(yaw) @ rotate_z(pitch) @ rotate_x(roll)
-        out.append(render_view(context, view, rng_seed=base_seed + i))
+        out.append(render_view(context, view))
     return out
 
 
-def _render_group(context: Context, rots: list[_Rot],
-                  base_seed: int) -> list[IndexedImage]:
+def _render_group(context: Context, rots: list[_Rot]) -> list[IndexedImage]:
     out: list[IndexedImage] = []
-    for ri, r in enumerate(rots):
-        out.extend(_render_rotation(context, r, base_seed + ri * 1000))
+    for r in rots:
+        out.extend(_render_rotation(context, r))
     return out
 
 
-def render_vehicle_frame(context: Context, sprite_flags: int, frame: int,
-                         base_seed: int = 0) -> list[IndexedImage]:
+def render_vehicle_frame(context: Context, sprite_flags: int,
+                         frame: int) -> list[IndexedImage]:
     """Render every sprite for this vehicle frame.
 
     `frame == 0` is the standard frame; `frame > 0` is a restraint
@@ -272,8 +270,7 @@ def render_vehicle_frame(context: Context, sprite_flags: int, frame: int,
     """
     if frame > 0:
         print("Rendering restraint animation")
-        return _render_rotation(context, _Rot(_RESTRAINT_PER_FRAME, 0, 0, 0),
-                                base_seed)
+        return _render_rotation(context, _Rot(_RESTRAINT_PER_FRAME, 0, 0, 0))
 
     sf = sprite_flags
     out: list[IndexedImage] = []
@@ -281,7 +278,7 @@ def render_vehicle_frame(context: Context, sprite_flags: int, frame: int,
     def emit_if(flag: int, msg: str, rots: list[_Rot]) -> None:
         if sf & flag:
             print(msg)
-            out.extend(_render_group(context, rots, base_seed + len(out) * 10))
+            out.extend(_render_group(context, rots))
 
     emit_if(SpriteFlag.FLAT_SLOPE, "Rendering flat sprites", _FLAT_SLOPE_ROT)
     emit_if(SpriteFlag.GENTLE_SLOPE, "Rendering gentle sprites", _GENTLE_SLOPE_ROT)
@@ -306,13 +303,13 @@ def render_vehicle_frame(context: Context, sprite_flags: int, frame: int,
 
     if sf & SpriteFlag.ZERO_G_ROLL:
         print("Rendering zero G roll sprites")
-        out.extend(_render_group(context, _ZERO_G_BASE_ROT, base_seed + len(out) * 10))
+        out.extend(_render_group(context, _ZERO_G_BASE_ROT))
         sb22 = _ZERO_G_SB22_8 if (sf & SpriteFlag.DIVE_LOOP) else _ZERO_G_SB22_4
-        out.extend(_render_group(context, sb22, base_seed + len(out) * 10))
+        out.extend(_render_group(context, sb22))
     if sf & SpriteFlag.DIVE_LOOP:
         print("Rendering dive loop sprites")
-        out.extend(_render_group(context, _DIVE_LOOP_ROT, base_seed + len(out) * 10))
+        out.extend(_render_group(context, _DIVE_LOOP_ROT))
     if sf & SpriteFlag.CORKSCREW:
         print("Rendering corkscrew sprites")
-        out.extend(_render_group(context, _CORKSCREW_ROT, base_seed + len(out) * 10))
+        out.extend(_render_group(context, _CORKSCREW_ROT))
     return out

@@ -270,7 +270,7 @@ def _render_sprites(ride: Ride, context: Context, object_dir: Path) -> list:
             context.begin_render()
             _add_model_to_context(ride, context, vehicle.model, frame, 0)
             context.finalize_render()
-            frame_imgs = render_vehicle_frame(context, sf, frame, base_seed=base)
+            frame_imgs = render_vehicle_frame(context, sf, frame)
             for k, img in enumerate(frame_imgs):
                 car_images[base + k] = img
             base += len(frame_imgs)
@@ -286,8 +286,7 @@ def _render_sprites(ride: Ride, context: Context, object_dir: Path) -> list:
                     _add_model_to_context(ride, context, vehicle.riders[k], frame, 1)
                 _add_model_to_context(ride, context, rider, frame, 0)
                 context.finalize_render()
-                frame_imgs = render_vehicle_frame(
-                    context, sf, frame, base_seed=base + j * 100000)
+                frame_imgs = render_vehicle_frame(context, sf, frame)
                 offset = (j + 1) * num_car_images + base
                 for k, img in enumerate(frame_imgs):
                     car_images[offset + k] = img
