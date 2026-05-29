@@ -35,9 +35,6 @@ OUT_PATH  = os.path.join(REPO_ROOT, "examples", "wooden", "car.obj")
 
 # --- Dimensions (OBJ space, units ~= meters) -------------------------------
 
-# Uniform scale applied to the whole car at export (about the origin).
-SCALE = 0.80
-
 # Chassis floor plate
 CHASSIS_LEN   = 1.85                  # +X = direction of travel (front of car)
 CHASSIS_WIDTH = 1.50
@@ -77,15 +74,15 @@ END_HEIGHT       = SIDE_HEIGHT
 
 # Bench cushions: 2 rows, 2-across each. +X is forward, so the front row
 # of riders is at +FRONT_BENCH_X (the front of the car).
-BENCH_DEPTH      = 0.50                # along X (per row)
-BENCH_HEIGHT     = 0.20                # cushion thickness
+BENCH_DEPTH      = 0.40                # along X (per row)
+BENCH_HEIGHT     = 0.25                # cushion thickness
 BENCH_WIDTH      = CHASSIS_WIDTH - 2 * SIDE_THICK - 0.04   # fits between side walls
 FRONT_BENCH_X    = +0.40               # center of front-row cushion (forward in +X)
 BACK_BENCH_X     = -0.35               # center of back-row cushion (behind front row)
 
 # Seat backs go BEHIND each row, i.e. at lower X than the row's cushion.
 SEAT_BACK_THICK  = 0.07
-SEAT_BACK_HEIGHT = 0.95                # rises this far above chassis top
+SEAT_BACK_HEIGHT = SIDE_HEIGHT + 0.25                # rises this far above chassis top
 FRONT_BACK_X     = FRONT_BENCH_X - BENCH_DEPTH / 2 - SEAT_BACK_THICK / 2   # divider between rows
 REAR_BACK_X      = BACK_BENCH_X  - BENCH_DEPTH / 2 - SEAT_BACK_THICK / 2   # trailing seat back
 
@@ -93,11 +90,11 @@ REAR_BACK_X      = BACK_BENCH_X  - BENCH_DEPTH / 2 - SEAT_BACK_THICK / 2   # tra
 
 def loc(x, y, z):
     """OBJ position -> Blender location."""
-    return (x * SCALE, -z * SCALE, y * SCALE)
+    return x, -z, y
 
 def scl(dx, dy, dz):
     """OBJ box dimensions -> Blender (x,y,z) extents."""
-    return (dx * SCALE, dz * SCALE, dy * SCALE)
+    return dx, dz, dy
 
 # --- Scene setup -----------------------------------------------------------
 
@@ -133,7 +130,7 @@ def add_wheel(name, center, material_name, radius=WHEEL_R, width=WHEEL_W, segs=1
     # Default cylinder axis is Blender Z; rotate 90° about X to align with Blender Y
     # (= OBJ Z). Cylinders are symmetric so direction is irrelevant.
     bpy.ops.mesh.primitive_cylinder_add(
-        vertices=segs, radius=radius * SCALE, depth=width * SCALE,
+        vertices=segs, radius=radius, depth=width,
         location=loc(cx, cy, cz),
         rotation=(math.radians(90), 0, 0),
     )
