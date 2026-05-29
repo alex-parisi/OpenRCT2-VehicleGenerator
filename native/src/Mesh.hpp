@@ -55,4 +55,4 @@ namespace RCTGen {
     };
 
     Vector3 texture_sample(const Texture& texture, Vector2 coord);
-}
+} // namespace RCTGen

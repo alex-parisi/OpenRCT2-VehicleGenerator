@@ -45,7 +45,7 @@ namespace RCTGen {
     struct Matrix3 {
         std::array<float, 9> entries;
 
-        constexpr float &operator()(std::size_t row, std::size_t col) noexcept { return entries[3 * row + col]; }
+        constexpr float& operator()(std::size_t row, std::size_t col) noexcept { return entries[3 * row + col]; }
         constexpr float operator()(std::size_t row, std::size_t col) const noexcept { return entries[3 * row + col]; }
 
         [[nodiscard]] constexpr float determinant() const noexcept {
@@ -92,22 +92,15 @@ namespace RCTGen {
 
     constexpr Matrix3 matrix_inverse(Matrix3 m) noexcept {
         const float d = m.determinant();
-        return matrix(
-            (m(1, 1) * m(2, 2) - m(1, 2) * m(2, 1)) / d,
-            (m(0, 2) * m(2, 1) - m(2, 2) * m(0, 1)) / d,
-            (m(0, 1) * m(1, 2) - m(1, 1) * m(0, 2)) / d,
-            (m(1, 2) * m(2, 0) - m(2, 2) * m(1, 0)) / d,
-            (m(0, 0) * m(2, 2) - m(2, 0) * m(0, 2)) / d,
-            (m(0, 2) * m(1, 0) - m(1, 2) * m(0, 0)) / d,
-            (m(1, 0) * m(2, 1) - m(2, 0) * m(1, 1)) / d,
-            (m(0, 1) * m(2, 0) - m(2, 1) * m(0, 0)) / d,
-            (m(0, 0) * m(1, 1) - m(1, 0) * m(0, 1)) / d);
+        return matrix((m(1, 1) * m(2, 2) - m(1, 2) * m(2, 1)) / d, (m(0, 2) * m(2, 1) - m(2, 2) * m(0, 1)) / d,
+                      (m(0, 1) * m(1, 2) - m(1, 1) * m(0, 2)) / d, (m(1, 2) * m(2, 0) - m(2, 2) * m(1, 0)) / d,
+                      (m(0, 0) * m(2, 2) - m(2, 0) * m(0, 2)) / d, (m(0, 2) * m(1, 0) - m(1, 2) * m(0, 0)) / d,
+                      (m(1, 0) * m(2, 1) - m(2, 0) * m(1, 1)) / d, (m(0, 1) * m(2, 0) - m(2, 1) * m(0, 0)) / d,
+                      (m(0, 0) * m(1, 1) - m(1, 0) * m(0, 1)) / d);
     }
 
     constexpr Matrix3 matrix_transpose(Matrix3 m) noexcept {
-        return matrix(m(0, 0), m(1, 0), m(2, 0),
-                      m(0, 1), m(1, 1), m(2, 1),
-                      m(0, 2), m(1, 2), m(2, 2));
+        return matrix(m(0, 0), m(1, 0), m(2, 0), m(0, 1), m(1, 1), m(2, 1), m(0, 2), m(1, 2), m(2, 2));
     }
 
     constexpr Matrix3 matrix_mult(Matrix3 a, Matrix3 b) noexcept {
@@ -119,8 +112,7 @@ namespace RCTGen {
     }
 
     constexpr Vector3 matrix_vector(Matrix3 m, Vector3 v) noexcept {
-        return vector3(m(0, 0) * v.x + m(0, 1) * v.y + m(0, 2) * v.z,
-                       m(1, 0) * v.x + m(1, 1) * v.y + m(1, 2) * v.z,
+        return vector3(m(0, 0) * v.x + m(0, 1) * v.y + m(0, 2) * v.z, m(1, 0) * v.x + m(1, 1) * v.y + m(1, 2) * v.z,
                        m(2, 0) * v.x + m(2, 1) * v.y + m(2, 2) * v.z);
     }
 
@@ -151,4 +143,4 @@ namespace RCTGen {
         const float s = std::sin(theta);
         return matrix(c, -s, 0, s, c, 0, 0, 0, 1);
     }
-}
+} // namespace RCTGen

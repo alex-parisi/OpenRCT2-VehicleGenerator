@@ -1,16 +1,16 @@
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
-#include <cmath>
 #include <functional>
 #include <limits>
 
-#include <embree4/rtcore.h>
 #include "RayTrace.hpp"
+#include <embree4/rtcore.h>
 
 namespace RCTGen {
-    void rt_error(void * /*user_ptr*/, enum RTCError error, const char *str) {
+    void rt_error(void* /*user_ptr*/, enum RTCError error, const char* str) {
         std::fprintf(stderr, "error %d: %s\n", error, str);
         std::exit(1);
     }
@@ -25,17 +25,11 @@ namespace RCTGen {
         return device;
     }
 
-    void device_destroy(Device device) {
-        rtcReleaseDevice(device);
-    }
+    void device_destroy(Device device) { rtcReleaseDevice(device); }
 
-    bool scene_is_mask(Scene& scene, int index) {
-        return scene.mask.test(static_cast<std::size_t>(index));
-    }
+    bool scene_is_mask(Scene& scene, int index) { return scene.mask.test(static_cast<std::size_t>(index)); }
 
-    bool scene_is_ghost(Scene& scene, int index) {
-        return scene.ghost.test(static_cast<std::size_t>(index));
-    }
+    bool scene_is_ghost(Scene& scene, int index) { return scene.ghost.test(static_cast<std::size_t>(index)); }
 
     void scene_init(Scene& scene, Device device) {
         scene.num_meshes = 0;
@@ -51,29 +45,25 @@ namespace RCTGen {
         scene.z_min = std::numeric_limits<float>::infinity();
     }
 
-    void scene_finalize(Scene& scene) {
-        rtcCommitScene(scene.embree_scene);
-    }
+    void scene_finalize(Scene& scene) { rtcCommitScene(scene.embree_scene); }
 
-    void scene_destroy(Scene& scene) {
-        rtcReleaseScene(scene.embree_scene);
-    }
+    void scene_destroy(Scene& scene) { rtcReleaseScene(scene.embree_scene); }
 
-    void occlusionFilter(const struct RTCFilterFunctionNArguments *args) {
+    void occlusionFilter(const struct RTCFilterFunctionNArguments* args) {
         // Check that packet size is 1 (guaranteed by Embree for scalar calls)
         [[maybe_unused]] const unsigned int N = args->N;
         assert(N == 1);
 
         // RTCRayN/RTCHitN are opaque incomplete types in Embree's API;
         // reinterpret_cast is the correct tool here.
-        struct RTCRay *ray = reinterpret_cast<struct RTCRay *>(args->ray);
-        struct RTCHit *hit = reinterpret_cast<struct RTCHit *>(args->hit);
+        struct RTCRay* ray = reinterpret_cast<struct RTCRay*>(args->ray);
+        struct RTCHit* hit = reinterpret_cast<struct RTCHit*>(args->hit);
 
-        if (hit->Ng_x * ray->dir_x + hit->Ng_y * ray->dir_y + hit->Ng_z * ray->dir_z > 0)
-            args->valid[0] = 0;
+        if (hit->Ng_x * ray->dir_x + hit->Ng_y * ray->dir_y + hit->Ng_z * ray->dir_z > 0) args->valid[0] = 0;
     }
 
-    void scene_add_model(Scene& scene, const Mesh& mesh,
+    void scene_add_model(Scene& scene,
+                         const Mesh& mesh,
                          std::function<Vertex(Vector3, Vector3, bool)> transform_fn,
                          int flags) {
         // Add mesh to list of meshes
@@ -91,15 +81,12 @@ namespace RCTGen {
         }
 
         rtcSetGeometryVertexAttributeCount(geom, 1);
-        float *vertices = static_cast<float *>(rtcSetNewGeometryBuffer(
-            geom, RTC_BUFFER_TYPE_VERTEX, 0, RTC_FORMAT_FLOAT3,
-            3 * sizeof(float), mesh.vertices.size()));
-        float *normals = static_cast<float *>(rtcSetNewGeometryBuffer(
-            geom, RTC_BUFFER_TYPE_VERTEX_ATTRIBUTE, 0, RTC_FORMAT_FLOAT3,
-            3 * sizeof(float), mesh.vertices.size()));
-        unsigned int *indices = static_cast<unsigned int *>(rtcSetNewGeometryBuffer(
-            geom, RTC_BUFFER_TYPE_INDEX, 0, RTC_FORMAT_UINT3,
-            3 * sizeof(unsigned int), mesh.faces.size()));
+        float* vertices = static_cast<float*>(rtcSetNewGeometryBuffer(
+            geom, RTC_BUFFER_TYPE_VERTEX, 0, RTC_FORMAT_FLOAT3, 3 * sizeof(float), mesh.vertices.size()));
+        float* normals = static_cast<float*>(rtcSetNewGeometryBuffer(
+            geom, RTC_BUFFER_TYPE_VERTEX_ATTRIBUTE, 0, RTC_FORMAT_FLOAT3, 3 * sizeof(float), mesh.vertices.size()));
+        unsigned int* indices = static_cast<unsigned int*>(rtcSetNewGeometryBuffer(
+            geom, RTC_BUFFER_TYPE_INDEX, 0, RTC_FORMAT_UINT3, 3 * sizeof(unsigned int), mesh.faces.size()));
         if (!(vertices && indices && normals)) {
             std::fprintf(stderr, "Failed allocating geometry buffer\n");
             rtcReleaseGeometry(geom);
@@ -108,10 +95,9 @@ namespace RCTGen {
 
         // Flat-shading is a per-mesh property: pre-compute once instead of re-scanning
         // all faces for every vertex (was O(V*F), now O(F+V)).
-        const bool flat_shaded = std::any_of(mesh.faces.begin(), mesh.faces.end(),
-            [&mesh](const Face& f) {
-                return bool(mesh.materials[f.material].flags & MATERIAL_IS_FLAT_SHADED);
-            });
+        const bool flat_shaded = std::any_of(mesh.faces.begin(), mesh.faces.end(), [&mesh](const Face& f) {
+            return bool(mesh.materials[f.material].flags & MATERIAL_IS_FLAT_SHADED);
+        });
 
         for (std::size_t i = 0; i < mesh.vertices.size(); i++) {
             Vertex transformed_vertex = transform_fn(mesh.vertices[i], mesh.normals[i], flat_shaded);
@@ -162,7 +148,8 @@ namespace RCTGen {
         hit.ghost_distance = rayhit.ray.tfar;
 
         // If we hit ghost mesh, keep tracing
-        while ((rayhit.hit.geomID != RTC_INVALID_GEOMETRY_ID) && scene_is_ghost(scene, static_cast<int>(rayhit.hit.geomID))) {
+        while ((rayhit.hit.geomID != RTC_INVALID_GEOMETRY_ID)
+               && scene_is_ghost(scene, static_cast<int>(rayhit.hit.geomID))) {
             rayhit.ray.tnear = rayhit.ray.tfar + 0.0001f;
             rayhit.ray.tfar = std::numeric_limits<float>::infinity();
             rayhit.hit.geomID = RTC_INVALID_GEOMETRY_ID;
@@ -208,4 +195,4 @@ namespace RCTGen {
 
         return ray.tfar <= 0.0f;
     }
-}
+} // namespace RCTGen

@@ -60,7 +60,8 @@ namespace RCTGen {
 
     void scene_destroy(Scene& scene);
 
-    void scene_add_model(Scene& scene, const Mesh& mesh,
+    void scene_add_model(Scene& scene,
+                         const Mesh& mesh,
                          std::function<Vertex(Vector3, Vector3, bool)> transform_fn,
                          int flags);
 
@@ -71,4 +72,4 @@ namespace RCTGen {
     bool scene_is_mask(Scene& scene, int index);
 
     bool scene_is_ghost(Scene& scene, int index);
-}
+} // namespace RCTGen

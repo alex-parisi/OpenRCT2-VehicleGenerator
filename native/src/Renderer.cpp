@@ -17,58 +17,47 @@
 #include <thread>
 #include <vector>
 
-#include "Renderer.hpp"
-#include "Palette.hpp"
-#include "VectorMath.hpp"
 #include "Mesh.hpp"
+#include "Palette.hpp"
+#include "Renderer.hpp"
+#include "VectorMath.hpp"
 
 namespace RCTGen {
-    //3.67 metres per tile
+    // 3.67 metres per tile
     constexpr float kSqrt2 = std::numbers::sqrt2_v<float>;
     constexpr float kSqrt3 = std::numbers::sqrt3_v<float>;
     constexpr float kSqrt6 = std::numbers::sqrt2_v<float> * std::numbers::sqrt3_v<float>;
 
-    constexpr int   kAoSamplesU     = 8;
-    constexpr int   kAoSamplesV     = 4;
-    constexpr int   kAaSamplesU     = 4;
-    constexpr int   kAaSamplesV     = 4;
+    constexpr int kAoSamplesU = 8;
+    constexpr int kAoSamplesV = 4;
+    constexpr int kAaSamplesU = 4;
+    constexpr int kAaSamplesV = 4;
     constexpr float kAaSampleWeight = 1.0f / (kAaSamplesU * kAaSamplesV);
 
     // Blank fragments used for bulk initialization. Defined here so the
     // constexpr values are visible to all functions in this TU.
     // kFragmentUnused (255) signals "no hit" to image_from_framebuffer.
     constexpr Fragment kBlankFragment{
-        {0.0f, 0.0f, 0.0f},
-        0.0f,
-        0.0f,
-        0,
-        kFragmentUnused,
+        {0.0f, 0.0f, 0.0f}, 0.0f, 0.0f, 0, kFragmentUnused,
     };
     // Subsamples start with depth=∞ so any real hit is "closer".
     constexpr Fragment kBlankSample{
-        {0.0f, 0.0f, 0.0f},
-        std::numeric_limits<float>::infinity(),
-        0.0f,
-        0,
-        kFragmentUnused,
+        {0.0f, 0.0f, 0.0f}, std::numeric_limits<float>::infinity(), 0.0f, 0, kFragmentUnused,
     };
 
-    std::array<Matrix3, 4> views{
-        {
-            {{1, 0, 0, 0, 1, 0, 0, 0, 1}},
-            {{0, 0, 1, 0, 1, 0, -1, 0, 0}},
-            {{-1, 0, 0, 0, 1, 0, 0, 0, -1}},
-            {{0, 0, -1, 0, 1, 0, 1, 0, 0}},
-        }
-    };
+    std::array<Matrix3, 4> views{{
+        {{1, 0, 0, 0, 1, 0, 0, 0, 1}},
+        {{0, 0, 1, 0, 1, 0, -1, 0, 0}},
+        {{-1, 0, 0, 0, 1, 0, 0, 0, -1}},
+        {{0, 0, -1, 0, 1, 0, 1, 0, 0}},
+    }};
 
     namespace {
         // Spawn a batch of worker threads, dispatch `count` units of work,
         // join. Workers grab rows via atomic fetch_add. Rows are independent
         // (immutable Embree scene + per-pixel AO seeded by hit-position hash)
         // so no synchronization is needed beyond the atomic counter.
-        template<class Fn>
-        void parallel_for(int count, Fn &&fn) {
+        template <class Fn> void parallel_for(int count, Fn&& fn) {
             if (count <= 0) return;
             const unsigned int worker_count = std::max(1u, std::thread::hardware_concurrency());
             std::atomic<int> next{0};
@@ -82,7 +71,7 @@ namespace RCTGen {
             std::vector<std::thread> threads;
             threads.reserve(worker_count);
             for (unsigned int i = 0; i < worker_count; ++i) threads.emplace_back(worker);
-            for (auto &t: threads) t.join();
+            for (auto& t : threads) t.join();
         }
     } // namespace
 
@@ -91,42 +80,39 @@ namespace RCTGen {
         ctx.lights.assign(lights.begin(), lights.end());
         ctx.dither = dither;
         // Dimetric projection
-        ctx.projection = {
-            32.0f / upt, 0.0f, -32.0f / upt,
-            -16.0f / upt, -16.0f * kSqrt6 / upt, -16.0f / upt,
-            16.0f * kSqrt3 / upt, -16.0f * kSqrt2 / upt, 16.0f * kSqrt3 / upt
-        };
+        ctx.projection = {32.0f / upt,           0.0f,         -32.0f / upt,         -16.0f / upt,
+                          -16.0f * kSqrt6 / upt, -16.0f / upt, 16.0f * kSqrt3 / upt, -16.0f * kSqrt2 / upt,
+                          16.0f * kSqrt3 / upt};
         ctx.palette = palette;
     }
 
-    void context_begin_render(Context& ctx) {
-        scene_init(ctx.rt_scene, ctx.rt_device);
-    }
+    void context_begin_render(Context& ctx) { scene_init(ctx.rt_scene, ctx.rt_device); }
 
     void context_add_model(Context& ctx, const Mesh& mesh, Transform xform, int mask) {
-        scene_add_model(ctx.rt_scene, mesh, [xform](Vector3 v, Vector3 n, bool /*flat_shaded*/) -> Vertex {
-            return {transform_vector(xform, v), matrix_vector(xform.matrix, n).normalized()};
-        }, mask);
+        scene_add_model(
+            ctx.rt_scene, mesh,
+            [xform](Vector3 v, Vector3 n, bool /*flat_shaded*/) -> Vertex {
+                return {transform_vector(xform, v), matrix_vector(xform.matrix, n).normalized()};
+            },
+            mask);
     }
 
-    void context_finalize_render(Context& ctx) {
-        scene_finalize(ctx.rt_scene);
-    }
+    void context_finalize_render(Context& ctx) { scene_finalize(ctx.rt_scene); }
 
-    void context_end_render(Context& ctx) {
-        scene_destroy(ctx.rt_scene);
-    }
+    void context_end_render(Context& ctx) { scene_destroy(ctx.rt_scene); }
 
-    void context_destroy(Context& ctx) {
-        device_destroy(ctx.rt_device);
-    }
+    void context_destroy(Context& ctx) { device_destroy(ctx.rt_device); }
 
-    float vector3_dot_clamped(Vector3 a, Vector3 b) {
-        return std::max(vector3_dot(a, b), 0.0f);
-    }
+    float vector3_dot_clamped(Vector3 a, Vector3 b) { return std::max(vector3_dot(a, b), 0.0f); }
 
-    Vector3 shade_fragment(Scene& scene, Vector3 pos, Vector3 normal, Vector3 view, Vector3 color,
-                           Vector3 specular_color, float specular_exponent, Vector3 ambient_color,
+    Vector3 shade_fragment(Scene& scene,
+                           Vector3 pos,
+                           Vector3 normal,
+                           Vector3 view,
+                           Vector3 color,
+                           Vector3 specular_color,
+                           float specular_exponent,
+                           Vector3 ambient_color,
                            const std::vector<Light>& lights) {
         Vector3 output_color = vector3(0, 0, 0);
 
@@ -139,10 +125,10 @@ namespace RCTGen {
                 float diffuse_factor = light.intensity * vector3_dot_clamped(normal, light.direction);
                 output_color = vector3_add(vector3_mult(color, diffuse_factor), output_color);
             } else {
-                Vector3 reflected_light_direction = vector3_sub(
-                    vector3_mult(normal, 2.0f * vector3_dot(light.direction, normal)), light.direction);
-                float specular_factor = light.intensity * std::pow(vector3_dot_clamped(reflected_light_direction, view),
-                                                                   specular_exponent);
+                Vector3 reflected_light_direction =
+                    vector3_sub(vector3_mult(normal, 2.0f * vector3_dot(light.direction, normal)), light.direction);
+                float specular_factor =
+                    light.intensity * std::pow(vector3_dot_clamped(reflected_light_direction, view), specular_exponent);
                 output_color = vector3_add(vector3_mult(specular_color, specular_factor), output_color);
             }
         }
@@ -170,12 +156,10 @@ namespace RCTGen {
         return b;
     }
 
-    static inline float ao_hash_to_unit(std::uint32_t h) {
-        return static_cast<float>(h >> 8) * (1.0f / 16777216.0f);
-    }
+    static inline float ao_hash_to_unit(std::uint32_t h) { return static_cast<float>(h >> 8) * (1.0f / 16777216.0f); }
 
-    bool scene_sample_point(Scene& scene, Vector2 point, Matrix3 camera, const std::vector<Light>& lights,
-                            Fragment& fragment) {
+    bool scene_sample_point(
+        Scene& scene, Vector2 point, Matrix3 camera, const std::vector<Light>& lights, Fragment& fragment) {
         RayHit hit{};
         Vector3 view_vector = matrix_vector(camera, vector3(0, 0, -1));
         if (scene_trace_ray(scene, matrix_vector(camera, vector3(point.x, point.y, -512)),
@@ -197,10 +181,10 @@ namespace RCTGen {
             // Compute surface color
             Vector3 color;
             if (material.flags & MATERIAL_HAS_TEXTURE) {
-                Vector2 tex_coord = vector2_add(
-                    vector2_add(vector2_mult(mesh->uvs[face.indices[0]], 1.0f - hit.u - hit.v),
-                                vector2_mult(mesh->uvs[face.indices[1]], hit.u)),
-                    vector2_mult(mesh->uvs[face.indices[2]], hit.v));
+                Vector2 tex_coord =
+                    vector2_add(vector2_add(vector2_mult(mesh->uvs[face.indices[0]], 1.0f - hit.u - hit.v),
+                                            vector2_mult(mesh->uvs[face.indices[1]], hit.u)),
+                                vector2_mult(mesh->uvs[face.indices[2]], hit.v));
                 color = texture_sample(material.texture, tex_coord);
             } else {
                 color = material.color;
@@ -212,18 +196,18 @@ namespace RCTGen {
             }
 
             // Shade fragment
-            Vector3 shaded_color = shade_fragment(scene, hit.position, hit.normal, view_vector, color,
-                                                  material.specular_color, material.specular_exponent,
-                                                  material.ambient_color, lights);
+            Vector3 shaded_color =
+                shade_fragment(scene, hit.position, hit.normal, view_vector, color, material.specular_color,
+                               material.specular_exponent, material.ambient_color, lights);
 
             Vector3 normal = hit.normal;
             Vector3 tangent;
             if (std::fabs(normal.x) > std::fabs(normal.y))
-                tangent = vector3(normal.z, 0.0f, -normal.x)
-                          * (1.0f / std::sqrt(normal.x * normal.x + normal.z * normal.z));
+                tangent =
+                    vector3(normal.z, 0.0f, -normal.x) * (1.0f / std::sqrt(normal.x * normal.x + normal.z * normal.z));
             else
-                tangent = vector3(0.0f, -normal.z, normal.y)
-                          * (1.0f / std::sqrt(normal.y * normal.y + normal.z * normal.z));
+                tangent =
+                    vector3(0.0f, -normal.z, normal.y) * (1.0f / std::sqrt(normal.y * normal.y + normal.z * normal.z));
             Vector3 bitangent = vector3_cross(normal, tangent);
 
             float ao_factor = 1.0f;
@@ -234,18 +218,15 @@ namespace RCTGen {
                 std::uint32_t not_occluded_samples = 0;
                 for (int i = 0; i < kAoSamplesU; i++)
                     for (int j = 0; j < kAoSamplesV; j++) {
-                        std::uint32_t h = ao_hash_u32(hp
-                                                      ^ static_cast<std::uint32_t>(i * 73856093)
+                        std::uint32_t h = ao_hash_u32(hp ^ static_cast<std::uint32_t>(i * 73856093)
                                                       ^ static_cast<std::uint32_t>(j * 19349663));
                         float r1 = ao_hash_to_unit(h);
                         float r2 = ao_hash_to_unit(ao_hash_u32(h));
                         float theta = 2.0f * std::numbers::pi_v<float> * ((i + r1) / kAoSamplesU);
                         float phi = std::asin(1.0f - (j + r2) / kAoSamplesV);
 
-                        Vector3 local_sample_dir = vector3(
-                            std::cos(phi) * std::sin(theta),
-                            std::cos(phi) * std::cos(theta),
-                            std::sin(phi));
+                        Vector3 local_sample_dir =
+                            vector3(std::cos(phi) * std::sin(theta), std::cos(phi) * std::cos(theta), std::sin(phi));
                         Vector3 sample_dir = vector3_add(vector3_mult(normal, local_sample_dir.z),
                                                          vector3_add(vector3_mult(tangent, local_sample_dir.x),
                                                                      vector3_mult(bitangent, local_sample_dir.y)));
@@ -267,7 +248,7 @@ namespace RCTGen {
 
     struct MaterialSample {
         float ghost_depth{};
-        const Material* material{};  // nullptr on miss
+        const Material* material{}; // nullptr on miss
         float depth{};
         bool is_mask{};
         explicit operator bool() const noexcept { return material != nullptr; }
@@ -311,10 +292,9 @@ namespace RCTGen {
             vector3(scene.x_max, scene.y_max, scene.z_max),
         }};
 
-        Rect bounds = rect(static_cast<int>(std::floor(bounding_points[0].x)),
-                           static_cast<int>(std::ceil(bounding_points[0].x)),
-                           static_cast<int>(std::floor(bounding_points[0].y)),
-                           static_cast<int>(std::ceil(bounding_points[0].y)));
+        Rect bounds =
+            rect(static_cast<int>(std::floor(bounding_points[0].x)), static_cast<int>(std::ceil(bounding_points[0].x)),
+                 static_cast<int>(std::floor(bounding_points[0].y)), static_cast<int>(std::ceil(bounding_points[0].y)));
         for (const Vector3& bp : bounding_points) {
             Vector3 screen_point = matrix_vector(camera, bp);
             bounds = rect_enclose_point(bounds, screen_point.x, screen_point.y);
@@ -335,8 +315,8 @@ namespace RCTGen {
                     if (found_pixel)
                         bounds = rect_enclose_point(bounds, static_cast<float>(x), static_cast<float>(y));
                     else {
-                        bounds = rect(static_cast<int>(x), static_cast<int>(x) + 1,
-                                      static_cast<int>(y), static_cast<int>(y) + 1);
+                        bounds = rect(static_cast<int>(x), static_cast<int>(x) + 1, static_cast<int>(y),
+                                      static_cast<int>(y) + 1);
                         found_pixel = true;
                     }
                 }
@@ -359,16 +339,16 @@ namespace RCTGen {
         // is (-offset.x - bounding_box.x_lower, -offset.y - bounding_box.y_lower);
         // the engine draws sprite pixel (-x_offset, -y_offset) at the anchor, so
         // x_offset / y_offset are the negatives of those sprite positions.
-        image.x_offset = static_cast<std::int16_t>(bounding_box.x_lower
-                                                    + static_cast<int>(std::floor(framebuffer.offset.x)));
-        image.y_offset = static_cast<std::int16_t>(bounding_box.y_lower
-                                                    + static_cast<int>(std::floor(framebuffer.offset.y)));
+        image.x_offset =
+            static_cast<std::int16_t>(bounding_box.x_lower + static_cast<int>(std::floor(framebuffer.offset.x)));
+        image.y_offset =
+            static_cast<std::int16_t>(bounding_box.y_lower + static_cast<int>(std::floor(framebuffer.offset.y)));
         image.pixels.assign(static_cast<std::size_t>(image.width) * image.height, 0);
 
         for (int y = bounding_box.y_lower; y <= bounding_box.y_upper; y++) {
             int start = (y & 1) ? (bounding_box.x_upper) : bounding_box.x_lower;
-            int stop  = (y & 1) ? (bounding_box.x_lower - 1) : bounding_box.x_upper + 1;
-            int step  = (y & 1) ? -1 : 1;
+            int stop = (y & 1) ? (bounding_box.x_lower - 1) : bounding_box.x_upper + 1;
+            int step = (y & 1) ? -1 : 1;
 
             for (int x = start; x != stop; x += step) {
                 Fragment& fragment = framebuffer.fragments[x + y * framebuffer.width];
@@ -379,15 +359,16 @@ namespace RCTGen {
                                  + static_cast<std::size_t>(y - bounding_box.y_lower) * image.width] = pr.index;
                     if (dither) {
                         // Distribute error onto neighbouring points (Floyd-Steinberg, serpentine)
-                        const std::array<std::array<int, 2>, 4> points = {{
-                            {x + step, y}, {x - step, y + 1}, {x, y + 1}, {x + step, y + 1}
-                        }};
-                        constexpr std::array<float, 4> weights = {7.0f/16.0f, 3.0f/16.0f, 5.0f/16.0f, 1.0f/16.0f};
+                        const std::array<std::array<int, 2>, 4> points = {
+                            {{x + step, y}, {x - step, y + 1}, {x, y + 1}, {x + step, y + 1}}};
+                        constexpr std::array<float, 4> weights = {7.0f / 16.0f, 3.0f / 16.0f, 5.0f / 16.0f,
+                                                                  1.0f / 16.0f};
                         for (int i = 0; i < 4; i++) {
                             const int px = points[i][0], py = points[i][1];
                             if (px >= 0 && px < framebuffer.width && py >= 0 && py < framebuffer.height
                                 && (!(fragment.flags & MATERIAL_NO_BLEED)
-                                    || (framebuffer.fragments[px + py * framebuffer.width].flags & MATERIAL_NO_BLEED))) {
+                                    || (framebuffer.fragments[px + py * framebuffer.width].flags
+                                        & MATERIAL_NO_BLEED))) {
                                 framebuffer.fragments[px + py * framebuffer.width].color =
                                     vector3_add(vector3_mult(pr.error, 0.3f * weights[i]),
                                                 framebuffer.fragments[px + py * framebuffer.width].color);
@@ -411,10 +392,9 @@ namespace RCTGen {
         // Half-pixel shift on both axes: sample_point + subsample_point covers
         // the world-space square [pixel - 1, pixel] in both x and y, so AA
         // sampling is isotropic.
-        framebuffer.offset = vector2(static_cast<float>(bounds.x_lower) - 0.5f,
-                                     static_cast<float>(bounds.y_lower) - 0.5f);
-        framebuffer.fragments.assign(
-            static_cast<std::size_t>(framebuffer.width) * framebuffer.height, kBlankFragment);
+        framebuffer.offset =
+            vector2(static_cast<float>(bounds.x_lower) - 0.5f, static_cast<float>(bounds.y_lower) - 0.5f);
+        framebuffer.fragments.assign(static_cast<std::size_t>(framebuffer.width) * framebuffer.height, kBlankFragment);
 
         // Transform lights for view (shared, read-only across worker threads).
         Matrix3 view_inverse = matrix_inverse(view);
@@ -433,8 +413,8 @@ namespace RCTGen {
         // state to worry about — each ray gets its own deterministic seed.
         auto render_row = [&](int y) {
             for (int x = 0; x < framebuffer.width; x++) {
-                Vector2 sample_point = vector2_add(vector2(static_cast<float>(x), static_cast<float>(y)),
-                                                   framebuffer.offset);
+                Vector2 sample_point =
+                    vector2_add(vector2(static_cast<float>(x), static_cast<float>(y)), framebuffer.offset);
 
                 // Test center
                 std::uint8_t flags = 0;
@@ -455,24 +435,22 @@ namespace RCTGen {
                 subsamples.fill(kBlankSample);
                 for (int i = 0; i < kAaSamplesU; i++)
                     for (int j = 0; j < kAaSamplesV; j++) {
-                        const Vector2 subsample_point = vector2(
-                            (i + 0.5f) / kAaSamplesU - 0.5f,
-                            (j + 0.5f) / kAaSamplesV - 0.5f);
+                        const Vector2 subsample_point =
+                            vector2((i + 0.5f) / kAaSamplesU - 0.5f, (j + 0.5f) / kAaSamplesV - 0.5f);
                         Fragment& sub_frag = subsamples[i + j * kAaSamplesU];
 
                         if (!silhouette) {
-                            scene_sample_point(ctx.rt_scene, vector2_add(sample_point, subsample_point),
-                                               camera_inverse, transformed_lights, sub_frag);
+                            scene_sample_point(ctx.rt_scene, vector2_add(sample_point, subsample_point), camera_inverse,
+                                               transformed_lights, sub_frag);
                         } else {
-                            auto sub = scene_sample_material(ctx.rt_scene,
-                                                             vector2_add(sample_point, subsample_point),
+                            auto sub = scene_sample_material(ctx.rt_scene, vector2_add(sample_point, subsample_point),
                                                              camera_inverse);
                             sub_frag.ghost_depth = sub.ghost_depth;
                             if (sub) {
-                                sub_frag.color  = vector3(0.5f, 0.5f, 0.5f);
+                                sub_frag.color = vector3(0.5f, 0.5f, 0.5f);
                                 sub_frag.region = sub.is_mask ? kFragmentUnused : sub.material->region;
-                                sub_frag.flags  = static_cast<std::uint8_t>(sub.material->flags);
-                                sub_frag.depth  = sub.depth;
+                                sub_frag.flags = static_cast<std::uint8_t>(sub.material->flags);
+                                sub_frag.depth = sub.depth;
                             }
                         }
                     }
@@ -481,8 +459,8 @@ namespace RCTGen {
                 int front_background_aa_sample = -1;
                 float min_depth = std::numeric_limits<float>::infinity();
                 for (int i = 0; i < kAaSamplesU * kAaSamplesV; i++) {
-                    if (subsamples[i].depth < min_depth &&
-                        (subsamples[i].flags & (MATERIAL_BACKGROUND_AA | MATERIAL_BACKGROUND_AA_DARK))) {
+                    if (subsamples[i].depth < min_depth
+                        && (subsamples[i].flags & (MATERIAL_BACKGROUND_AA | MATERIAL_BACKGROUND_AA_DARK))) {
                         front_background_aa_sample = i;
                         min_depth = subsamples[i].depth;
                     }
@@ -494,9 +472,8 @@ namespace RCTGen {
                     // Count samples that fall inside the presumed edge
                     int inside_samples = 0;
                     for (int i = 0; i < kAaSamplesU * kAaSamplesV; i++) {
-                        if (!(subsamples[i].depth > min_depth + 4 ||
-                              (subsamples[i].region == kFragmentUnused
-                               && !(subsamples[i].flags & MATERIAL_IS_MASK))
+                        if (!(subsamples[i].depth > min_depth + 4
+                              || (subsamples[i].region == kFragmentUnused && !(subsamples[i].flags & MATERIAL_IS_MASK))
                               || (subsamples[i].flags & MATERIAL_IS_VISIBLE_MASK)))
                             inside_samples++;
                     }
@@ -507,8 +484,7 @@ namespace RCTGen {
                         flags = subsamples[front_background_aa_sample].flags;
                     }
                 }
-                framebuffer.fragments[x + y * framebuffer.width].region =
-                    static_cast<std::uint8_t>(region);
+                framebuffer.fragments[x + y * framebuffer.width].region = static_cast<std::uint8_t>(region);
                 framebuffer.fragments[x + y * framebuffer.width].flags = flags;
 
                 // If this is a background pixel, there is no need to compute the color
@@ -522,9 +498,9 @@ namespace RCTGen {
                     for (int i = 0; i < kAaSamplesU * kAaSamplesV; i++) {
                         if ((!(subsamples[i].flags & MATERIAL_NO_BLEED) || (flags & MATERIAL_NO_BLEED))
                             && !((subsamples[i].ghost_depth <= depth + 4 && subsamples[i].depth > depth + 4))) {
-                            if (!(subsamples[i].depth > depth + 4 ||
-                                  (subsamples[i].region == kFragmentUnused
-                                   && !(subsamples[i].flags & MATERIAL_IS_MASK))
+                            if (!(subsamples[i].depth > depth + 4
+                                  || (subsamples[i].region == kFragmentUnused
+                                      && !(subsamples[i].flags & MATERIAL_IS_MASK))
                                   || (subsamples[i].flags & MATERIAL_IS_VISIBLE_MASK))) {
                                 color = vector3_add(color, vector3_mult(subsamples[i].color, kAaSampleWeight));
                                 weight += kAaSampleWeight;
@@ -542,14 +518,13 @@ namespace RCTGen {
                     Vector3 color = vector3(0, 0, 0);
                     float weight = 0.0f;
                     for (int i = 0; i < kAaSamplesU * kAaSamplesV; i++) {
-                        if (subsamples[i].region != kFragmentUnused &&
-                            (!(subsamples[i].flags & MATERIAL_NO_BLEED) || (flags & MATERIAL_NO_BLEED))) {
+                        if (subsamples[i].region != kFragmentUnused
+                            && (!(subsamples[i].flags & MATERIAL_NO_BLEED) || (flags & MATERIAL_NO_BLEED))) {
                             color = vector3_add(color, vector3_mult(subsamples[i].color, kAaSampleWeight));
                             weight += kAaSampleWeight;
                         }
                     }
-                    framebuffer.fragments[x + y * framebuffer.width].color =
-                        vector3_mult(color, 1.0f / weight);
+                    framebuffer.fragments[x + y * framebuffer.width].color = vector3_mult(color, 1.0f / weight);
                 }
             }
         };
@@ -567,4 +542,4 @@ namespace RCTGen {
     Image context_render_silhouette(Context& ctx, Matrix3 view) {
         return context_render_view_internal(ctx, view, /*silhouette=*/true);
     }
-}
+} // namespace RCTGen

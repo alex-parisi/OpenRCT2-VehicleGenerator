@@ -9,14 +9,12 @@
 /// Only texture_sample is needed at C++ scope, because Renderer.cpp's
 /// scene_sample_point calls it directly.
 
+#include "Mesh.hpp"
 #include <algorithm>
 #include <cmath>
-#include "Mesh.hpp"
 
 namespace RCTGen {
-    static float wrap_coord(float coord) {
-        return std::clamp(coord - std::floor(coord), 0.0f, 1.0f);
-    }
+    static float wrap_coord(float coord) { return std::clamp(coord - std::floor(coord), 0.0f, 1.0f); }
 
     Vector3 texture_sample(const Texture& texture, Vector2 coord) {
         auto tex_x = static_cast<std::uint16_t>(static_cast<std::uint32_t>(texture.width * wrap_coord(coord.x)));
@@ -25,4 +23,4 @@ namespace RCTGen {
         if (tex_y == texture.height) tex_y = 0;
         return texture.pixels[tex_y * texture.width + tex_x];
     }
-}
+} // namespace RCTGen

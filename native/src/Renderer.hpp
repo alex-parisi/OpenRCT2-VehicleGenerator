@@ -84,4 +84,4 @@ namespace RCTGen {
     void context_finalize_render(Context& ctx);
 
     void context_end_render(Context& ctx);
-}
+} // namespace RCTGen

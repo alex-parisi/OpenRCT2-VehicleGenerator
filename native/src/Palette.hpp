@@ -40,4 +40,4 @@ namespace RCTGen {
     PaletteResult palette_get_nearest(const Palette& palette, std::uint8_t region, Vector3 color);
 
     Palette palette_rct2();
-}
+} // namespace RCTGen

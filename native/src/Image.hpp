@@ -16,4 +16,4 @@ namespace RCTGen {
         std::int16_t y_offset{};
         std::vector<std::uint8_t> pixels{};
     };
-}
+} // namespace RCTGen

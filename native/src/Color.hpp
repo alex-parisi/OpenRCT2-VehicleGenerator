@@ -10,4 +10,4 @@ namespace RCTGen {
         std::uint8_t g;
         std::uint8_t b;
     };
-}
+} // namespace RCTGen
