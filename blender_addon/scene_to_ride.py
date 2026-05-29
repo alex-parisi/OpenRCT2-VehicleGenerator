@@ -189,12 +189,23 @@ def build_config_and_meshes(context):
         role = obj.vg_object.role
         if role == "IGNORE":
             continue
+        pos = _object_position(obj)
+
+        # Empty-seat riders contribute position metadata only; no geometry is
+        # baked, so OpenRCT2 paints each boarded guest on top with their own
+        # clothing colors.
+        if role == "RIDER" and obj.vg_object.empty_seat:
+            row = int(obj.vg_object.rider_row)
+            rider_rows.setdefault(row, []).append(
+                {"mesh_index": -1, "position": pos, "orientation": [0, 0, 0]}
+            )
+            continue
+
         mesh = _extract_mesh(obj, depsgraph)
         if mesh is None:
             continue
         idx = len(meshes)
         meshes.append(mesh)
-        pos = _object_position(obj)
 
         if role == "BODY":
             body_entries.append({"mesh_index": idx, "position": pos, "orientation": [0, 0, 0]})
@@ -255,7 +266,8 @@ def build_config_and_meshes(context):
         "min_cars_per_train": int(rs.min_cars),
         "max_cars_per_train": int(rs.max_cars),
         "build_menu_priority": int(rs.build_menu_priority),
-        "default_colors": [[rs.color_main, rs.color_secondary, rs.color_tertiary]],
+        "default_colors": [[p.main, p.secondary, p.tertiary] for p in rs.color_presets]
+        or [["bright_red", "black", "grey"]],
         "vehicles": [vehicle],
     }
 

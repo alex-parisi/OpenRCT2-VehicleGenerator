@@ -1,9 +1,17 @@
 """UI panels: ride settings (3D View N-panel) + per-object/per-material roles."""
 
 import bpy
-from bpy.types import Panel
+from bpy.types import Panel, UIList
 
 from . import props
+
+
+class VG_UL_color_presets(UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
+        row = layout.row(align=True)
+        row.prop(item, "main", text="")
+        row.prop(item, "secondary", text="")
+        row.prop(item, "tertiary", text="")
 
 
 class VG_PT_ride(Panel):
@@ -48,9 +56,13 @@ class VG_PT_ride(Panel):
 
         box = layout.box()
         box.label(text="Default Colours", icon="COLOR")
-        box.prop(rs, "color_main")
-        box.prop(rs, "color_secondary")
-        box.prop(rs, "color_tertiary")
+        row = box.row()
+        row.template_list(
+            "VG_UL_color_presets", "", rs, "color_presets", rs, "color_preset_index", rows=3
+        )
+        col = row.column(align=True)
+        col.operator("vg.color_preset_add", icon="ADD", text="")
+        col.operator("vg.color_preset_remove", icon="REMOVE", text="")
 
         box = layout.box()
         box.label(text="Vehicle", icon="MOD_PHYSICS")
@@ -88,6 +100,7 @@ class VG_PT_object(Panel):
         layout.prop(os_, "role")
         if os_.role == "RIDER":
             layout.prop(os_, "rider_row")
+            layout.prop(os_, "empty_seat")
         elif os_.role == "RESTRAINT":
             layout.prop(os_, "restraint_swing_deg")
             layout.label(text="Set object origin to the hinge", icon="INFO")
@@ -119,7 +132,7 @@ class VG_PT_material(Panel):
         layout.prop(ms, "texture")
 
 
-_CLASSES = (VG_PT_ride, VG_PT_object, VG_PT_material)
+_CLASSES = (VG_UL_color_presets, VG_PT_ride, VG_PT_object, VG_PT_material)
 
 
 def register():

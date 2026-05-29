@@ -36,7 +36,7 @@ OUT_PATH  = os.path.join(REPO_ROOT, "examples", "wooden", "car.obj")
 # --- Dimensions (OBJ space, units ~= meters) -------------------------------
 
 # Chassis floor plate
-CHASSIS_LEN   = 1.85                  # +X = direction of travel (front of car)
+CHASSIS_LEN   = 1.9                  # +X = direction of travel (front of car)
 CHASSIS_WIDTH = 1.50
 CHASSIS_THICK = 0.08
 CHASSIS_Y     = 0.26                  # bottom-of-floor (raised to clear bigger wheels)

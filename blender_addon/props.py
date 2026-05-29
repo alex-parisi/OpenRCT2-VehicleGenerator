@@ -17,6 +17,7 @@ import os
 import bpy
 from bpy.props import (
     BoolProperty,
+    CollectionProperty,
     EnumProperty,
     FloatProperty,
     IntProperty,
@@ -102,6 +103,12 @@ OBJECT_ROLE_ITEMS = [
 ]
 
 
+class VGColorPreset(PropertyGroup):
+    main: EnumProperty(name="Main", items=_simple_items(COLOR_NAMES), default="bright_red")
+    secondary: EnumProperty(name="Secondary", items=_simple_items(COLOR_NAMES), default="black")
+    tertiary: EnumProperty(name="Tertiary", items=_simple_items(COLOR_NAMES), default="grey")
+
+
 class VGMaterialSettings(PropertyGroup):
     region: EnumProperty(
         name="Region",
@@ -136,6 +143,14 @@ class VGObjectSettings(PropertyGroup):
         description="Seat row index (riders are grouped into rows, not individuals)",
         default=0,
         min=0,
+    )
+    empty_seat: BoolProperty(
+        name="Empty Seat (engine overlays peep)",
+        description=(
+            "Don't bake this rider's mesh into the sprite. The engine will draw "
+            "the actual guest peep on top, preserving per-guest clothing colors."
+        ),
+        default=False,
     )
     restraint_swing_deg: FloatProperty(
         name="Restraint Swing",
@@ -177,14 +192,9 @@ class VGRideSettings(PropertyGroup):
     max_cars: IntProperty(name="Max Cars / Train", default=8, min=1)
     build_menu_priority: IntProperty(name="Build Menu Priority", default=0, min=0)
 
-    # --- Default colours (one preset) --------------------------------------
-    color_main: EnumProperty(name="Main", items=_simple_items(COLOR_NAMES), default="bright_red")
-    color_secondary: EnumProperty(
-        name="Secondary", items=_simple_items(COLOR_NAMES), default="black"
-    )
-    color_tertiary: EnumProperty(
-        name="Tertiary", items=_simple_items(COLOR_NAMES), default="grey"
-    )
+    # --- Default colours (up to 3 build-menu presets) -----------------------
+    color_presets: CollectionProperty(type=VGColorPreset)
+    color_preset_index: IntProperty(default=0)
 
     # --- Single vehicle params ---------------------------------------------
     # Per-flag vehicle-flag bools are injected after the class (see FLAG_GROUPS).
@@ -207,7 +217,7 @@ for _prefix, _names in FLAG_GROUPS.items():
             name=_title(_name), default=(_prefix == "sg_" and _name == "flat"))
 
 
-_CLASSES = (VGMaterialSettings, VGObjectSettings, VGRideSettings)
+_CLASSES = (VGColorPreset, VGMaterialSettings, VGObjectSettings, VGRideSettings)
 
 
 def register():

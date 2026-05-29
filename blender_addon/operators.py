@@ -8,6 +8,7 @@ stringify them and break registration.
 import os
 import tempfile
 import threading
+import time
 import traceback
 
 import bpy
@@ -21,6 +22,8 @@ from openrct2_vehicle_generator.ray_trace import Context
 from openrct2_vehicle_generator.types import Light
 
 from . import scene_to_ride
+
+_SPINNER_FRAMES = "|/-\\"
 
 
 def _normalize(v):
@@ -65,7 +68,7 @@ class VG_OT_test_render(Operator):
             self.report({"ERROR"}, f"Invalid vehicle: {e}")
             return {"CANCELLED"}
 
-        ctx = Context.make(lights=_default_lights(), dither=True, upt=0.125 * TILE_SIZE)
+        ctx = Context.make(lights=_default_lights(), dither=True, upt=TILE_SIZE)
         tmp = tempfile.mkdtemp(prefix="vg_test_")
         try:
             export_ride_test(ride, ctx, tmp)
@@ -120,6 +123,8 @@ class VG_OT_export_parkobj(Operator):
         self._work = tempfile.mkdtemp(prefix="vg_export_")
         self._error: str | None = None
         self._done = False
+        self._start_time = time.monotonic()
+        self._spinner_step = 0
 
         def worker():
             try:
@@ -135,29 +140,80 @@ class VG_OT_export_parkobj(Operator):
 
         wm = context.window_manager
         wm.progress_begin(0, 1)
-        self._timer = wm.event_timer_add(0.2, window=context.window)
+        context.window.cursor_modal_set("WAIT")
+        self._set_status(context, _SPINNER_FRAMES[0], 0)
+        self._timer = wm.event_timer_add(0.1, window=context.window)
         wm.modal_handler_add(self)
         return {"RUNNING_MODAL"}
 
     def modal(self, context, event):
-        if event.type == "TIMER" and self._done:
-            return self._finish(context)
+        if event.type == "TIMER":
+            if self._done:
+                return self._finish(context)
+            self._spinner_step += 1
+            glyph = _SPINNER_FRAMES[self._spinner_step % len(_SPINNER_FRAMES)]
+            elapsed = int(time.monotonic() - self._start_time)
+            self._set_status(context, glyph, elapsed)
         return {"PASS_THROUGH"}
+
+    def _set_status(self, context, glyph: str, elapsed: int) -> None:
+        text = f"{glyph} Exporting .parkobj... {elapsed}s"
+        context.workspace.status_text_set(text)
+        # status_text_set alone doesn't always trigger a redraw; nudge the
+        # progress widget so the header repaints each tick.
+        context.window_manager.progress_update((self._spinner_step % 20) / 20.0)
 
     def _finish(self, context):
         wm = context.window_manager
         wm.event_timer_remove(self._timer)
         wm.progress_end()
+        context.window.cursor_modal_restore()
+        context.workspace.status_text_set(None)
         self._thread.join()
         if self._error:
             print(self._error)
             self.report({"ERROR"}, "Export failed; see the system console for details.")
             return {"CANCELLED"}
-        self.report({"INFO"}, f"Exported {os.path.basename(self._parkobj)}")
+        elapsed = int(time.monotonic() - self._start_time)
+        self.report({"INFO"}, f"Exported {os.path.basename(self._parkobj)} in {elapsed}s")
         return {"FINISHED"}
 
 
-_CLASSES = (VG_OT_test_render, VG_OT_export_parkobj)
+class VG_OT_color_preset_add(Operator):
+    bl_idname = "vg.color_preset_add"
+    bl_label = "Add Colour Preset"
+    bl_description = "Add another default colour preset (OpenRCT2 supports up to 3)"
+
+    def execute(self, context):
+        rs = context.scene.vg_ride
+        if len(rs.color_presets) >= 3:
+            self.report({"WARNING"}, "OpenRCT2 supports at most 3 colour presets")
+            return {"CANCELLED"}
+        rs.color_presets.add()
+        rs.color_preset_index = len(rs.color_presets) - 1
+        return {"FINISHED"}
+
+
+class VG_OT_color_preset_remove(Operator):
+    bl_idname = "vg.color_preset_remove"
+    bl_label = "Remove Colour Preset"
+    bl_description = "Remove the selected colour preset"
+
+    def execute(self, context):
+        rs = context.scene.vg_ride
+        if not rs.color_presets:
+            return {"CANCELLED"}
+        rs.color_presets.remove(rs.color_preset_index)
+        rs.color_preset_index = max(0, min(rs.color_preset_index, len(rs.color_presets) - 1))
+        return {"FINISHED"}
+
+
+_CLASSES = (
+    VG_OT_test_render,
+    VG_OT_export_parkobj,
+    VG_OT_color_preset_add,
+    VG_OT_color_preset_remove,
+)
 
 
 def register():
