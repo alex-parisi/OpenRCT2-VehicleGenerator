@@ -46,20 +46,6 @@ def load_texture(path: Path | str) -> Texture:
     return Texture(width=w, height=h, pixels=linear)
 
 
-def texture_sample(texture: Texture, u: float, v: float) -> np.ndarray:
-    """Nearest-pixel sample, wrap mode. Mirrors texture_sample in Mesh.cpp."""
-    # wrap_coord: max(0, min(1, x - floor(x)))
-    uu = max(0.0, min(1.0, u - np.floor(u)))
-    vv = max(0.0, min(1.0, v - np.floor(v)))
-    tx = int(texture.width * uu)
-    ty = int(texture.height * vv)
-    if tx >= texture.width:
-        tx = 0
-    if ty >= texture.height:
-        ty = 0
-    return texture.pixels[ty, tx]
-
-
 # ---------------------------------------------------------------------------
 # Material
 # ---------------------------------------------------------------------------

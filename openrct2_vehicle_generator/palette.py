@@ -1,11 +1,8 @@
-"""RCT2 256-color palette and nearest-color search.
+"""RCT2 256-color palette tables.
 
-Ports src/iso-render/Palette.cpp and the palette data from
-src/iso-render/Image.cpp / Palette.cpp.
+Ports the palette data from src/iso-render/Image.cpp / Palette.cpp.
 """
 
-
-import math
 
 import numpy as np
 
@@ -100,41 +97,12 @@ _RCT2_COLORS: list[tuple[int, int, int]] = [
 assert len(_RCT2_COLORS) == 255, f"Expected 255, got {len(_RCT2_COLORS)}"
 _RCT2_COLORS = _RCT2_COLORS + [(0, 0, 0)] * (256 - len(_RCT2_COLORS))
 
-# Remap colors -- 16 entries from grey ramp, indices 10..21 of the base
-# palette. (Used when a region has remap=True.)
-_REMAP_COLORS: list[tuple[int, int, int]] = [
-    (23, 35, 35), (35, 51, 51), (47, 67, 67), (63, 83, 83), (75, 99, 99),
-    (91, 115, 115), (111, 131, 131), (131, 151, 151), (159, 175, 175),
-    (183, 195, 195), (211, 219, 219), (239, 243, 243),
-]
-
-
-# Region table from Palette.cpp `palette_rct2()`. Each region is
-# (subregions, [start_indices], [end_indices], remap).
-# Region indices match material.region:
-#   0 = base (general dithering)
-#   1..3 = remap1/2/3
-#   4 = greyscale
-#   5 = peep
-#   6 = chain
-#   7 = unused/transparent fallback
-_REGIONS_RAW: list[tuple[int, list[int], list[int], bool]] = [
-    (3, [10, 214, 240, 0], [202, 227, 243, 0], False),
-    (1, [243, 0, 0, 0], [255, 0, 0, 0], True),
-    (1, [202, 0, 0, 0], [214, 0, 0, 0], True),
-    (1, [46, 0, 0, 0], [58, 0, 0, 0], True),
-    (3, [10, 226, 240, 0], [22, 227, 243, 0], False),
-    (2, [10, 106, 0, 0], [11, 118, 0, 0], False),
-    (1, [1, 0, 0, 0], [2, 0, 0, 0], False),
-    (1, [0, 0, 0, 0], [1, 0, 0, 0], False),
-]
 
 TRANSPARENT_INDEX = 0
-NUM_REGIONS = 8
 
 
 # ---------------------------------------------------------------------------
-# sRGB <-> linear conversion
+# sRGB -> linear conversion
 # ---------------------------------------------------------------------------
 
 
@@ -147,93 +115,5 @@ def _srgb2linear(x: np.ndarray) -> np.ndarray:
     return out
 
 
-def _linear2srgb_scalar(x: float) -> float:
-    if x <= 0.0031308:
-        return x * 12.92
-    return 1.055 * (x ** (1.0 / 2.4)) - 0.055
-
-
-def vector_from_color(rgb: tuple[int, int, int]) -> np.ndarray:
-    r, g, b = rgb
-    arr = np.array([r, g, b], dtype=np.float64) / 255.0
-    return _srgb2linear(arr)
-
-
-def color_from_vector(vec: np.ndarray) -> tuple[int, int, int]:
-    """Quantize a linear-RGB vector back to 8-bit sRGB.
-
-    Mirrors color_from_vector in Palette.cpp: clamp, convert, then
-    `floor(x*255 + 0.4999)`.
-    """
-    def _to_u8(x: float) -> int:
-        return int(math.floor(_linear2srgb_scalar(max(0.0, min(1.0, x))) * 255.0 + 0.4999))
-    return _to_u8(float(vec[0])), _to_u8(float(vec[1])), _to_u8(float(vec[2]))
-
-
-# ---------------------------------------------------------------------------
-# Palette tables / region indices
-# ---------------------------------------------------------------------------
-
 # Palette as np.uint8 (256, 3).
 PALETTE_RGB = np.array(_RCT2_COLORS, dtype=np.uint8)
-# Same but in linear RGB (256, 3) for nearest-color search.
-PALETTE_LINEAR = _srgb2linear(PALETTE_RGB.astype(np.float64) / 255.0)
-
-# Remap colors in linear space (16, 3).
-_REMAP_LINEAR = _srgb2linear(
-    np.array(_REMAP_COLORS, dtype=np.float64) / 255.0)
-
-
-# For each region, pre-flatten the candidate (palette_index, linear_color)
-# lists.
-def _build_region_table() -> list[tuple[np.ndarray, np.ndarray, bool]]:
-    table = []
-    for subregions, starts, ends, remap in _REGIONS_RAW:
-        indices = []
-        colors = []
-        for start, end in zip(starts[:subregions], ends[:subregions]):
-            for i in range(start, end):
-                indices.append(i)
-                if remap:
-                    # Use remap color table indexed by (i - start_indices[0]).
-                    colors.append(_REMAP_LINEAR[i - starts[0]])
-                else:
-                    colors.append(PALETTE_LINEAR[i])
-        table.append(
-            (np.array(indices, dtype=np.int32),
-             np.array(colors, dtype=np.float64),
-             remap))
-    return table
-
-
-_REGION_TABLE = _build_region_table()
-
-
-# Linear-luma weights from Palette.cpp vector3_get_luma (operates on
-# linear-space "color" but with the sRGB-luma coefficients -- legacy quirk).
-_LUMA_WEIGHTS = np.array([0.299, 0.587, 0.114], dtype=np.float64)
-
-
-def palette_get_nearest(region: int, target: np.ndarray) -> tuple[int, np.ndarray]:
-    """Return (palette_index, error) for the closest color in `region`.
-
-    Mirrors `palette_get_nearest` in Palette.cpp:
-      - search by Euclidean distance in *linear* RGB (against region
-        colors -- remap colors if region.remap, else palette entries);
-      - error is the linear-space residual for non-remap regions;
-      - for remap regions, error is the luma residual against the actual
-        palette color of the chosen index (not the remap color).
-    """
-    indices, colors, remap = _REGION_TABLE[region]
-    deltas = colors - target  # (N, 3)
-    norms = np.linalg.norm(deltas, axis=1)
-    best = int(np.argmin(norms))
-    nearest_index = int(indices[best])
-    if remap:
-        target_luma = float(target @ _LUMA_WEIGHTS)
-        palette_color = PALETTE_LINEAR[nearest_index]
-        nearest_luma = float(palette_color @ _LUMA_WEIGHTS)
-        error = np.array([target_luma - nearest_luma, 0.0, 0.0], dtype=np.float64)
-    else:
-        error = target - PALETTE_LINEAR[nearest_index]
-    return nearest_index, error

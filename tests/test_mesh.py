@@ -12,10 +12,8 @@ from openrct2_vehicle_generator.constants import (
 )
 from openrct2_vehicle_generator.mesh import (
     Material,
-    Texture,
     _classify_material_name,
     load_mesh,
-    texture_sample,
 )
 
 
@@ -111,19 +109,3 @@ def test_empty_mesh_is_valid_and_degenerate(tmp_path):
     mesh = load_mesh(_write_obj(tmp_path, obj))
     assert mesh.faces.shape == (0, 3)
     assert mesh.vertices.shape == (0, 3)
-
-
-def test_texture_sample_wraps_and_clamps():
-    pixels = np.array(
-        [[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]],
-         [[0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]],
-        dtype=np.float32,
-    )
-    tex = Texture(width=2, height=2, pixels=pixels)
-    assert np.allclose(texture_sample(tex, 0.0, 0.0), [0, 0, 0])
-    assert np.allclose(texture_sample(tex, 0.5, 0.0), [1, 0, 0])
-    # u just under 1.0 stays in the last column; exactly 1.0 wraps to 0.
-    assert np.allclose(texture_sample(tex, 0.99, 0.0), [1, 0, 0])
-    assert np.allclose(texture_sample(tex, 1.0, 0.0), [0, 0, 0])
-    # Negative coords wrap by fractional part.
-    assert np.allclose(texture_sample(tex, -0.5, 0.0), [1, 0, 0])
