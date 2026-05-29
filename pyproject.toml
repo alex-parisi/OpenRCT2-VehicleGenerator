@@ -3,8 +3,8 @@ name = "OpenRCT2-VehicleGenerator"
 version = "0.1.0"
 description = "Python interface to the OpenRCT2 vehicle sprite generator (Embree-backed)."
 readme = "readme.md"
-# Pinned to 3.11 to match the CPython that Blender 4.2/4.5 LTS ships, so local
-# builds produce the same cp311 ABI as the bundled add-on wheels.
+# Floor is 3.11: the add-on ships wheels for CPython 3.11 (Blender 4.2/4.5 LTS)
+# and 3.13 (Blender 5.x). 3.11 is the lowest interpreter we support.
 requires-python = ">=3.11"
 dependencies = [
     "numpy>=1.26",
@@ -57,15 +57,15 @@ build-dir = "build/{wheel_tag}"
 # ---------------------------------------------------------------------------
 # Wheel building for the Blender add-on bundle.
 #
-# Target CPython 3.11 — the interpreter Blender 4.2/4.5 LTS ships. (Building
-# against the limited API / abi3 to collapse this to one wheel per platform is
-# possible via pybind11's STABLE_ABI, but cp311-only keeps the toolchain simple
-# and the matrix small.) Embree (+ its bundled TBB) is downloaded by CI and
-# vendored into each wheel by the platform repair tool (auditwheel / delocate /
-# delvewheel) so the resulting wheel needs no system Embree at runtime.
+# Build for the interpreters Blender ships: CPython 3.11 (4.2/4.5 LTS) and 3.13
+# (5.x). (Building against the limited API / abi3 could collapse this to one
+# wheel per platform via pybind11's STABLE_ABI, but explicit cp311+cp313 keeps
+# the toolchain simple and known-good.) Embree (+ its bundled TBB) is downloaded
+# by CI and vendored into each wheel by the platform repair tool (auditwheel /
+# delocate / delvewheel) so the resulting wheel needs no system Embree at runtime.
 # ---------------------------------------------------------------------------
 [tool.cibuildwheel]
-build = "cp311-*"
+build = "cp311-* cp313-*"
 build-frontend = "build"
 skip = ["*-musllinux*", "*_i686", "*-win32"]
 # Sanity check: the extension imports and Embree resolves from vendored libs.
