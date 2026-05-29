@@ -184,6 +184,7 @@ def build_ride_json(ride: Ride) -> dict[str, Any]:
                     if ride.running_sound < len(FRICTION_SOUND_IDS) else 0)
         car["frictionSoundId"] = friction
         car["soundRange"] = ride.secondary_sound
+        car["effectVisual"] = vehicle.effect_visual
         car["drawOrder"] = vehicle.draw_order
 
         car["spriteGroups"] = _emit_sprite_groups(ride.sprite_flags, vehicle.flags)

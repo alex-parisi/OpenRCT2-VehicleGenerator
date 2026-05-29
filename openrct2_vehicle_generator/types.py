@@ -38,6 +38,7 @@ class Vehicle:
     draw_order: int = 0
     num_riders: int = 0
     spacing: float = 0.0
+    effect_visual: int = 1
     riders: list[Model] = field(default_factory=list)
 
 

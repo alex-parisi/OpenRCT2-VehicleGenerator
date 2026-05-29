@@ -79,6 +79,15 @@ def _require_int(obj: dict, key: str) -> int:
     return v
 
 
+def _optional_int(obj: dict, key: str, default: int) -> int:
+    v = obj.get(key)
+    if v is None:
+        return default
+    if not isinstance(v, int) or isinstance(v, bool):
+        raise LoadError(f"Property \"{key}\" is not an integer")
+    return v
+
+
 def _require_number(obj: dict, key: str) -> float:
     v = obj.get(key)
     if not isinstance(v, (int, float)) or isinstance(v, bool):
@@ -215,6 +224,7 @@ def _load_vehicle(value: dict, ride: Ride) -> Vehicle:
     v.spacing = _require_number(value, "spacing")
     v.mass = _require_int(value, "mass")
     v.draw_order = _require_int(value, "draw_order")
+    v.effect_visual = _optional_int(value, "effect_visual", 1)
     v.flags = _flag_bits(value.get("flags"), VEHICLE_FLAG_NAMES, "flags", "flag")
 
     num_frames = 4 if (v.flags & VehicleFlag.RESTRAINT_ANIMATION) else 1

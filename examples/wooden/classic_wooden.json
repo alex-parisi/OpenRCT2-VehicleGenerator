@@ -45,6 +45,7 @@
     "flags": [
       "secondary_remap",
       "tertiary_remap",
+      "riders_scream",
       "restraint_animation"
     ],
     "model": [
@@ -77,6 +78,7 @@
     "mass": 200,
     "spacing": 2.5,
     "draw_order": 6,
+    "effect_visual": 10,
     "capacity": 4,
     "riders": [
       [
