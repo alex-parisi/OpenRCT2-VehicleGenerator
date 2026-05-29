@@ -7,7 +7,7 @@ be reproduced locally -- you can only compile a wheel for the interpreter and OS
 you're running on. This script instead produces a single-platform zip you can
 install into your local Blender right now:
 
-  1. Compile the renderer wheel from x7_renderer/ against your Homebrew Embree.
+  1. Compile the renderer wheel from x123_renderer/ against your Homebrew Embree.
   2. Vendor Embree (+its TBB) into the wheel with delocate, so it's
      self-contained and needs no system Embree at runtime.
   3. Download numpy/pillow/pyyaml wheels matching your Blender's CPython.
