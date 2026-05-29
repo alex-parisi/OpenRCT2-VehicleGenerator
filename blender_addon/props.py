@@ -144,14 +144,6 @@ class VGObjectSettings(PropertyGroup):
         default=0,
         min=0,
     )
-    empty_seat: BoolProperty(
-        name="Empty Seat (engine overlays peep)",
-        description=(
-            "Don't bake this rider's mesh into the sprite. The engine will draw "
-            "the actual guest peep on top, preserving per-guest clothing colors."
-        ),
-        default=False,
-    )
     restraint_swing_deg: FloatProperty(
         name="Restraint Swing",
         description=(

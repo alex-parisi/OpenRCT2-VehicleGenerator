@@ -260,11 +260,14 @@ def _load_vehicle(value: dict, ride: Ride) -> Vehicle:
     if isinstance(riders, list):
         for rj in riders:
             v.riders.append(_load_model(rj, num_meshes, num_frames))
-        # Seat count is the total number of seat slots across all rows; each
-        # rider row is a Model whose submeshes are the individual seats. A
-        # submesh with mesh_index = -1 is an empty seat (no baked peep) — it
-        # still counts so the engine can overlay a guest peep there.
-        v.num_riders = sum(len(row.meshes) for row in v.riders)
+        # Seat count is the total number of peep meshes across all rows; each
+        # rider row is a Model whose submeshes are the individual peeps.
+        v.num_riders = sum(
+            1
+            for row in v.riders
+            for submesh in row.meshes
+            if submesh[0].mesh_index >= 0
+        )
     elif riders is not None:
         raise LoadError("Property \"riders\" is not an array")
     return v
