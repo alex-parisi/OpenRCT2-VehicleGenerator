@@ -15,6 +15,7 @@ __pycache__/
 build/
 *.so
 
+*.zip
 object/
 test/
 *.parkobj
