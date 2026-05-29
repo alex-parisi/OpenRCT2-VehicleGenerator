@@ -12,7 +12,7 @@ restraint animation) renders in **~10 seconds** on a modern Mac.
 
 ## Features
 
-- One command turns a `ride.json` + meshes into an installable `.parkobj`.
+- One command turns a ride config (YAML or JSON) + meshes into an installable `.parkobj`.
 - Embree-backed renderer with anti-aliasing, ambient occlusion, specular
   shading, and palette dithering.
 - Player-recolorable regions, peep seating, and animated restraints.
@@ -42,7 +42,7 @@ along with the `dev` tools used for testing.
 
 ```bash
 # Render the bundled wooden example
-uv run openrct2-vehicle-generator examples/wooden/classic_wooden.json
+uv run openrct2-vehicle-generator examples/wooden/classic_wooden.yaml
 
 # Install it (macOS path shown; adjust for Linux/Windows)
 cp openrct2vg.ride.single_rail_on_wooden.parkobj \
@@ -59,14 +59,14 @@ installing a new `.parkobj`.
 
 ```bash
 # Full render -> writes object/ and <id>.parkobj in the current directory
-uv run openrct2-vehicle-generator path/to/ride.json
+uv run openrct2-vehicle-generator path/to/ride.yaml
 
 # Quick single-viewpoint render per frame (no full sprite set).
 # Outputs to test/ for fast visual iteration.
-uv run openrct2-vehicle-generator --test path/to/ride.json
+uv run openrct2-vehicle-generator --test path/to/ride.yaml
 
 # Reuse sprites from a previous full run; rebuild object.json + .parkobj only
-uv run openrct2-vehicle-generator --skip-render path/to/ride.json
+uv run openrct2-vehicle-generator --skip-render path/to/ride.yaml
 ```
 
 All paths in the ride JSON (`meshes`, `preview`, and `map_Kd` lines in `.mtl`
@@ -79,7 +79,7 @@ One example vehicle ships under `examples/`:
 
 | Example | Ride type | Notes |
 |---|---|---|
-| `wooden/` | `classic_wooden_rc` | A 4-rider classic wooden car (2 rows × 2 seats, lap-bar restraint animation, 8 custom lights). Meshes are generated procedurally by the `scripts/build_wooden_*.py` Blender scripts. Renders all 16 sprite groups via `"sprites": "all"`. |
+| `wooden/` | `classic_wooden_rc` | A 4-rider classic wooden car (2 rows × 2 seats, lap-bar restraint animation, 8 custom lights). Meshes are generated procedurally by the `scripts/build_wooden_*.py` Blender scripts. Renders all 16 sprite groups via `sprites: all`. |
 
 Shared `textures/` (chassis, metal, seat, and remap-gradient textures) are
 referenced from each example's `materials.mtl`. Every example sets a custom
@@ -110,20 +110,34 @@ vanilla OpenRCT2 object.
    **+Z = passenger's right**. Geometry that should lead the moving train must
    sit at positive X.
 
-2. **Write the JSON config.** Start from one of the `examples/` configs.
+2. **Write the config.** Start from one of the `examples/` configs.
    `loader.py` validates required fields and reports what's missing.
+
+   Configs may be **YAML** (`.yaml` / `.yml`) or **JSON** (`.json`) — the
+   parser is chosen by file extension and both produce the same structure.
+   YAML is recommended for authoring by hand: it allows comments and
+   anchors/aliases (the wooden example shares one lap-bar animation sweep
+   between both restraints via a `&sweep` / `*sweep` anchor). JSON is still
+   handy for machine-generated configs.
 
    The `sprites` field selects which of the 16 sprite groups to render:
 
-   ```json
-   "sprites": ["flat", "gentle_slopes", "banked_turns"]   // explicit list
-   "sprites": "all"                                        // every group
+   ```yaml
+   sprites: [flat, gentle_slopes, banked_turns]   # explicit list
+   sprites: all                                   # every group
    ```
 
    Use an explicit list for a minimal render when the vehicle will only ever
    live on its native ride type. Use `"all"` (a few seconds more, larger file)
    when you want it to look correct even if a player swaps it onto a more
    capable ride type with loops and corkscrews.
+
+   Most fields have sensible defaults so you only write what differs from
+   them: `configuration` defaults to `{"default": 0}` (single car type),
+   `zero_cars` / `preview_tab_car` / `build_menu_priority` to `0`, a
+   vehicle's `flags` to none, a light's `shadow` to `false`, and a mesh
+   entry's `position` / `orientation` to `[0, 0, 0]`. A car's seat count is
+   derived from its `riders` rows — count the peep meshes, don't declare it.
 
 3. **Pick a unique `id`.** Use the `openrct2vg.ride.<name>` namespace or your
    own `<author>.ride.<name>` — it must not collide with a vanilla object.
@@ -137,17 +151,17 @@ vanilla OpenRCT2 object.
 ### Custom lighting
 
 Default lighting is a 9-light rig defined in `__main__.py`. To override it, add
-a `lights` array to the ride JSON:
+a `lights` array to the ride config:
 
-```json
-"lights": [
-  {"type": "diffuse",  "shadow": false, "direction": [0, -1, 0],   "strength": 0.1},
-  {"type": "specular", "shadow": false, "direction": [1, 1.65, -1], "strength": 1.0}
-]
+```yaml
+lights:
+  - { type: diffuse,  direction: [0, -1, 0],    strength: 0.1 }
+  - { type: specular, direction: [1, 1.65, -1], strength: 1.0 }
 ```
 
-`direction` is normalized on load. `shadow: true` makes a light respect
-occlusion (slower — it casts shadow rays per pixel).
+`direction` is normalized on load. `shadow` defaults to `false`; set
+`shadow: true` to make a light respect occlusion (slower — it casts shadow
+rays per pixel).
 
 ### Procedural meshes
 

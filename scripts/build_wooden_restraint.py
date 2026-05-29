@@ -2,7 +2,7 @@
 """Generate a wooden coaster lap bar as restraint.obj.
 
 A single horizontal bar with its origin at the pivot end (forward end
-when closed). The same mesh is instantiated twice in classic_wooden.json
+when closed). The same mesh is instantiated twice in classic_wooden.yaml
 (once per row of riders), with restraint_animation rotating it around
 the Z axis from horizontal (closed) to vertical (open).
 

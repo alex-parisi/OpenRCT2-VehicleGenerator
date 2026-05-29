@@ -1,0 +1,71 @@
+# Wooden Roller Coaster Trains (Custom)
+# A 4-rider classic wooden car: 2 seat rows x 2 seats, lap-bar restraint
+
+id: openrct2.ride.wooden_rc_custom
+ride_type: classic_wooden_rc
+name: Wooden Roller Coaster Trains (Custom)
+description: Wooden roller coaster trains with padded seats and lap bar restraints
+capacity: 4 passengers per car
+authors:
+  - Alex Parisi
+preview: examples/wooden/preview.png
+
+# "all" renders every sprite group. Use an explicit list for fewer.
+sprites: all
+
+min_cars_per_train: 5
+max_cars_per_train: 12
+build_menu_priority: 5
+
+running_sound: wooden
+secondary_sound: scream1
+
+# Up to three build-menu color presets: [main, additional, tertiary remap].
+default_colors:
+  - [bright_red, bright_red, yellow]
+  - [light_blue, black, light_orange]
+  - [yellow, yellow, bright_red]
+
+meshes:
+  - examples/wooden/car.obj        # 0: chassis + body + seats
+  - examples/wooden/peep.obj       # 1: rider
+  - examples/wooden/restraint.obj  # 2: lap bar
+
+# Shared lap-bar swing across the 4 restraint-animation frames: closed -> fully
+# raised.
+_restraint_sweep: &sweep
+  - [0, 0, 0]
+  - [0, -30, 0]
+  - [0, -60, 0]
+  - [0, -90, 0]
+
+vehicles:
+  - flags: [secondary_remap, tertiary_remap, riders_scream, restraint_animation]
+    mass: 200
+    spacing: 2.5
+    draw_order: 6
+    effect_visual: 10
+    model:
+      # car body (no offset/rotation -> position/orientation default to 0)
+      - mesh_index: 0
+      # front-row lap bar
+      - { mesh_index: 2, position: [0.78, 0.62, 0], orientation: *sweep }
+      # rear-row lap bar
+      - { mesh_index: 2, position: [0.14, 0.62, 0], orientation: *sweep }
+    # Each entry is one seat row
+    riders:
+      - [ { mesh_index: 1, position: [0.50, 0, -0.38] },
+          { mesh_index: 1, position: [0.50, 0, 0.38] } ]
+      - [ { mesh_index: 1, position: [-0.25, 0, -0.38] },
+          { mesh_index: 1, position: [-0.25, 0, 0.38] } ]
+
+# Custom 8-light rig
+lights:
+  - { type: diffuse,  direction: [0, -1, 0],       strength: 0.1 }
+  - { type: diffuse,  direction: [0, 0.5, -1],     strength: 0.6 }
+  - { type: specular, direction: [1, 1.65, -1],    strength: 1.0 }
+  - { type: diffuse,  direction: [1, 1.7, -1],     strength: 0.8 }
+  - { type: diffuse,  direction: [0, 1, 0],        strength: 0.6 }
+  - { type: diffuse,  direction: [-1, 0.85, 1],    strength: 0.475 }
+  - { type: diffuse,  direction: [0.75, 0.4, -1],  strength: 0.6 }
+  - { type: diffuse,  direction: [1, 0.25, 0],     strength: 0.5 }

@@ -1,12 +1,11 @@
 """
 Usage:
-    openrct2-vehicle-generator [--test|--skip-render] <input.json>
-    python -m openrct2_vehicle_generator [--test|--skip-render] <input.json>
+    openrct2-vehicle-generator [--test|--skip-render] <input.json|.yaml>
+    python -m openrct2_vehicle_generator [--test|--skip-render] <input.json|.yaml>
 """
 
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
@@ -14,7 +13,7 @@ import numpy as np
 
 from .constants import LIGHT_DIFFUSE, LIGHT_SPECULAR, TILE_SIZE
 from .exporter import export_ride, export_ride_test
-from .loader import LoadError, load_lights, load_ride
+from .loader import LoadError, load_lights, load_ride, parse_config
 from .ray_trace import Context
 from .types import Light
 
@@ -53,7 +52,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        root = json.loads(args.input.read_text())
+        root = parse_config(args.input)
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1

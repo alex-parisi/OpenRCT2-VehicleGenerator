@@ -1,4 +1,4 @@
-"""Load a ride JSON config into a Ride dataclass.
+"""Load a ride config (JSON or YAML) into a Ride dataclass.
 
 Ports src/rct2-ride-gen/ProjectLoader.cpp. Mirrors validation behavior:
 required fields, enum-name resolution, implied sprite flags, model
@@ -34,6 +34,29 @@ from .types import Light, MeshFrame, Model, Ride, Vehicle, MAX_FRAMES
 
 class LoadError(Exception):
     pass
+
+
+def parse_config(json_path: Path | str) -> dict:
+    """Parse a ride config file into a dict.
+
+    Format is chosen by extension: `.yaml`/`.yml` use a YAML parser (safe
+    mode — supports comments and anchors/aliases), anything else is JSON.
+    Both produce the same dict/list structure the rest of the loader expects.
+    """
+    path = Path(json_path)
+    text = path.read_text()
+    if path.suffix.lower() in (".yaml", ".yml"):
+        try:
+            import yaml
+        except ImportError:
+            raise LoadError(
+                "PyYAML is required to load .yaml configs (pip install pyyaml)")
+        root = yaml.safe_load(text)
+    else:
+        root = json.loads(text)
+    if not isinstance(root, dict):
+        raise LoadError("Config root is not an object")
+    return root
 
 
 # ---------------------------------------------------------------------------
@@ -151,9 +174,9 @@ def load_lights(value: Any) -> list[Light]:
             type_val = LIGHT_SPECULAR
         else:
             raise LoadError(f"Unrecognized light type \"{type_str}\"")
-        shadow = light.get("shadow")
+        shadow = light.get("shadow", False)
         if not isinstance(shadow, bool):
-            raise LoadError("Property \"shadow\" not found or is not a boolean")
+            raise LoadError("Property \"shadow\" is not a boolean")
         direction = _read_vector3(light.get("direction"))
         n = np.linalg.norm(direction)
         if n > 0:
@@ -200,8 +223,10 @@ def _load_model(value: Any, num_meshes: int, num_frames: int) -> Model:
 
         for key in ("position", "orientation"):
             prop = elem.get(key)
+            if prop is None:
+                continue  # MeshFrame defaults to a zero vector
             if not isinstance(prop, list):
-                raise LoadError(f'Property "{key}" not found or is not an array')
+                raise LoadError(f'Property "{key}" is not an array')
             if len(prop) == 3:
                 vec = _read_vector3(prop)
                 for frame in frames[:num_frames]:
@@ -225,7 +250,7 @@ def _load_vehicle(value: dict, ride: Ride) -> Vehicle:
     v.mass = _require_int(value, "mass")
     v.draw_order = _require_int(value, "draw_order")
     v.effect_visual = _optional_int(value, "effect_visual", 1)
-    v.flags = _flag_bits(value.get("flags"), VEHICLE_FLAG_NAMES, "flags", "flag")
+    v.flags = _flag_bits(value.get("flags", []), VEHICLE_FLAG_NAMES, "flags", "flag")
 
     num_frames = 4 if (v.flags & VehicleFlag.RESTRAINT_ANIMATION) else 1
     num_meshes = len(ride.meshes)
@@ -233,9 +258,16 @@ def _load_vehicle(value: dict, ride: Ride) -> Vehicle:
 
     riders = value.get("riders")
     if isinstance(riders, list):
-        v.num_riders = _require_int(value, "capacity")
         for rj in riders:
             v.riders.append(_load_model(rj, num_meshes, num_frames))
+        # Seat count is the total number of peep meshes across all rows; each
+        # rider row is a Model whose submeshes are the individual peeps.
+        v.num_riders = sum(
+            1
+            for row in v.riders
+            for submesh in row.meshes
+            if submesh[0].mesh_index >= 0
+        )
     elif riders is not None:
         raise LoadError("Property \"riders\" is not an array")
     return v
@@ -246,8 +278,7 @@ def _load_vehicle(value: dict, ride: Ride) -> Vehicle:
 # ---------------------------------------------------------------------------
 
 def load_ride(json_path: Path | str) -> Ride:
-    path = Path(json_path)
-    root = json.loads(path.read_text())
+    root = parse_config(json_path)
 
     ride = Ride()
     ride.id = _require_string(root, "id")
@@ -305,9 +336,9 @@ def load_ride(json_path: Path | str) -> Ride:
             sf |= SpriteFlag.ZERO_G_ROLL
         ride.sprite_flags = int(sf)
 
-    ride.zero_cars = _require_int(root, "zero_cars")
-    ride.tab_car = _require_int(root, "preview_tab_car")
-    ride.build_menu_priority = _require_int(root, "build_menu_priority")
+    ride.zero_cars = _optional_int(root, "zero_cars", 0)
+    ride.tab_car = _optional_int(root, "preview_tab_car", 0)
+    ride.build_menu_priority = _optional_int(root, "build_menu_priority", 0)
 
     ride.running_sound = _enum_index(root.get("running_sound"),
                                      RUNNING_SOUND_NAMES,
@@ -319,10 +350,11 @@ def load_ride(json_path: Path | str) -> Ride:
     ride.min_cars_per_train = _require_int(root, "min_cars_per_train")
     ride.max_cars_per_train = _require_int(root, "max_cars_per_train")
 
-    # Configuration: required object with `default`, optional front/second/third/rear.
-    config = root.get("configuration")
+    # Configuration: optional object with `default` (defaults to 0), plus
+    # optional front/second/third/rear. Single-car-type rides can omit it.
+    config = root.get("configuration", {"default": 0})
     if not isinstance(config, dict):
-        raise LoadError("Property \"configuration\" not found or is not an object")
+        raise LoadError("Property \"configuration\" is not an object")
     ride.configuration = [0xFF] * 5
     default = config.get("default")
     if not isinstance(default, int) or isinstance(default, bool):

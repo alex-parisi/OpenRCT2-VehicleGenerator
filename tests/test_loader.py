@@ -20,20 +20,14 @@ def _make_ride(tmp_path, **overrides):
         "capacity": "1 passenger",
         "ride_type": "classic_wooden_rc",
         "sprites": ["flat"],
-        "zero_cars": 0,
         "min_cars_per_train": 1,
         "max_cars_per_train": 4,
-        "build_menu_priority": 0,
-        "preview_tab_car": 0,
         "running_sound": "wooden",
         "secondary_sound": "scream1",
         "default_colors": [["bright_red", "black", "yellow"]],
-        "configuration": {"default": 0},
         "meshes": [str(tmp_path / "m.obj")],
         "vehicles": [{
-            "flags": [],
-            "model": {"mesh_index": 0, "position": [0, 0, 0],
-                      "orientation": [0, 0, 0]},
+            "model": {"mesh_index": 0},
             "mass": 100,
             "spacing": 2.0,
             "draw_order": 1,
@@ -43,6 +37,42 @@ def _make_ride(tmp_path, **overrides):
     path = tmp_path / "ride.json"
     path.write_text(json.dumps(base))
     return path
+
+
+def test_load_yaml_config(tmp_path):
+    # Same ride, authored as YAML with a comment and an anchor/alias shared
+    # between two mesh entries. parse_config picks the parser by extension.
+    (tmp_path / "m.obj").write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n")
+    yaml_text = f"""
+# a comment, which JSON can't have
+id: test.ride.yaml
+name: Y
+description: desc
+capacity: 1 passenger
+ride_type: classic_wooden_rc
+sprites: [flat]
+min_cars_per_train: 1
+max_cars_per_train: 4
+running_sound: wooden
+secondary_sound: scream1
+default_colors:
+  - [bright_red, black, yellow]
+meshes:
+  - {tmp_path / "m.obj"}
+_pos: &pos [1, 2, 3]
+vehicles:
+  - mass: 100
+    spacing: 2.0
+    draw_order: 1
+    model:
+      - {{ mesh_index: 0, position: *pos }}
+"""
+    path = tmp_path / "ride.yaml"
+    path.write_text(yaml_text)
+    ride = load_ride(path)
+    assert ride.id == "test.ride.yaml"
+    assert ride.ride_type == "classic_wooden_rc"
+    assert np.allclose(ride.vehicles[0].model.meshes[0][0].position, [1, 2, 3])
 
 
 def test_load_minimal_ride(tmp_path):
@@ -114,19 +144,37 @@ def test_restraint_animation_broadcasts_frames(tmp_path):
     assert np.allclose(frames[3].orientation, [0, -90, 0])
 
 
-def test_riders_require_vehicle_capacity(tmp_path):
+def test_seat_count_derived_from_riders(tmp_path):
+    # num_riders is the total peep meshes across all rows (2 rows x 2 = 4),
+    # not a separately declared field.
     vehicle = {
-        "flags": [],
-        "model": {"mesh_index": 0, "position": [0, 0, 0], "orientation": [0, 0, 0]},
+        "model": {"mesh_index": 0},
         "mass": 100,
         "spacing": 2.0,
         "draw_order": 1,
-        "riders": [[{"mesh_index": 0, "position": [0, 0, 0],
-                     "orientation": [0, 0, 0]}]],
-        # "capacity" intentionally omitted.
+        "riders": [
+            [{"mesh_index": 0, "position": [0.5, 0, -0.4]},
+             {"mesh_index": 0, "position": [0.5, 0, 0.4]}],
+            [{"mesh_index": 0, "position": [-0.5, 0, -0.4]},
+             {"mesh_index": 0, "position": [-0.5, 0, 0.4]}],
+        ],
     }
-    with pytest.raises(LoadError):
-        load_ride(_make_ride(tmp_path, vehicles=[vehicle]))
+    ride = load_ride(_make_ride(tmp_path, vehicles=[vehicle]))
+    assert ride.vehicles[0].num_riders == 4
+    assert len(ride.vehicles[0].riders) == 2  # numSeatRows
+
+
+def test_optional_fields_default(tmp_path):
+    # zero_cars / preview_tab_car / build_menu_priority / configuration all
+    # omitted; vehicle has no flags; mesh frame has no position/orientation.
+    ride = load_ride(_make_ride(tmp_path))
+    assert ride.zero_cars == 0
+    assert ride.tab_car == 0
+    assert ride.build_menu_priority == 0
+    assert ride.configuration[0] == 0  # default car type
+    frame = ride.vehicles[0].model.meshes[0][0]
+    assert np.allclose(frame.position, [0, 0, 0])
+    assert np.allclose(frame.orientation, [0, 0, 0])
 
 
 def test_load_lights_normalizes_direction():
@@ -137,6 +185,13 @@ def test_load_lights_normalizes_direction():
     assert len(lights) == 2
     assert np.isclose(np.linalg.norm(lights[0].direction), 1.0)
     assert lights[1].shadow == 1
+
+
+def test_load_lights_shadow_defaults_false():
+    lights = load_lights([
+        {"type": "diffuse", "direction": [0, 1, 0], "strength": 0.5},
+    ])
+    assert lights[0].shadow == 0
 
 
 def test_load_lights_rejects_unknown_type():
