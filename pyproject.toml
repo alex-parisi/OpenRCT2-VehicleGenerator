@@ -69,6 +69,10 @@ skip = ["*-musllinux*", "*_i686", "*-win32"]
 test-command = "python -c \"import openrct2_vehicle_generator._native as n; print('embree ok', n.LIGHT_DIFFUSE)\""
 
 [tool.cibuildwheel.linux]
+# The native extension is C++23; the default manylinux2014 image only has
+# GCC 10, which can't compile it. manylinux_2_28 (AlmaLinux 8) ships a modern
+# gcc-toolset with full C++23 support.
+manylinux-x86_64-image = "manylinux_2_28"
 # Runs inside the manylinux container; installs Embree to /embree.
 before-all = "bash {project}/scripts/ci/install_embree_linux.sh"
 environment = { EMBREE_ROOT = "/embree", CMAKE_PREFIX_PATH = "/embree", LD_LIBRARY_PATH = "/embree/lib64" }
