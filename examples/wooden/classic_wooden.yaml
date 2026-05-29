@@ -27,9 +27,9 @@ default_colors:
   - [yellow, yellow, bright_red]
 
 meshes:
-  - examples/wooden/car.obj        # 0: chassis + body + seats
-  - examples/wooden/peep.obj       # 1: rider
-  - examples/wooden/restraint.obj  # 2: lap bar
+  - examples/wooden/car.obj
+  - examples/wooden/peep.obj
+  - examples/wooden/restraint.obj
 
 # Shared lap-bar swing across the 4 restraint-animation frames: closed -> fully
 # raised.

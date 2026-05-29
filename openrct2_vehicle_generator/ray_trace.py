@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from . import _native
+from . import _native  # type: ignore[attr-defined]  # C extension, no stubs
 from .constants import MATERIAL_HAS_TEXTURE, TILE_SIZE
 from .mesh import Mesh
 from .types import IndexedImage, Light
