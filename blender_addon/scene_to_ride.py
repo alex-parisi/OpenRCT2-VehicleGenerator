@@ -40,6 +40,8 @@ from openrct2_vehicle_generator.image import read_png
 from openrct2_vehicle_generator.mesh import Material, Mesh, load_texture
 from openrct2_vehicle_generator.types import IndexedImage
 
+from . import props
+
 # Blender (x, y, z) -> OBJ (x, z, -y).
 _BASIS = Matrix(((1.0, 0.0, 0.0), (0.0, 0.0, 1.0), (0.0, -1.0, 0.0)))
 
@@ -213,7 +215,7 @@ def build_config_and_meshes(context):
             "No Body/Restraint objects found. Set object roles in the OpenRCT2 Vehicle panel."
         )
 
-    veh_flags = list(rs.vehicle_flags)
+    veh_flags = [n for attr, n in props.flag_items("vf_") if getattr(rs, attr)]
     if has_restraint and "restraint_animation" not in veh_flags:
         veh_flags.append("restraint_animation")
 
@@ -233,7 +235,8 @@ def build_config_and_meshes(context):
     if rs.sprites_all:
         sprites: object = "all"
     else:
-        sprites = sorted(rs.sprites) if rs.sprites else ["flat"]
+        chosen = [n for attr, n in props.flag_items("sg_") if getattr(rs, attr)]
+        sprites = chosen if chosen else ["flat"]
 
     authors = [a.strip() for a in rs.authors.split(",") if a.strip()]
 
@@ -246,7 +249,7 @@ def build_config_and_meshes(context):
         "version": rs.version,
         "ride_type": rs.ride_type,
         "sprites": sprites,
-        "flags": list(rs.ride_flags),
+        "flags": [n for attr, n in props.flag_items("rf_") if getattr(rs, attr)],
         "running_sound": rs.running_sound,
         "secondary_sound": rs.secondary_sound,
         "min_cars_per_train": int(rs.min_cars),

@@ -45,9 +45,20 @@ def _simple_items(names):
     return [(n, _title(n), "") for n in names]
 
 
-def _flag_items(names):
-    """4-tuples with explicit bit values for an ENUM_FLAG (multi-select)."""
-    return [(n, _title(n), "", 1 << i) for i, n in enumerate(names)]
+# Each multi-select flag group is exposed as one BoolProperty per flag (prefixed
+# by group), not a single ENUM_FLAG: Blender draws flag-enum buttons with
+# exclusive, radio-like plain-click selection, whereas independent checkboxes are
+# the behaviour we want. Sourced from the constant lists so they can't drift.
+FLAG_GROUPS = {
+    "sg_": SPRITE_GROUP_NAMES,
+    "rf_": RIDE_FLAG_NAMES,
+    "vf_": [n for n in VEHICLE_FLAG_NAMES if n != "restraint_animation"],
+}
+
+
+def flag_items(prefix: str):
+    """(property_attr, flag_name) pairs for a group, e.g. ("rf_x", "x")."""
+    return [(prefix + n, n) for n in FLAG_GROUPS[prefix]]
 
 
 def _ride_type_items(_self, _context):
@@ -156,18 +167,8 @@ class VGRideSettings(PropertyGroup):
         description="Render every sprite group (safe default; larger output)",
         default=True,
     )
-    sprites: EnumProperty(
-        name="Sprite Groups",
-        items=_flag_items(SPRITE_GROUP_NAMES),
-        options={"ENUM_FLAG"},
-        default={"flat"},
-    )
-    ride_flags: EnumProperty(
-        name="Ride Flags",
-        items=_flag_items(RIDE_FLAG_NAMES),
-        options={"ENUM_FLAG"},
-        default=set(),
-    )
+    # Per-flag sprite-group / ride-flag bools are injected after the class (see
+    # FLAG_GROUPS).
     running_sound: EnumProperty(name="Running Sound", items=_simple_items(RUNNING_SOUND_NAMES))
     secondary_sound: EnumProperty(
         name="Secondary Sound", items=_simple_items(SECONDARY_SOUND_NAMES)
@@ -186,19 +187,24 @@ class VGRideSettings(PropertyGroup):
     )
 
     # --- Single vehicle params ---------------------------------------------
-    vehicle_flags: EnumProperty(
-        name="Vehicle Flags",
-        description="restraint_animation is added automatically when a Restraint object exists",
-        items=_flag_items([n for n in VEHICLE_FLAG_NAMES if n != "restraint_animation"]),
-        options={"ENUM_FLAG"},
-        default=set(),
-    )
+    # Per-flag vehicle-flag bools are injected after the class (see FLAG_GROUPS).
+    # restraint_animation is excluded -- it's added automatically when a
+    # Restraint object exists.
     mass: IntProperty(name="Mass", default=100, min=0)
     spacing: FloatProperty(name="Spacing", default=2.0, min=0.0)
     draw_order: IntProperty(name="Draw Order", default=1, min=0)
     effect_visual: IntProperty(name="Effect Visual", default=1, min=0)
 
     preview: PointerProperty(name="Preview Image", type=bpy.types.Image)
+
+
+# Inject one BoolProperty per flag into VGRideSettings before registration, so
+# register_class picks them up from __annotations__. "flat" is on by default to
+# preserve the old sprite-group default.
+for _prefix, _names in FLAG_GROUPS.items():
+    for _name in _names:
+        VGRideSettings.__annotations__[_prefix + _name] = BoolProperty(
+            name=_title(_name), default=(_prefix == "sg_" and _name == "flat"))
 
 
 _CLASSES = (VGMaterialSettings, VGObjectSettings, VGRideSettings)

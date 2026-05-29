@@ -3,6 +3,8 @@
 import bpy
 from bpy.types import Panel
 
+from . import props
+
 
 class VG_PT_ride(Panel):
     bl_label = "OpenRCT2 Vehicle"
@@ -28,7 +30,9 @@ class VG_PT_ride(Panel):
         box.label(text="Sprites", icon="IMAGE_DATA")
         box.prop(rs, "sprites_all")
         if not rs.sprites_all:
-            box.prop(rs, "sprites", expand=True)
+            grid = box.grid_flow(row_major=True, columns=2, even_columns=True)
+            for attr, _name in props.flag_items("sg_"):
+                grid.prop(rs, attr)
 
         box = layout.box()
         box.label(text="Train", icon="AUTO")
@@ -38,7 +42,9 @@ class VG_PT_ride(Panel):
         box.prop(rs, "build_menu_priority")
         box.prop(rs, "running_sound")
         box.prop(rs, "secondary_sound")
-        box.prop(rs, "ride_flags", expand=True)
+        box.label(text="Ride Flags:")
+        for attr, _name in props.flag_items("rf_"):
+            box.prop(rs, attr)
 
         box = layout.box()
         box.label(text="Default Colours", icon="COLOR")
@@ -48,7 +54,9 @@ class VG_PT_ride(Panel):
 
         box = layout.box()
         box.label(text="Vehicle", icon="MOD_PHYSICS")
-        box.prop(rs, "vehicle_flags", expand=True)
+        box.label(text="Vehicle Flags:")
+        for attr, _name in props.flag_items("vf_"):
+            box.prop(rs, attr)
         row = box.row(align=True)
         row.prop(rs, "mass")
         row.prop(rs, "spacing")
