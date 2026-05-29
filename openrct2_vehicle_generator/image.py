@@ -12,7 +12,6 @@ from PIL import Image as PILImage
 from .palette import PALETTE_RGB, TRANSPARENT_INDEX
 from .types import IndexedImage
 
-
 # ---------------------------------------------------------------------------
 # PNG I/O
 # ---------------------------------------------------------------------------

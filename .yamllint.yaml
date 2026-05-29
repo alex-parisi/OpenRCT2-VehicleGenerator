@@ -1,0 +1,17 @@
+# yamllint config — lints hand-authored ride configs (examples/, textures/),
+# not CMake/build artifacts.
+extends: default
+
+ignore: |
+  build/
+  native/build/
+  native/cmake-build-debug/
+  dist/
+
+rules:
+  document-start: disable        # ride configs don't use a leading '---'
+  line-length:
+    max: 100
+    allow-non-breakable-words: true
+  truthy:
+    check-keys: false            # allow bare on/off/yes if used as values

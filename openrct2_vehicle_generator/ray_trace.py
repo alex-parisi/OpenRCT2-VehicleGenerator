@@ -19,7 +19,6 @@ from .constants import MATERIAL_HAS_TEXTURE, TILE_SIZE
 from .mesh import Mesh
 from .types import IndexedImage, Light
 
-
 # ---------------------------------------------------------------------------
 # Camera helpers — same identities as rotate_y/z/x in VectorMath.hpp.
 # Kept in Python because callers pass np.ndarray matrices to both add_model

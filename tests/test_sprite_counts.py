@@ -5,9 +5,7 @@ count and the rendered image list); if they ever drift the parkobj is
 silently corrupt. We stub the native render so this runs without Embree.
 """
 
-import numpy as np
 import pytest
-
 from openrct2_vehicle_generator import sprite_renderer
 from openrct2_vehicle_generator.constants import SpriteFlag, VehicleFlag
 from openrct2_vehicle_generator.sprite_renderer import (

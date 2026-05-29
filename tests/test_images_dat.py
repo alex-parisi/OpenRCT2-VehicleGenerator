@@ -3,7 +3,6 @@
 import struct
 
 import numpy as np
-
 from openrct2_vehicle_generator.exporter import _G1_FLAG_BMP, _write_images_dat
 from openrct2_vehicle_generator.types import IndexedImage
 
@@ -44,7 +43,7 @@ def test_images_dat_roundtrip(tmp_path):
     assert len(pixels) == total
 
     cursor = 0
-    for img, el in zip(images, elements):
+    for img, el in zip(images, elements, strict=False):
         assert el["w"] == img.width
         assert el["h"] == img.height
         assert el["x"] == img.x_offset

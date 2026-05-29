@@ -10,7 +10,6 @@ import json
 import sys
 from pathlib import Path
 
-
 # spriteGroups key (new format) → RCTGen sprites flag name
 _SPRITE_GROUPS_MAP = {
     "slopeFlat":            "flat",
@@ -139,7 +138,7 @@ def _extract_configuration(props: dict) -> dict:
     if head is not None:
         if isinstance(head, list):
             slots = ["front", "second", "third"]
-            for slot, idx in zip(slots, head):
+            for slot, idx in zip(slots, head, strict=False):
                 config[slot] = idx
         else:
             config["front"] = head

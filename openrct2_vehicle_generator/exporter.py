@@ -14,19 +14,18 @@ import numpy as np
 
 from .constants import (
     CATEGORY_NAMES,
-    CarIndex,
     COLOR_NAMES,
     FRICTION_SOUND_IDS,
+    TILE_SIZE,
+    CarIndex,
     RideFlag,
     SpriteFlag,
-    TILE_SIZE,
     VehicleFlag,
 )
 from .image import write_png
 from .ray_trace import Context, render_view, rotate_x, rotate_y, rotate_z
 from .sprite_renderer import count_sprites, render_vehicle_frame
-from .types import Model, Ride, Vehicle
-
+from .types import Model, Ride
 
 # ---------------------------------------------------------------------------
 # object.json construction
@@ -38,20 +37,30 @@ def _emit_sprite_groups(sf: int, vf: int) -> dict[str, int]:
     def add(key: str, n: int) -> None:
         out[key] = n
 
-    if sf & SpriteFlag.FLAT_SLOPE: add("slopeFlat", 32)
+    if sf & SpriteFlag.FLAT_SLOPE:
+        add("slopeFlat", 32)
     if sf & SpriteFlag.GENTLE_SLOPE:
-        add("slopes12", 4); add("slopes25", 32)
+        add("slopes12", 4)
+        add("slopes25", 32)
     if sf & SpriteFlag.STEEP_SLOPE:
-        add("slopes42", 8); add("slopes60", 32)
+        add("slopes42", 8)
+        add("slopes60", 32)
     if sf & SpriteFlag.VERTICAL_SLOPE:
-        add("slopes75", 4); add("slopes90", 32)
-        add("slopesLoop", 4); add("slopeInverted", 4)
+        add("slopes75", 4)
+        add("slopes90", 32)
+        add("slopesLoop", 4)
+        add("slopeInverted", 4)
     if sf & SpriteFlag.DIAGONAL_SLOPE:
-        add("slopes8", 4); add("slopes16", 4); add("slopes50", 4)
+        add("slopes8", 4)
+        add("slopes16", 4)
+        add("slopes50", 4)
     if sf & SpriteFlag.BANKING:
-        add("flatBanked22", 8); add("flatBanked45", 32)
+        add("flatBanked22", 8)
+        add("flatBanked45", 32)
     if sf & SpriteFlag.INLINE_TWIST:
-        add("flatBanked67", 4); add("flatBanked90", 4); add("inlineTwists", 4)
+        add("flatBanked67", 4)
+        add("flatBanked90", 4)
+        add("inlineTwists", 4)
     if sf & SpriteFlag.SLOPE_BANK_TRANSITION:
         add("slopes12Banked22", 32)
     if sf & SpriteFlag.DIAGONAL_BANK_TRANSITION:
@@ -59,19 +68,26 @@ def _emit_sprite_groups(sf: int, vf: int) -> dict[str, int]:
     if sf & SpriteFlag.SLOPED_BANK_TRANSITION:
         add("slopes25Banked22", 4)
     if sf & SpriteFlag.DIAGONAL_SLOPED_BANK_TRANSITION:
-        add("slopes8Banked45", 4); add("slopes16Banked22", 4); add("slopes16Banked45", 4)
+        add("slopes8Banked45", 4)
+        add("slopes16Banked22", 4)
+        add("slopes16Banked45", 4)
     if sf & SpriteFlag.SLOPED_BANKED_TURN:
         add("slopes25Banked45", 32)
     if sf & SpriteFlag.BANKED_SLOPE_TRANSITION:
         add("slopes12Banked45", 4)
     if sf & SpriteFlag.ZERO_G_ROLL:
-        add("slopes25Banked67", 4); add("slopes25Banked90", 4)
+        add("slopes25Banked67", 4)
+        add("slopes25Banked90", 4)
         add("slopes25InlineTwists", 4)
-        add("slopes42Banked22", 4); add("slopes42Banked45", 4)
-        add("slopes42Banked67", 4); add("slopes42Banked90", 4)
+        add("slopes42Banked22", 4)
+        add("slopes42Banked45", 4)
+        add("slopes42Banked67", 4)
+        add("slopes42Banked90", 4)
         add("slopes60Banked22", 8 if (sf & SpriteFlag.DIVE_LOOP) else 4)
     if sf & SpriteFlag.DIVE_LOOP:
-        add("slopes50Banked45", 8); add("slopes50Banked67", 8); add("slopes50Banked90", 8)
+        add("slopes50Banked45", 8)
+        add("slopes50Banked67", 8)
+        add("slopes50Banked90", 8)
     if sf & SpriteFlag.CORKSCREW:
         add("corkscrews", 4)
     if vf & VehicleFlag.RESTRAINT_ANIMATION:
@@ -115,7 +131,7 @@ def _write_images_dat(images: list, out_path: Path) -> None:
     total_pixel_size = cur
 
     elements = bytearray()
-    for img, offset in zip(images, offsets):
+    for img, offset in zip(images, offsets, strict=False):
         elements += struct.pack(
             "<IhhhhHH",
             offset,

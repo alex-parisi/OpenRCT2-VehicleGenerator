@@ -2,8 +2,8 @@
 
 from openrct2_vehicle_generator.constants import (
     CATEGORY_NAMES,
-    Category,
     SPRITE_GROUP_NAMES,
+    Category,
     SpriteFlag,
 )
 

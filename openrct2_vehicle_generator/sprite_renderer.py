@@ -13,7 +13,6 @@ from .constants import SpriteFlag, VehicleFlag
 from .ray_trace import Context, render_view, rotate_x, rotate_y, rotate_z
 from .types import IndexedImage
 
-
 # ---------------------------------------------------------------------------
 # Angle constants
 # ---------------------------------------------------------------------------
@@ -175,12 +174,18 @@ _ZERO_G_SB22_8 = [
 ]
 
 _DIVE_LOOP_ROT = [
-    _Rot(8, _STEEP_DIAG, math.pi / 4, math.pi / 8), _Rot(8, _STEEP_DIAG, -math.pi / 4, math.pi / 8),
-    _Rot(8, -_STEEP_DIAG, math.pi / 4, math.pi / 8), _Rot(8, -_STEEP_DIAG, -math.pi / 4, math.pi / 8),
-    _Rot(8, _STEEP_DIAG, 3 * math.pi / 8, math.pi / 8), _Rot(8, _STEEP_DIAG, -3 * math.pi / 8, math.pi / 8),
-    _Rot(8, -_STEEP_DIAG, 3 * math.pi / 8, math.pi / 8), _Rot(8, -_STEEP_DIAG, -3 * math.pi / 8, math.pi / 8),
-    _Rot(8, _STEEP_DIAG, math.pi / 2, math.pi / 8), _Rot(8, _STEEP_DIAG, -math.pi / 2, math.pi / 8),
-    _Rot(8, -_STEEP_DIAG, math.pi / 2, math.pi / 8), _Rot(8, -_STEEP_DIAG, -math.pi / 2, math.pi / 8),
+    _Rot(8, _STEEP_DIAG, math.pi / 4, math.pi / 8),
+    _Rot(8, _STEEP_DIAG, -math.pi / 4, math.pi / 8),
+    _Rot(8, -_STEEP_DIAG, math.pi / 4, math.pi / 8),
+    _Rot(8, -_STEEP_DIAG, -math.pi / 4, math.pi / 8),
+    _Rot(8, _STEEP_DIAG, 3 * math.pi / 8, math.pi / 8),
+    _Rot(8, _STEEP_DIAG, -3 * math.pi / 8, math.pi / 8),
+    _Rot(8, -_STEEP_DIAG, 3 * math.pi / 8, math.pi / 8),
+    _Rot(8, -_STEEP_DIAG, -3 * math.pi / 8, math.pi / 8),
+    _Rot(8, _STEEP_DIAG, math.pi / 2, math.pi / 8),
+    _Rot(8, _STEEP_DIAG, -math.pi / 2, math.pi / 8),
+    _Rot(8, -_STEEP_DIAG, math.pi / 2, math.pi / 8),
+    _Rot(8, -_STEEP_DIAG, -math.pi / 2, math.pi / 8),
 ]
 
 _CORKSCREW_ANGLES = [
@@ -218,23 +223,40 @@ def count_sprites(sprite_flags: int, vehicle_flags: int) -> int:
     n = 0
     sf = sprite_flags
     vf = vehicle_flags
-    if sf & SpriteFlag.FLAT_SLOPE: n += 32
-    if sf & SpriteFlag.GENTLE_SLOPE: n += 72
-    if sf & SpriteFlag.STEEP_SLOPE: n += 80
-    if sf & SpriteFlag.VERTICAL_SLOPE: n += 116
-    if sf & SpriteFlag.DIAGONAL_SLOPE: n += 24
-    if sf & SpriteFlag.BANKING: n += 80
-    if sf & SpriteFlag.INLINE_TWIST: n += 40
-    if sf & SpriteFlag.SLOPE_BANK_TRANSITION: n += 128
-    if sf & SpriteFlag.DIAGONAL_BANK_TRANSITION: n += 16
-    if sf & SpriteFlag.SLOPED_BANK_TRANSITION: n += 16
-    if sf & SpriteFlag.DIAGONAL_SLOPED_BANK_TRANSITION: n += 48
-    if sf & SpriteFlag.SLOPED_BANKED_TURN: n += 128
-    if sf & SpriteFlag.BANKED_SLOPE_TRANSITION: n += 16
-    if sf & SpriteFlag.CORKSCREW: n += 80
-    if sf & SpriteFlag.ZERO_G_ROLL: n += 160
-    if sf & SpriteFlag.DIVE_LOOP: n += 112
-    if vf & VehicleFlag.RESTRAINT_ANIMATION: n += _RESTRAINT_FRAMES
+    if sf & SpriteFlag.FLAT_SLOPE:
+        n += 32
+    if sf & SpriteFlag.GENTLE_SLOPE:
+        n += 72
+    if sf & SpriteFlag.STEEP_SLOPE:
+        n += 80
+    if sf & SpriteFlag.VERTICAL_SLOPE:
+        n += 116
+    if sf & SpriteFlag.DIAGONAL_SLOPE:
+        n += 24
+    if sf & SpriteFlag.BANKING:
+        n += 80
+    if sf & SpriteFlag.INLINE_TWIST:
+        n += 40
+    if sf & SpriteFlag.SLOPE_BANK_TRANSITION:
+        n += 128
+    if sf & SpriteFlag.DIAGONAL_BANK_TRANSITION:
+        n += 16
+    if sf & SpriteFlag.SLOPED_BANK_TRANSITION:
+        n += 16
+    if sf & SpriteFlag.DIAGONAL_SLOPED_BANK_TRANSITION:
+        n += 48
+    if sf & SpriteFlag.SLOPED_BANKED_TURN:
+        n += 128
+    if sf & SpriteFlag.BANKED_SLOPE_TRANSITION:
+        n += 16
+    if sf & SpriteFlag.CORKSCREW:
+        n += 80
+    if sf & SpriteFlag.ZERO_G_ROLL:
+        n += 160
+    if sf & SpriteFlag.DIVE_LOOP:
+        n += 112
+    if vf & VehicleFlag.RESTRAINT_ANIMATION:
+        n += _RESTRAINT_FRAMES
     return n
 
 

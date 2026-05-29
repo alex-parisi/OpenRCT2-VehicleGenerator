@@ -18,9 +18,9 @@ from pathlib import Path
 _TRACK_TYPES_FILE = Path(__file__).parent / "track_types.json"
 
 # Valid values accepted by makeride (from Constants.hpp)
-VALID_RUNNING_SOUNDS   = ["wooden_old", "wooden", "steel", "steel_smooth", "train", "engine"]
+VALID_RUNNING_SOUNDS = ["wooden_old", "wooden", "steel", "steel_smooth", "train", "engine"]
 VALID_SECONDARY_SOUNDS = ["scream1", "scream2", "scream3", "bell"]
-VALID_VEHICLE_FLAGS    = ["secondary_remap", "tertiary_remap", "riders_scream", "restraint_animation"]
+VALID_VEHICLE_FLAGS = ["secondary_remap", "tertiary_remap", "riders_scream", "restraint_animation"]
 
 
 def load_track_types() -> dict:
@@ -91,7 +91,6 @@ def cmd_generate(track_types: dict, args) -> None:
 
     vehicles = []
     for i, car in enumerate(cars):
-        mesh_path = _mesh_for_car(args.meshes, i)
         # Merge required flags from the track type with any user-supplied extras
         vflags = sorted(set(car["vehicle_flags"]) | set(args.extra_flags))
         vehicles.append({

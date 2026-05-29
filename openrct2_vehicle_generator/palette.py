@@ -6,7 +6,6 @@ Ports the palette data from src/iso-render/Image.cpp / Palette.cpp.
 
 import numpy as np
 
-
 # ---------------------------------------------------------------------------
 # Palette data
 # ---------------------------------------------------------------------------

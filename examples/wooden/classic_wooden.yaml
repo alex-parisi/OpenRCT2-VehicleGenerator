@@ -49,23 +49,23 @@ vehicles:
       # car body (no offset/rotation -> position/orientation default to 0)
       - mesh_index: 0
       # front-row lap bar
-      - { mesh_index: 2, position: [0.78, 0.62, 0], orientation: *sweep }
+      - {mesh_index: 2, position: [0.78, 0.62, 0], orientation: *sweep}
       # rear-row lap bar
-      - { mesh_index: 2, position: [0.14, 0.62, 0], orientation: *sweep }
+      - {mesh_index: 2, position: [0.14, 0.62, 0], orientation: *sweep}
     # Each entry is one seat row
     riders:
-      - [ { mesh_index: 1, position: [0.50, 0, -0.38] },
-          { mesh_index: 1, position: [0.50, 0, 0.38] } ]
-      - [ { mesh_index: 1, position: [-0.25, 0, -0.38] },
-          { mesh_index: 1, position: [-0.25, 0, 0.38] } ]
+      - [{mesh_index: 1, position: [0.50, 0, -0.38]},
+         {mesh_index: 1, position: [0.50, 0, 0.38]}]
+      - [{mesh_index: 1, position: [-0.25, 0, -0.38]},
+         {mesh_index: 1, position: [-0.25, 0, 0.38]}]
 
 # Custom 8-light rig
 lights:
-  - { type: diffuse,  direction: [0, -1, 0],       strength: 0.1 }
-  - { type: diffuse,  direction: [0, 0.5, -1],     strength: 0.6 }
-  - { type: specular, direction: [1, 1.65, -1],    strength: 1.0 }
-  - { type: diffuse,  direction: [1, 1.7, -1],     strength: 0.8 }
-  - { type: diffuse,  direction: [0, 1, 0],        strength: 0.6 }
-  - { type: diffuse,  direction: [-1, 0.85, 1],    strength: 0.475 }
-  - { type: diffuse,  direction: [0.75, 0.4, -1],  strength: 0.6 }
-  - { type: diffuse,  direction: [1, 0.25, 0],     strength: 0.5 }
+  - {type: diffuse, direction: [0, -1, 0], strength: 0.1}
+  - {type: diffuse, direction: [0, 0.5, -1], strength: 0.6}
+  - {type: specular, direction: [1, 1.65, -1], strength: 1.0}
+  - {type: diffuse, direction: [1, 1.7, -1], strength: 0.8}
+  - {type: diffuse, direction: [0, 1, 0], strength: 0.6}
+  - {type: diffuse, direction: [-1, 0.85, 1], strength: 0.475}
+  - {type: diffuse, direction: [0.75, 0.4, -1], strength: 0.6}
+  - {type: diffuse, direction: [1, 0.25, 0], strength: 0.5}

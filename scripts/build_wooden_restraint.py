@@ -12,7 +12,6 @@ Run headless:
 Output: examples/wooden/restraint.obj
 """
 
-import math
 import os
 
 import bpy
@@ -90,7 +89,7 @@ def export_obj():
     )
 
 def post_process_obj():
-    with open(OUT_PATH, "r") as f:
+    with open(OUT_PATH) as f:
         lines = f.readlines()
     saw_mtllib = False
     fixed = []

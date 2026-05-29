@@ -25,7 +25,6 @@ so we build in Blender at  (x_obj, -z_obj, y_obj).
 
 import math
 import os
-import sys
 
 import bpy
 
@@ -88,7 +87,7 @@ BACK_BENCH_X     = -0.35               # center of back-row cushion (behind fron
 SEAT_BACK_THICK  = 0.07
 SEAT_BACK_HEIGHT = 0.95                # rises this far above chassis top
 FRONT_BACK_X     = FRONT_BENCH_X - BENCH_DEPTH / 2 - SEAT_BACK_THICK / 2   # divider between rows
-REAR_BACK_X      = BACK_BENCH_X  - BENCH_DEPTH / 2 - SEAT_BACK_THICK / 2   # trailing seat back (rear of car)
+REAR_BACK_X      = BACK_BENCH_X  - BENCH_DEPTH / 2 - SEAT_BACK_THICK / 2   # trailing seat back
 
 # --- Coordinate helpers ----------------------------------------------------
 
@@ -257,7 +256,7 @@ def export_obj():
 
 def post_process_obj():
     """Force mtllib -> materials.mtl, drop the auto-generated sidecar."""
-    with open(OUT_PATH, "r") as f:
+    with open(OUT_PATH) as f:
         lines = f.readlines()
     saw_mtllib = False
     fixed = []

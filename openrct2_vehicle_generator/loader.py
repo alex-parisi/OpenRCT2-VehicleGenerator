@@ -13,8 +13,6 @@ from typing import Any
 import numpy as np
 
 from .constants import (
-    CarIndex,
-    Category,
     COLOR_NAMES,
     LIGHT_DIFFUSE,
     LIGHT_SPECULAR,
@@ -22,14 +20,16 @@ from .constants import (
     RUNNING_SOUND_NAMES,
     SECONDARY_SOUND_NAMES,
     SPRITE_GROUP_NAMES,
-    SpriteFlag,
     VEHICLE_FLAG_NAMES,
+    CarIndex,
+    Category,
+    SpriteFlag,
     VehicleFlag,
 )
 from .image import read_png
 from .mesh import load_mesh
 from .sprite_renderer import count_sprites
-from .types import Light, MeshFrame, Model, Ride, Vehicle, MAX_FRAMES
+from .types import MAX_FRAMES, Light, MeshFrame, Model, Ride, Vehicle
 
 
 class LoadError(Exception):
@@ -50,7 +50,7 @@ def parse_config(json_path: Path | str) -> dict:
             import yaml
         except ImportError:
             raise LoadError(
-                "PyYAML is required to load .yaml configs (pip install pyyaml)")
+                "PyYAML is required to load .yaml configs (pip install pyyaml)") from None
         root = yaml.safe_load(text)
     else:
         root = json.loads(text)
@@ -232,7 +232,7 @@ def _load_model(value: Any, num_meshes: int, num_frames: int) -> Model:
                 for frame in frames[:num_frames]:
                     setattr(frame, key, vec.copy())
             elif len(prop) == num_frames:
-                for frame, val in zip(frames, prop):
+                for frame, val in zip(frames, prop, strict=False):
                     setattr(frame, key, _read_vector3(val))
             else:
                 raise LoadError(
@@ -302,11 +302,15 @@ def load_ride(json_path: Path | str) -> Ride:
         try:
             ride.preview = read_png(preview_path)
         except Exception as e:
-            raise LoadError(f"Unable to open image file {preview_path}: {e}")
+            raise LoadError(f"Unable to open image file {preview_path}: {e}") from e
 
     ride.ride_type = _require_string(root, "ride_type")
 
-    ride.flags = _flag_bits(root.get("flags", []), RIDE_FLAG_NAMES, "flags", "flag") if "flags" in root else 0
+    ride.flags = (
+        _flag_bits(root.get("flags", []), RIDE_FLAG_NAMES, "flags", "flag")
+        if "flags" in root
+        else 0
+    )
 
     # "sprites" may be either an array of group names, or the string "all"
     # to render every group. "all" guarantees the vehicle has correct

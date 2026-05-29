@@ -1,7 +1,6 @@
 """Tests for the pure-Python OBJ/MTL loader."""
 
 import numpy as np
-
 from openrct2_vehicle_generator.constants import (
     MATERIAL_BACKGROUND_AA,
     MATERIAL_IS_FLAT_SHADED,
