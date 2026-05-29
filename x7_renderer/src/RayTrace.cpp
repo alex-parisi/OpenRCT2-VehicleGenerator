@@ -1,3 +1,5 @@
+/// RayTrace.cpp
+
 #include <algorithm>
 #include <cassert>
 #include <cmath>

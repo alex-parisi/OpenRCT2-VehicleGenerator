@@ -1,7 +1,7 @@
 # OpenRCT2-VehicleGenerator
-## X123 Renderer
+## X7 Renderer
 
-Heavily inspired by X123's [RCTGen](https://github.com/X123M3-256/RCTGen) project.
+Heavily inspired by X7's [RCTGen](https://github.com/X123M3-256/RCTGen) project.
 
 ## How it works
 
@@ -29,7 +29,7 @@ GoogleTest is required (`brew install googletest`). Configure the `dev` preset
 once, then build and run the test binary via CTest:
 
 ```bash
-cd x123_renderer
+cd x7_renderer
 cmake --preset dev          # configures build/ with BUILD_TESTING=ON
 cmake --build --preset dev  # builds the native_tests executable
 ctest --preset dev          # runs the suite, prints failures

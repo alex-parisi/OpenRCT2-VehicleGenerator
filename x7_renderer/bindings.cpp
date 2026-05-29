@@ -1,7 +1,9 @@
-// bindings.cpp — pybind11 surface for OpenRCT2-VehicleGenerator.
+/// bindings.cpp
+
+// pybind11 surface for OpenRCT2-VehicleGenerator.
 //
-// Exposes the Embree-backed renderer kernel from native/src/. Python builds
-// scenes from numpy arrays, the C++ side does ray tracing.
+// Exposes the Embree-backed renderer kernel
+// Python builds scenes from numpy arrays, the C++ side does ray tracing.
 
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
@@ -45,13 +47,6 @@ namespace {
         return vector3(s[0].cast<float>(), s[1].cast<float>(), s[2].cast<float>());
     }
 
-    // -----------------------------------------------------------------------
-    // RenderContext owns: the RTCDevice, the Context (with current Scene), and the
-    // per-render allocated Meshes (with their material/texture buffers). All
-    // owned buffers stay alive between begin_render and end_render, then are
-    // reset.
-    // -----------------------------------------------------------------------
-
     struct OwnedMesh {
         Mesh mesh{};
         std::vector<Vector3> vertices;
@@ -59,8 +54,6 @@ namespace {
         std::vector<Vector2> uvs;
         std::vector<Face> faces;
         std::vector<Material> materials;
-        // One pixel buffer per texture (parallel to materials, empty when
-        // material has no texture).
         std::vector<std::vector<Vector3>> texture_pixels;
     };
 
@@ -85,7 +78,6 @@ namespace {
         }
 
         ~RenderContext() {
-            // If a render is mid-flight, the C++ scene_destroy still needs to run.
             // The user is supposed to call end_render() but be defensive.
             if (scene_open_) {
                 context_end_render(ctx_);
@@ -224,9 +216,7 @@ namespace {
         py::dict render_internal(py::array_t<float, py::array::c_style | py::array::forcecast> view, bool silhouette) {
             Matrix3 m = matrix3_from_array(view);
             // Release the GIL for the ray-tracing hot path so a Python worker
-            // thread (e.g. the Blender add-on's modal export) keeps its host UI
-            // responsive while a render is in flight. No Python objects are
-            // touched between release and reacquire.
+            // thread keeps its host UI responsive while a render is in flight
             Image img;
             {
                 py::gil_scoped_release release;
@@ -263,8 +253,7 @@ PYBIND11_MODULE(_native, m) {
     m.doc() = "Native renderer (Embree) for OpenRCT2-VehicleGenerator.";
 
     // Re-export constants the Python wrapper uses to construct material
-    // dicts. (Mirrors the values in openrct2_vehicle_generator/constants.py
-    // and is sourced from src/iso-render/Mesh.hpp.)
+    // dicts.
     m.attr("MATERIAL_HAS_TEXTURE") = MATERIAL_HAS_TEXTURE;
     m.attr("MATERIAL_IS_REMAPPABLE") = MATERIAL_IS_REMAPPABLE;
     m.attr("MATERIAL_IS_MASK") = MATERIAL_IS_MASK;

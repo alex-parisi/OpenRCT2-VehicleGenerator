@@ -16,11 +16,8 @@ namespace RCTGen {
         std::span<const Vector3> pixels{};
     };
 
-    // Material flag bits, combined with bitwise OR. Kept as named uint16_t
-    // constants (rather than enum class) because renderer.cpp / raytrace.cpp
-    // mix-and-match these with implicit bool conversion (`if (flags & X)`),
-    // and that idiomatic style would require `has_flag()` everywhere with a
-    // scoped enum. The historical bit layout and names are preserved exactly.
+    /* TODO: The historical bit layout and names are preserved exactly,
+        but this should be modernized */
     inline constexpr std::uint16_t MATERIAL_HAS_TEXTURE = 1u << 0;
     inline constexpr std::uint16_t MATERIAL_IS_REMAPPABLE = 1u << 1;
     inline constexpr std::uint16_t MATERIAL_IS_MASK = 1u << 2;

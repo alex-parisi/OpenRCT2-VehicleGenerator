@@ -192,4 +192,4 @@ uv run pytest
 The Python suite covers everything that doesn't need Embree (palette tables,
 OBJ/MTL parsing, atlas packing, the `images.dat` format, and JSON validation),
 with the renderer stubbed so it runs without the native extension. The native
-C++ has its own unit tests under `x123_renderer/test/`.
+C++ has its own unit tests under `x7_renderer/test/`.

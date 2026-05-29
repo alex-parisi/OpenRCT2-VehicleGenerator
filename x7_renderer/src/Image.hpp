@@ -1,7 +1,4 @@
-/// Image.hpp — minimal struct only (no PNG I/O in the binding build).
-///
-/// Renderer.cpp's image_from_framebuffer populates `pixels` via
-/// std::vector; the binding then copies it into a numpy array.
+/// Image.hpp
 
 #pragma once
 

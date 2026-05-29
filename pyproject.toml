@@ -49,7 +49,7 @@ requires = ["scikit-build-core>=0.10", "pybind11>=2.12"]
 build-backend = "scikit_build_core.build"
 
 [tool.scikit-build]
-cmake.source-dir = "x123_renderer"
+cmake.source-dir = "x7_renderer"
 cmake.version = ">=3.25"
 wheel.packages = ["openrct2_vehicle_generator"]
 build-dir = "build/{wheel_tag}"

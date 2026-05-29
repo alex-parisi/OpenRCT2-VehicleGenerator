@@ -23,9 +23,7 @@ namespace RCTGen {
         Vector3 normal;
     };
 
-    // Mesh flag bits, combined with bitwise OR. Plain int constants because
-    // callers OR them with masking integer flags (the `track_mask` parameter
-    // in track.cpp is a 0/1 bool-int that gets ORed with these).
+    // Mesh flag bits
     inline constexpr int MESH_MASK = 1 << 0;
     inline constexpr int MESH_GHOST = 1 << 1;
 

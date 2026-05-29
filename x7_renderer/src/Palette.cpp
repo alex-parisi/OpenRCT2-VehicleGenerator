@@ -1,3 +1,5 @@
+/// Palette.cpp
+
 #include "Palette.hpp"
 
 #include <algorithm>

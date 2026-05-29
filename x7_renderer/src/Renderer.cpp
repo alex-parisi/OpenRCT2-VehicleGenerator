@@ -1,7 +1,4 @@
-// Ported from the upstream OpenRCT2 iso-render kernel. Originally kept in
-// byte-exact lockstep with the upstream goldens, but we've since diverged
-// to fix genuine bugs (background-AA precedence, serpentine dither
-// scanning, dither edge bounds) that the goldens were encoding.
+/// Renderer.cpp
 
 #include <algorithm>
 #include <array>
@@ -34,9 +31,7 @@ namespace RCTGen {
     constexpr int kAaSamplesV = 4;
     constexpr float kAaSampleWeight = 1.0f / (kAaSamplesU * kAaSamplesV);
 
-    // Blank fragments used for bulk initialization. Defined here so the
-    // constexpr values are visible to all functions in this TU.
-    // kFragmentUnused (255) signals "no hit" to image_from_framebuffer.
+    // Blank fragments used for bulk initialization
     constexpr Fragment kBlankFragment{
         {0.0f, 0.0f, 0.0f}, 0.0f, 0.0f, 0, kFragmentUnused,
     };
@@ -54,9 +49,7 @@ namespace RCTGen {
 
     namespace {
         // Spawn a batch of worker threads, dispatch `count` units of work,
-        // join. Workers grab rows via atomic fetch_add. Rows are independent
-        // (immutable Embree scene + per-pixel AO seeded by hit-position hash)
-        // so no synchronization is needed beyond the atomic counter.
+        // join.
         template <class Fn> void parallel_for(int count, Fn&& fn) {
             if (count <= 0) return;
             const unsigned int worker_count = std::max(1u, std::thread::hardware_concurrency());
@@ -136,9 +129,7 @@ namespace RCTGen {
     }
 
     // AO jitter is derived from a hash of the hit point so the same world
-    // surface point produces the same (r1, r2) on every render. Without this,
-    // each yaw frame would sample the same surface with different random
-    // offsets, causing visible AO shimmer as the vehicle rotates.
+    // surface point produces the same (r1, r2) on every render
     static inline std::uint32_t ao_hash_u32(std::uint32_t x) {
         x ^= x >> 17;
         x *= 0xed5ad4bbu;
@@ -332,13 +323,7 @@ namespace RCTGen {
         Rect bounding_box = framebuffer_get_bounds(framebuffer);
         image.width = static_cast<std::uint16_t>(1 + bounding_box.x_upper - bounding_box.x_lower);
         image.height = static_cast<std::uint16_t>(1 + bounding_box.y_upper - bounding_box.y_lower);
-        // World origin (0, 0, 0) always projects to engine screen (0, 0). The
-        // framebuffer maps pixel (x, y) to world (x + offset.x, y + offset.y),
-        // so the world origin sits at framebuffer pixel (-offset.x, -offset.y).
-        // After cropping to bounding_box, sprite pixel (px, py) of world origin
-        // is (-offset.x - bounding_box.x_lower, -offset.y - bounding_box.y_lower);
-        // the engine draws sprite pixel (-x_offset, -y_offset) at the anchor, so
-        // x_offset / y_offset are the negatives of those sprite positions.
+        // World origin (0, 0, 0) always projects to engine screen (0, 0)
         image.x_offset =
             static_cast<std::int16_t>(bounding_box.x_lower + static_cast<int>(std::floor(framebuffer.offset.x)));
         image.y_offset =
@@ -389,14 +374,12 @@ namespace RCTGen {
         Framebuffer framebuffer;
         framebuffer.width = static_cast<std::uint16_t>(bounds.x_upper - bounds.x_lower + 1);
         framebuffer.height = static_cast<std::uint16_t>(bounds.y_upper - bounds.y_lower);
-        // Half-pixel shift on both axes: sample_point + subsample_point covers
-        // the world-space square [pixel - 1, pixel] in both x and y, so AA
-        // sampling is isotropic.
+        // Half-pixel shift on both axes
         framebuffer.offset =
             vector2(static_cast<float>(bounds.x_lower) - 0.5f, static_cast<float>(bounds.y_lower) - 0.5f);
         framebuffer.fragments.assign(static_cast<std::size_t>(framebuffer.width) * framebuffer.height, kBlankFragment);
 
-        // Transform lights for view (shared, read-only across worker threads).
+        // Transform lights for view
         Matrix3 view_inverse = matrix_inverse(view);
         std::vector<Light> transformed_lights;
         transformed_lights.reserve(ctx.lights.size());
@@ -405,12 +388,7 @@ namespace RCTGen {
 
         Matrix3 camera_inverse = matrix_inverse(camera);
 
-        // Per-row work. Rows are independent: each writes only to its own
-        // framebuffer slice, and reads from a finalized (immutable) Embree
-        // scene whose intersect/occluded entry points are thread-safe after
-        // rtcCommitScene. AO jitter is now derived from a hash of the world
-        // hit position (see scene_sample_point), so there's no shared random
-        // state to worry about — each ray gets its own deterministic seed.
+        // Per-row work
         auto render_row = [&](int y) {
             for (int x = 0; x < framebuffer.width; x++) {
                 Vector2 sample_point =

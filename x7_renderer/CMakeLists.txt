@@ -6,9 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Opt-in clang-tidy: -DENABLE_CLANG_TIDY=ON runs .clang-tidy during the build
-# for every target defined below. Off by default so normal/CI builds stay fast.
-# Homebrew keeps clang-tidy off PATH, hence the HINTS.
+# Opt-in clang-tidy
 option(ENABLE_CLANG_TIDY "Run clang-tidy as part of the build" OFF)
 if(ENABLE_CLANG_TIDY)
     find_program(CLANG_TIDY_EXE NAMES clang-tidy
@@ -21,11 +19,7 @@ if(ENABLE_CLANG_TIDY)
     endif()
 endif()
 
-# Embree discovery. Priority:
-#   1. An explicit -Dembree_DIR=... (honoured by find_package directly).
-#   2. $ENV{EMBREE_ROOT} — set by the wheel-build CI, which downloads Embree's
-#      official prebuilt release (the lib/cmake/embree-4.x config lives under it).
-#   3. Homebrew on macOS for local dev (/opt/homebrew/lib/cmake/embree-4.x).
+# Embree discovery
 if(NOT DEFINED embree_DIR AND DEFINED ENV{EMBREE_ROOT})
     list(PREPEND CMAKE_PREFIX_PATH "$ENV{EMBREE_ROOT}")
 endif()
@@ -43,11 +37,7 @@ find_package(Threads REQUIRED)
 
 set(SRC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-# ---------------------------------------------------------------------------
-# Core library — all renderer logic, no pybind11 dependency.
-# Both the Python module and the test suite link against this.
-# PIC is required because _native links it into a shared library.
-# ---------------------------------------------------------------------------
+# Core Library
 add_library(_native_core STATIC
     ${SRC}/Mesh.cpp
     ${SRC}/Palette.cpp
@@ -62,10 +52,7 @@ target_compile_options(_native_core PRIVATE
 )
 target_link_libraries(_native_core PUBLIC embree Threads::Threads)
 
-# ---------------------------------------------------------------------------
-# Python extension module (skipped when BUILD_PYTHON_MODULE=OFF, e.g. in the
-# dev/test preset where pybind11 is not on the system path).
-# ---------------------------------------------------------------------------
+# Python Extension Module
 option(BUILD_PYTHON_MODULE "Build the pybind11 Python extension module" ON)
 if(BUILD_PYTHON_MODULE)
     find_package(pybind11 CONFIG REQUIRED)
@@ -79,10 +66,8 @@ if(BUILD_PYTHON_MODULE)
     install(TARGETS _native LIBRARY DESTINATION openrct2_vehicle_generator)
 endif()
 
-# ---------------------------------------------------------------------------
-# Unit tests
-# ---------------------------------------------------------------------------
+# Unit Tests
 if(BUILD_TESTING)
     enable_testing()
-    add_subdirectory(test)
+    add_subdirectory(tests)
 endif()
