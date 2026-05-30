@@ -42,8 +42,8 @@ namespace RCTGen {
         float minimum_error = std::numeric_limits<float>::infinity();
         int const num_subregions = palette.regions[region].subregions;
         for (int s = 0; s < num_subregions; s++) {
-            std::uint8_t start_index = palette.regions[region].start_indices[s];
-            std::uint8_t end_index = palette.regions[region].end_indices[s];
+            std::uint8_t const start_index = palette.regions[region].start_indices[s];
+            std::uint8_t const end_index = palette.regions[region].end_indices[s];
             for (int i = start_index; std::cmp_less(i, end_index); i++) {
                 Vector3 const pal_color = vector_from_color(
                     palette.regions[region].remap ? palette.remap_colors[i - start_index] : palette.colors[i]);

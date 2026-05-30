@@ -212,8 +212,8 @@ namespace RCTGen {
                     std::uint32_t not_occluded_samples = 0;
                     for (int i = 0; i < kAoSamplesU; i++)
                         for (int j = 0; j < kAoSamplesV; j++) {
-                            std::uint32_t h = ao_hash_u32(hp ^ static_cast<std::uint32_t>(i * 73856093)
-                                                          ^ static_cast<std::uint32_t>(j * 19349663));
+                            std::uint32_t const h = ao_hash_u32(hp ^ static_cast<std::uint32_t>(i * 73856093)
+                                                                ^ static_cast<std::uint32_t>(j * 19349663));
                             float const r1 = ao_hash_to_unit(h);
                             float const r2 = ao_hash_to_unit(ao_hash_u32(h));
                             float const theta =
