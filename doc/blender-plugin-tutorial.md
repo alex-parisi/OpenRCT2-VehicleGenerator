@@ -18,9 +18,6 @@ You'll need all the files in [examples/wooden](../examples/wooden), except `clas
 
 Download or clone the repo so that you have these files handy.
 
-Or open the [.zip file](../examples/wooden.zip) and click "Download raw file" in the top-right, 
-but there is the chance this file can be outdated.
-
 ### Open Blender and Import the Car Object
 
 Start with a completely empty scene: no objects, no cameras, no lights.
@@ -50,12 +47,14 @@ car meshes have the "Body" role.
 
 ### Assign Color Remap Meshes
 
+Open the "Material" tab on the right side.
+
 In the current example, the green surfaces are assigned the "Remap1" material, which corresponds 
 to the first color picker selection. 
 
 We'll leave these mostly as-is, but select the two seat-backs to change to "Remap2".
 
-Select the two seat-back meshes with shift-click, then open the "Material" tab on the right side.
+Select the two seat-back meshes with shift-click, then 
 
 
 
