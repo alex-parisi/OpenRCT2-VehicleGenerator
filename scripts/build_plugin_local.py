@@ -31,7 +31,6 @@ import platform
 import re
 import shutil
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
@@ -47,7 +46,10 @@ def run(cmd: list[str], *, env: dict | None = None, capture: bool = False) -> st
     """Run a command, echoing it; raise on failure. Return stdout if captured."""
     print("+", " ".join(cmd))
     res = subprocess.run(
-        cmd, env=env, check=True, text=True,
+        cmd,
+        env=env,
+        check=True,
+        text=True,
         stdout=subprocess.PIPE if capture else None,
     )
     return res.stdout if capture else ""
@@ -56,8 +58,7 @@ def run(cmd: list[str], *, env: dict | None = None, capture: bool = False) -> st
 def brew_prefix(formula: str | None = None) -> str:
     cmd = ["brew", "--prefix"] + ([formula] if formula else [])
     try:
-        return subprocess.run(cmd, check=True, text=True,
-                              capture_output=True).stdout.strip()
+        return subprocess.run(cmd, check=True, text=True, capture_output=True).stdout.strip()
     except (subprocess.CalledProcessError, FileNotFoundError):
         raise SystemExit(
             f"Could not find {'Homebrew' if not formula else formula} via `brew`. "
@@ -68,8 +69,12 @@ def brew_prefix(formula: str | None = None) -> str:
 def blender_python_tag() -> tuple[str, str]:
     """Return (python_version, abi_tag) for the `blender` on PATH, e.g. ('3.13','cp313')."""
     out = run(
-        ["blender", "--background", "--python-expr",
-         "import sys;print('PYTAG', sys.version_info.major, sys.version_info.minor)"],
+        [
+            "blender",
+            "--background",
+            "--python-expr",
+            "import sys;print('PYTAG', sys.version_info.major, sys.version_info.minor)",
+        ],
         capture=True,
     )
     m = re.search(r"PYTAG (\d+) (\d+)", out)
@@ -90,13 +95,17 @@ def local_target() -> tuple[str, list[str]]:
     arch = platform.machine()
     if arch == "arm64":
         return "macos-arm64", [
-            "macosx_11_0_arm64", "macosx_12_0_arm64",
-            "macosx_13_0_arm64", "macosx_14_0_arm64",
+            "macosx_11_0_arm64",
+            "macosx_12_0_arm64",
+            "macosx_13_0_arm64",
+            "macosx_14_0_arm64",
         ]
     if arch == "x86_64":
         return "macos-x64", [
-            "macosx_11_0_x86_64", "macosx_12_0_x86_64",
-            "macosx_13_0_x86_64", "macosx_14_0_x86_64",
+            "macosx_11_0_x86_64",
+            "macosx_12_0_x86_64",
+            "macosx_13_0_x86_64",
+            "macosx_14_0_x86_64",
         ]
     raise SystemExit(f"Unsupported macOS arch: {arch}")
 
@@ -104,9 +113,14 @@ def local_target() -> tuple[str, list[str]]:
 def dep_specs() -> list[str]:
     """Pin deps to the versions in the build env, so they match what we compiled against."""
     out = run(
-        ["uv", "run", "python", "-c",
-         "import importlib.metadata as m;"
-         f"print(' '.join(f'{{d}}=={{m.version(d)}}' for d in {DEPS!r}))"],
+        [
+            "uv",
+            "run",
+            "python",
+            "-c",
+            "import importlib.metadata as m;"
+            f"print(' '.join(f'{{d}}=={{m.version(d)}}' for d in {DEPS!r}))",
+        ],
         capture=True,
     )
     return out.split()
@@ -140,23 +154,37 @@ def vendor_embree(out_dir: Path) -> Path:
     """
     wheel = one_renderer_wheel(out_dir)
     env = os.environ.copy()
-    env["DYLD_FALLBACK_LIBRARY_PATH"] = os.pathsep.join([
-        f"{brew_prefix('embree')}/lib",
-        f"{brew_prefix('tbb')}/lib",
-        env.get("DYLD_FALLBACK_LIBRARY_PATH", ""),
-    ])
-    run(["uv", "run", "--with", "delocate", "delocate-wheel", "-v", str(wheel)],
-        env=env)
+    env["DYLD_FALLBACK_LIBRARY_PATH"] = os.pathsep.join(
+        [
+            f"{brew_prefix('embree')}/lib",
+            f"{brew_prefix('tbb')}/lib",
+            env.get("DYLD_FALLBACK_LIBRARY_PATH", ""),
+        ]
+    )
+    run(["uv", "run", "--with", "delocate", "delocate-wheel", "-v", str(wheel)], env=env)
     return one_renderer_wheel(out_dir)
 
 
-def download_deps(out_dir: Path, py_version: str, abi: str,
-                  pip_platforms: list[str]) -> None:
+def download_deps(out_dir: Path, py_version: str, abi: str, pip_platforms: list[str]) -> None:
     cmd = [
-        "uv", "run", "--with", "pip", "python", "-m", "pip", "download",
-        "--only-binary=:all:", "--no-deps",
-        "--python-version", py_version, "--implementation", "cp", "--abi", abi,
-        "-d", str(out_dir),
+        "uv",
+        "run",
+        "--with",
+        "pip",
+        "python",
+        "-m",
+        "pip",
+        "download",
+        "--only-binary=:all:",
+        "--no-deps",
+        "--python-version",
+        py_version,
+        "--implementation",
+        "cp",
+        "--abi",
+        abi,
+        "-d",
+        str(out_dir),
     ]
     for tag in pip_platforms:
         cmd += ["--platform", tag]
@@ -175,15 +203,16 @@ def stage_addon(stage: Path, wheels_src: Path, manifest_platform: str) -> None:
         shutil.copy2(whl, stage_wheels / whl.name)
 
     names = sorted(p.name for p in stage_wheels.glob("*.whl"))
-    wheels_block = "\n".join(
-        ["wheels = ["] + [f'    "./wheels/{n}",' for n in names] + ["]"]
-    )
+    wheels_block = "\n".join(["wheels = ["] + [f'    "./wheels/{n}",' for n in names] + ["]"])
     text = (stage / "blender_manifest.toml").read_text(encoding="utf-8")
-    text, n1 = re.subn(r"platforms = \[.*?\]",
-                       f'platforms = ["{manifest_platform}"]',
-                       text, count=1, flags=re.DOTALL)
-    text, n2 = re.subn(r"wheels = \[.*?\]", wheels_block,
-                       text, count=1, flags=re.DOTALL)
+    text, n1 = re.subn(
+        r"platforms = \[.*?\]",
+        f'platforms = ["{manifest_platform}"]',
+        text,
+        count=1,
+        flags=re.DOTALL,
+    )
+    text, n2 = re.subn(r"wheels = \[.*?\]", wheels_block, text, count=1, flags=re.DOTALL)
     if n1 != 1 or n2 != 1:
         raise SystemExit("Could not rewrite 'platforms'/'wheels' in the manifest.")
     (stage / "blender_manifest.toml").write_text(text, encoding="utf-8")
@@ -191,19 +220,36 @@ def stage_addon(stage: Path, wheels_src: Path, manifest_platform: str) -> None:
 
 def verify_wheel(wheel: Path) -> None:
     """Import the vendored wheel in a clean env -- catches an unvendored Embree."""
-    run(["uv", "run", "--with", str(wheel), "python", "-c",
-         "import openrct2_vehicle_generator._native as n;"
-         "print('embree ok:', n.LIGHT_DIFFUSE)"])
+    run(
+        [
+            "uv",
+            "run",
+            "--with",
+            str(wheel),
+            "python",
+            "-c",
+            "import openrct2_vehicle_generator._native as n;print('embree ok:', n.LIGHT_DIFFUSE)",
+        ]
+    )
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Build the Blender extension locally.")
-    ap.add_argument("-o", "--output-dir", type=Path, default=REPO / "dist",
-                    help="where to write the .zip (default: dist/)")
-    ap.add_argument("--install", action="store_true",
-                    help="install the built zip into Blender afterwards")
-    ap.add_argument("--no-verify", action="store_true",
-                    help="skip the standalone import check of the renderer wheel")
+    ap.add_argument(
+        "-o",
+        "--output-dir",
+        type=Path,
+        default=REPO / "dist",
+        help="where to write the .zip (default: dist/)",
+    )
+    ap.add_argument(
+        "--install", action="store_true", help="install the built zip into Blender afterwards"
+    )
+    ap.add_argument(
+        "--no-verify",
+        action="store_true",
+        help="skip the standalone import check of the renderer wheel",
+    )
     args = ap.parse_args()
 
     manifest_platform, pip_platforms = local_target()
@@ -226,22 +272,43 @@ def main() -> None:
         download_deps(wheels, py_version, abi, pip_platforms)
         stage_addon(stage, wheels, manifest_platform)
 
-        run(["blender", "--command", "extension", "build",
-             "--source-dir", str(stage), "--output-dir", str(args.output_dir)])
+        run(
+            [
+                "blender",
+                "--command",
+                "extension",
+                "build",
+                "--source-dir",
+                str(stage),
+                "--output-dir",
+                str(args.output_dir),
+            ]
+        )
 
-    zips = sorted(args.output_dir.glob("*.zip"),
-                  key=lambda p: p.stat().st_mtime, reverse=True)
+    zips = sorted(args.output_dir.glob("*.zip"), key=lambda p: p.stat().st_mtime, reverse=True)
     built = zips[0] if zips else None
     print(f"\nBuilt: {built}")
 
     if args.install and built:
         try:
-            run(["blender", "--command", "extension", "install-file",
-                 "-r", "user_default", "-e", str(built)])
+            run(
+                [
+                    "blender",
+                    "--command",
+                    "extension",
+                    "install-file",
+                    "-r",
+                    "user_default",
+                    "-e",
+                    str(built),
+                ]
+            )
             print("Installed. Restart Blender if it was open.")
         except subprocess.CalledProcessError:
-            print("Auto-install failed. Install manually: Blender > Preferences > "
-                  "Get Extensions > (dropdown) Install from Disk > pick the zip.")
+            print(
+                "Auto-install failed. Install manually: Blender > Preferences > "
+                "Get Extensions > (dropdown) Install from Disk > pick the zip."
+            )
 
 
 if __name__ == "__main__":

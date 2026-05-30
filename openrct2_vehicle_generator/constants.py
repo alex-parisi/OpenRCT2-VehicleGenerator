@@ -1,5 +1,6 @@
-"""Constants ported from src/rct2-ride-gen/Constants.hpp and
-src/iso-render/Renderer.hpp / Mesh.hpp.
+"""
+Constants ported from X7's rendering engine
+https://github.com/X123M3-256/RCTGen
 """
 
 from enum import IntEnum, IntFlag, auto
@@ -86,33 +87,77 @@ class Category(IntEnum):
 # Mirror order/values in Constants.hpp.
 
 SPRITE_GROUP_NAMES = [
-    "flat", "gentle_slopes", "steep_slopes", "vertical_slopes",
-    "diagonals", "banked_turns", "inline_twists", "slope_bank_transition",
-    "diagonal_bank_transition", "sloped_bank_transition", "banked_sloped_turns",
-    "banked_slope_transition", "corkscrews", "zero_g_rolls",
-    "diagonal_sloped_bank_transition", "dive_loops",
+    "flat",
+    "gentle_slopes",
+    "steep_slopes",
+    "vertical_slopes",
+    "diagonals",
+    "banked_turns",
+    "inline_twists",
+    "slope_bank_transition",
+    "diagonal_bank_transition",
+    "sloped_bank_transition",
+    "banked_sloped_turns",
+    "banked_slope_transition",
+    "corkscrews",
+    "zero_g_rolls",
+    "diagonal_sloped_bank_transition",
+    "dive_loops",
 ]
 
 RIDE_FLAG_NAMES = ["no_collision_crashes", "rider_controls_speed"]
 
 VEHICLE_FLAG_NAMES = [
-    "secondary_remap", "tertiary_remap", "riders_scream", "restraint_animation",
+    "secondary_remap",
+    "tertiary_remap",
+    "riders_scream",
+    "restraint_animation",
 ]
 
 RUNNING_SOUND_NAMES = [
-    "wooden_old", "wooden", "steel", "steel_smooth", "train", "engine",
+    "wooden_old",
+    "wooden",
+    "steel",
+    "steel_smooth",
+    "train",
+    "engine",
 ]
 
 SECONDARY_SOUND_NAMES = ["scream1", "scream2", "scream3", "bell"]
 
 COLOR_NAMES = [
-    "black", "grey", "white", "dark_purple", "light_purple", "bright_purple",
-    "dark_blue", "light_blue", "icy_blue", "teal", "aquamarine",
-    "saturated_green", "dark_green", "moss_green", "bright_green",
-    "olive_green", "dark_olive_green", "bright_yellow", "yellow",
-    "dark_yellow", "light_orange", "dark_orange", "light_brown",
-    "saturated_brown", "dark_brown", "salmon_pink", "bordeaux_red",
-    "saturated_red", "bright_red", "dark_pink", "bright_pink", "light_pink",
+    "black",
+    "grey",
+    "white",
+    "dark_purple",
+    "light_purple",
+    "bright_purple",
+    "dark_blue",
+    "light_blue",
+    "icy_blue",
+    "teal",
+    "aquamarine",
+    "saturated_green",
+    "dark_green",
+    "moss_green",
+    "bright_green",
+    "olive_green",
+    "dark_olive_green",
+    "bright_yellow",
+    "yellow",
+    "dark_yellow",
+    "light_orange",
+    "dark_orange",
+    "light_brown",
+    "saturated_brown",
+    "dark_brown",
+    "salmon_pink",
+    "bordeaux_red",
+    "saturated_red",
+    "bright_red",
+    "dark_pink",
+    "bright_pink",
+    "light_pink",
 ]
 
 # Indexed by the Category enum value (NOT a free-standing order). Must stay

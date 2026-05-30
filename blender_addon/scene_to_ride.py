@@ -216,8 +216,9 @@ def _build_vehicle(
         elif role == "RESTRAINT":
             has_restraint = True
             swing = float(obj.vg_object.restraint_swing_deg)
-            orient = [[0.0, -swing * f / (_RESTRAINT_FRAMES - 1), 0.0]
-                      for f in range(_RESTRAINT_FRAMES)]
+            orient = [
+                [0.0, -swing * f / (_RESTRAINT_FRAMES - 1), 0.0] for f in range(_RESTRAINT_FRAMES)
+            ]
             body_entries.append({"mesh_index": idx, "position": pos, "orientation": orient})
         elif role == "RIDER":
             row = int(obj.vg_object.rider_row)
@@ -264,9 +265,7 @@ def build_config_and_meshes(context):
 
     assigned_types = [ct for ct in rs.car_types if ct.slot != "NONE"]
     if rs.car_types and not assigned_types:
-        raise SceneError(
-            "No car type has a slot assigned. Set at least one to 'Default'."
-        )
+        raise SceneError("No car type has a slot assigned. Set at least one to 'Default'.")
 
     if assigned_types:
         for ct in assigned_types:

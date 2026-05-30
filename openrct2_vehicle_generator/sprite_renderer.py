@@ -1,8 +1,8 @@
-"""Sprite-group rotation tables, count_sprites, and per-frame dispatch.
-
-Ports src/rct2-ride-gen/SpriteRenderer.cpp.
 """
-
+Sprite-group rotation tables, count_sprites, and per-frame dispatch.
+Ported from X7's rendering engine
+https://github.com/X123M3-256/RCTGen
+"""
 
 import math
 from dataclasses import dataclass
@@ -13,11 +13,6 @@ from .constants import SpriteFlag, VehicleFlag
 from .ray_trace import Context, render_view, rotate_x, rotate_y, rotate_z
 from .types import IndexedImage
 
-# ---------------------------------------------------------------------------
-# Angle constants
-# ---------------------------------------------------------------------------
-
-# Track tile rises 1 unit over sqrt(6) of horizontal run.
 _TILE_SLOPE = 1.0 / math.sqrt(6.0)
 
 _FLAT = 0.0
@@ -37,8 +32,7 @@ _BANK_T = _BANK / 2.0
 
 
 def _ck_right_yaw(a: float) -> float:
-    return math.atan2(0.5 * (1.0 - math.cos(a)),
-                      1.0 - 0.5 * (1.0 - math.cos(a)))
+    return math.atan2(0.5 * (1.0 - math.cos(a)), 1.0 - 0.5 * (1.0 - math.cos(a)))
 
 
 def _ck_right_pitch(a: float) -> float:
@@ -60,43 +54,64 @@ class _Rot:
 _FLAT_SLOPE_ROT = [_Rot(32, _FLAT, 0, 0)]
 
 _GENTLE_SLOPE_ROT = [
-    _Rot(4, _FLAT_GENTLE_T, 0, 0), _Rot(4, -_FLAT_GENTLE_T, 0, 0),
-    _Rot(32, _GENTLE, 0, 0), _Rot(32, -_GENTLE, 0, 0),
+    _Rot(4, _FLAT_GENTLE_T, 0, 0),
+    _Rot(4, -_FLAT_GENTLE_T, 0, 0),
+    _Rot(32, _GENTLE, 0, 0),
+    _Rot(32, -_GENTLE, 0, 0),
 ]
 
 _STEEP_SLOPE_ROT = [
-    _Rot(8, _GENTLE_STEEP_T, 0, 0), _Rot(8, -_GENTLE_STEEP_T, 0, 0),
-    _Rot(32, _STEEP, 0, 0), _Rot(32, -_STEEP, 0, 0),
+    _Rot(8, _GENTLE_STEEP_T, 0, 0),
+    _Rot(8, -_GENTLE_STEEP_T, 0, 0),
+    _Rot(32, _STEEP, 0, 0),
+    _Rot(32, -_STEEP, 0, 0),
 ]
 
 _VERTICAL_SLOPE_ROT = [
-    _Rot(4, _STEEP_VERTICAL_T, 0, 0), _Rot(4, -_STEEP_VERTICAL_T, 0, 0),
-    _Rot(32, _VERTICAL, 0, 0), _Rot(32, -_VERTICAL, 0, 0),
-    _Rot(4, _VERTICAL + 1 * math.pi / 12, 0, 0), _Rot(4, -_VERTICAL - 1 * math.pi / 12, 0, 0),
-    _Rot(4, _VERTICAL + 2 * math.pi / 12, 0, 0), _Rot(4, -_VERTICAL - 2 * math.pi / 12, 0, 0),
-    _Rot(4, _VERTICAL + 3 * math.pi / 12, 0, 0), _Rot(4, -_VERTICAL - 3 * math.pi / 12, 0, 0),
-    _Rot(4, _VERTICAL + 4 * math.pi / 12, 0, 0), _Rot(4, -_VERTICAL - 4 * math.pi / 12, 0, 0),
-    _Rot(4, _VERTICAL + 5 * math.pi / 12, 0, 0), _Rot(4, -_VERTICAL - 5 * math.pi / 12, 0, 0),
+    _Rot(4, _STEEP_VERTICAL_T, 0, 0),
+    _Rot(4, -_STEEP_VERTICAL_T, 0, 0),
+    _Rot(32, _VERTICAL, 0, 0),
+    _Rot(32, -_VERTICAL, 0, 0),
+    _Rot(4, _VERTICAL + 1 * math.pi / 12, 0, 0),
+    _Rot(4, -_VERTICAL - 1 * math.pi / 12, 0, 0),
+    _Rot(4, _VERTICAL + 2 * math.pi / 12, 0, 0),
+    _Rot(4, -_VERTICAL - 2 * math.pi / 12, 0, 0),
+    _Rot(4, _VERTICAL + 3 * math.pi / 12, 0, 0),
+    _Rot(4, -_VERTICAL - 3 * math.pi / 12, 0, 0),
+    _Rot(4, _VERTICAL + 4 * math.pi / 12, 0, 0),
+    _Rot(4, -_VERTICAL - 4 * math.pi / 12, 0, 0),
+    _Rot(4, _VERTICAL + 5 * math.pi / 12, 0, 0),
+    _Rot(4, -_VERTICAL - 5 * math.pi / 12, 0, 0),
     _Rot(4, math.pi, 0, 0),
 ]
 
 _DIAGONAL_SLOPE_ROT = [
-    _Rot(4, _FLAT_GENTLE_T_DIAG, 0, math.pi / 4), _Rot(4, -_FLAT_GENTLE_T_DIAG, 0, math.pi / 4),
-    _Rot(4, _GENTLE_DIAG, 0, math.pi / 4), _Rot(4, -_GENTLE_DIAG, 0, math.pi / 4),
-    _Rot(4, _STEEP_DIAG, 0, math.pi / 4), _Rot(4, -_STEEP_DIAG, 0, math.pi / 4),
+    _Rot(4, _FLAT_GENTLE_T_DIAG, 0, math.pi / 4),
+    _Rot(4, -_FLAT_GENTLE_T_DIAG, 0, math.pi / 4),
+    _Rot(4, _GENTLE_DIAG, 0, math.pi / 4),
+    _Rot(4, -_GENTLE_DIAG, 0, math.pi / 4),
+    _Rot(4, _STEEP_DIAG, 0, math.pi / 4),
+    _Rot(4, -_STEEP_DIAG, 0, math.pi / 4),
 ]
 
 _BANKING_ROT = [
-    _Rot(8, _FLAT, _BANK_T, 0), _Rot(8, _FLAT, -_BANK_T, 0),
-    _Rot(32, _FLAT, _BANK, 0), _Rot(32, _FLAT, -_BANK, 0),
+    _Rot(8, _FLAT, _BANK_T, 0),
+    _Rot(8, _FLAT, -_BANK_T, 0),
+    _Rot(32, _FLAT, _BANK, 0),
+    _Rot(32, _FLAT, -_BANK, 0),
 ]
 
 _INLINE_TWIST_ROT = [
-    _Rot(4, _FLAT, 3 * math.pi / 8, 0), _Rot(4, _FLAT, -3 * math.pi / 8, 0),
-    _Rot(4, _FLAT, math.pi / 2, 0), _Rot(4, _FLAT, -math.pi / 2, 0),
-    _Rot(4, _FLAT, 5 * math.pi / 8, 0), _Rot(4, _FLAT, -5 * math.pi / 8, 0),
-    _Rot(4, _FLAT, 3 * math.pi / 4, 0), _Rot(4, _FLAT, -3 * math.pi / 4, 0),
-    _Rot(4, _FLAT, 7 * math.pi / 8, 0), _Rot(4, _FLAT, -7 * math.pi / 8, 0),
+    _Rot(4, _FLAT, 3 * math.pi / 8, 0),
+    _Rot(4, _FLAT, -3 * math.pi / 8, 0),
+    _Rot(4, _FLAT, math.pi / 2, 0),
+    _Rot(4, _FLAT, -math.pi / 2, 0),
+    _Rot(4, _FLAT, 5 * math.pi / 8, 0),
+    _Rot(4, _FLAT, -5 * math.pi / 8, 0),
+    _Rot(4, _FLAT, 3 * math.pi / 4, 0),
+    _Rot(4, _FLAT, -3 * math.pi / 4, 0),
+    _Rot(4, _FLAT, 7 * math.pi / 8, 0),
+    _Rot(4, _FLAT, -7 * math.pi / 8, 0),
 ]
 
 _SLOPE_BANK_T_ROT = [
@@ -114,8 +129,10 @@ _DIAG_BANK_T_ROT = [
 ]
 
 _SLOPED_BANK_T_ROT = [
-    _Rot(4, _GENTLE, _BANK_T, 0), _Rot(4, _GENTLE, -_BANK_T, 0),
-    _Rot(4, -_GENTLE, _BANK_T, 0), _Rot(4, -_GENTLE, -_BANK_T, 0),
+    _Rot(4, _GENTLE, _BANK_T, 0),
+    _Rot(4, _GENTLE, -_BANK_T, 0),
+    _Rot(4, -_GENTLE, _BANK_T, 0),
+    _Rot(4, -_GENTLE, -_BANK_T, 0),
 ]
 
 _DIAG_SLOPED_BANK_T_ROT = [
@@ -134,43 +151,69 @@ _DIAG_SLOPED_BANK_T_ROT = [
 ]
 
 _SLOPED_BANKED_TURN_ROT = [
-    _Rot(32, _GENTLE, _BANK, 0), _Rot(32, _GENTLE, -_BANK, 0),
-    _Rot(32, -_GENTLE, _BANK, 0), _Rot(32, -_GENTLE, -_BANK, 0),
+    _Rot(32, _GENTLE, _BANK, 0),
+    _Rot(32, _GENTLE, -_BANK, 0),
+    _Rot(32, -_GENTLE, _BANK, 0),
+    _Rot(32, -_GENTLE, -_BANK, 0),
 ]
 
 _BANKED_SLOPE_T_ROT = [
-    _Rot(4, _FLAT_GENTLE_T, _BANK, 0), _Rot(4, _FLAT_GENTLE_T, -_BANK, 0),
-    _Rot(4, -_FLAT_GENTLE_T, _BANK, 0), _Rot(4, -_FLAT_GENTLE_T, -_BANK, 0),
+    _Rot(4, _FLAT_GENTLE_T, _BANK, 0),
+    _Rot(4, _FLAT_GENTLE_T, -_BANK, 0),
+    _Rot(4, -_FLAT_GENTLE_T, _BANK, 0),
+    _Rot(4, -_FLAT_GENTLE_T, -_BANK, 0),
 ]
 
 _ZERO_G_BASE_ROT = [
-    _Rot(4, _GENTLE, 3 * math.pi / 8, 0), _Rot(4, _GENTLE, -3 * math.pi / 8, 0),
-    _Rot(4, -_GENTLE, 3 * math.pi / 8, 0), _Rot(4, -_GENTLE, -3 * math.pi / 8, 0),
-    _Rot(4, _GENTLE, math.pi / 2, 0), _Rot(4, _GENTLE, -math.pi / 2, 0),
-    _Rot(4, -_GENTLE, math.pi / 2, 0), _Rot(4, -_GENTLE, -math.pi / 2, 0),
-    _Rot(4, _GENTLE, 5 * math.pi / 8, 0), _Rot(4, _GENTLE, -5 * math.pi / 8, 0),
-    _Rot(4, -_GENTLE, 5 * math.pi / 8, 0), _Rot(4, -_GENTLE, -5 * math.pi / 8, 0),
-    _Rot(4, _GENTLE, 3 * math.pi / 4, 0), _Rot(4, _GENTLE, -3 * math.pi / 4, 0),
-    _Rot(4, -_GENTLE, 3 * math.pi / 4, 0), _Rot(4, -_GENTLE, -3 * math.pi / 4, 0),
-    _Rot(4, _GENTLE, 7 * math.pi / 8, 0), _Rot(4, _GENTLE, -7 * math.pi / 8, 0),
-    _Rot(4, -_GENTLE, 7 * math.pi / 8, 0), _Rot(4, -_GENTLE, -7 * math.pi / 8, 0),
-    _Rot(4, _GENTLE_STEEP_T, math.pi / 8, 0), _Rot(4, _GENTLE_STEEP_T, -math.pi / 8, 0),
-    _Rot(4, -_GENTLE_STEEP_T, math.pi / 8, 0), _Rot(4, -_GENTLE_STEEP_T, -math.pi / 8, 0),
-    _Rot(4, _GENTLE_STEEP_T, 2 * math.pi / 8, 0), _Rot(4, _GENTLE_STEEP_T, -2 * math.pi / 8, 0),
-    _Rot(4, -_GENTLE_STEEP_T, 2 * math.pi / 8, 0), _Rot(4, -_GENTLE_STEEP_T, -2 * math.pi / 8, 0),
-    _Rot(4, _GENTLE_STEEP_T, 3 * math.pi / 8, 0), _Rot(4, _GENTLE_STEEP_T, -3 * math.pi / 8, 0),
-    _Rot(4, -_GENTLE_STEEP_T, 3 * math.pi / 8, 0), _Rot(4, -_GENTLE_STEEP_T, -3 * math.pi / 8, 0),
-    _Rot(4, _GENTLE_STEEP_T, math.pi / 2, 0), _Rot(4, _GENTLE_STEEP_T, -math.pi / 2, 0),
-    _Rot(4, -_GENTLE_STEEP_T, math.pi / 2, 0), _Rot(4, -_GENTLE_STEEP_T, -math.pi / 2, 0),
+    _Rot(4, _GENTLE, 3 * math.pi / 8, 0),
+    _Rot(4, _GENTLE, -3 * math.pi / 8, 0),
+    _Rot(4, -_GENTLE, 3 * math.pi / 8, 0),
+    _Rot(4, -_GENTLE, -3 * math.pi / 8, 0),
+    _Rot(4, _GENTLE, math.pi / 2, 0),
+    _Rot(4, _GENTLE, -math.pi / 2, 0),
+    _Rot(4, -_GENTLE, math.pi / 2, 0),
+    _Rot(4, -_GENTLE, -math.pi / 2, 0),
+    _Rot(4, _GENTLE, 5 * math.pi / 8, 0),
+    _Rot(4, _GENTLE, -5 * math.pi / 8, 0),
+    _Rot(4, -_GENTLE, 5 * math.pi / 8, 0),
+    _Rot(4, -_GENTLE, -5 * math.pi / 8, 0),
+    _Rot(4, _GENTLE, 3 * math.pi / 4, 0),
+    _Rot(4, _GENTLE, -3 * math.pi / 4, 0),
+    _Rot(4, -_GENTLE, 3 * math.pi / 4, 0),
+    _Rot(4, -_GENTLE, -3 * math.pi / 4, 0),
+    _Rot(4, _GENTLE, 7 * math.pi / 8, 0),
+    _Rot(4, _GENTLE, -7 * math.pi / 8, 0),
+    _Rot(4, -_GENTLE, 7 * math.pi / 8, 0),
+    _Rot(4, -_GENTLE, -7 * math.pi / 8, 0),
+    _Rot(4, _GENTLE_STEEP_T, math.pi / 8, 0),
+    _Rot(4, _GENTLE_STEEP_T, -math.pi / 8, 0),
+    _Rot(4, -_GENTLE_STEEP_T, math.pi / 8, 0),
+    _Rot(4, -_GENTLE_STEEP_T, -math.pi / 8, 0),
+    _Rot(4, _GENTLE_STEEP_T, 2 * math.pi / 8, 0),
+    _Rot(4, _GENTLE_STEEP_T, -2 * math.pi / 8, 0),
+    _Rot(4, -_GENTLE_STEEP_T, 2 * math.pi / 8, 0),
+    _Rot(4, -_GENTLE_STEEP_T, -2 * math.pi / 8, 0),
+    _Rot(4, _GENTLE_STEEP_T, 3 * math.pi / 8, 0),
+    _Rot(4, _GENTLE_STEEP_T, -3 * math.pi / 8, 0),
+    _Rot(4, -_GENTLE_STEEP_T, 3 * math.pi / 8, 0),
+    _Rot(4, -_GENTLE_STEEP_T, -3 * math.pi / 8, 0),
+    _Rot(4, _GENTLE_STEEP_T, math.pi / 2, 0),
+    _Rot(4, _GENTLE_STEEP_T, -math.pi / 2, 0),
+    _Rot(4, -_GENTLE_STEEP_T, math.pi / 2, 0),
+    _Rot(4, -_GENTLE_STEEP_T, -math.pi / 2, 0),
 ]
 
 _ZERO_G_SB22_4 = [
-    _Rot(4, _STEEP, math.pi / 8, 0), _Rot(4, _STEEP, -math.pi / 8, 0),
-    _Rot(4, -_STEEP, math.pi / 8, 0), _Rot(4, -_STEEP, -math.pi / 8, 0),
+    _Rot(4, _STEEP, math.pi / 8, 0),
+    _Rot(4, _STEEP, -math.pi / 8, 0),
+    _Rot(4, -_STEEP, math.pi / 8, 0),
+    _Rot(4, -_STEEP, -math.pi / 8, 0),
 ]
 _ZERO_G_SB22_8 = [
-    _Rot(8, _STEEP, math.pi / 8, 0), _Rot(8, _STEEP, -math.pi / 8, 0),
-    _Rot(8, -_STEEP, math.pi / 8, 0), _Rot(8, -_STEEP, -math.pi / 8, 0),
+    _Rot(8, _STEEP, math.pi / 8, 0),
+    _Rot(8, _STEEP, -math.pi / 8, 0),
+    _Rot(8, -_STEEP, math.pi / 8, 0),
+    _Rot(8, -_STEEP, -math.pi / 8, 0),
 ]
 
 _DIVE_LOOP_ROT = [
@@ -189,7 +232,11 @@ _DIVE_LOOP_ROT = [
 ]
 
 _CORKSCREW_ANGLES = [
-    2 * math.pi / 12, 4 * math.pi / 12, math.pi / 2, 8 * math.pi / 12, 10 * math.pi / 12,
+    2 * math.pi / 12,
+    4 * math.pi / 12,
+    math.pi / 2,
+    8 * math.pi / 12,
+    10 * math.pi / 12,
 ]
 
 
@@ -214,10 +261,6 @@ _CORKSCREW_ROT = _build_corkscrew_rotations()
 _RESTRAINT_FRAMES = 12
 _RESTRAINT_PER_FRAME = 4
 
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
 
 def count_sprites(sprite_flags: int, vehicle_flags: int) -> int:
     n = 0
@@ -261,7 +304,8 @@ def count_sprites(sprite_flags: int, vehicle_flags: int) -> int:
 
 
 def _render_rotation(context: Context, rot: _Rot) -> list[IndexedImage]:
-    """Render `rot.num_frames` yaw-stepped variants of a (pitch, roll, yaw)
+    """
+    Render `rot.num_frames` yaw-stepped variants of a (pitch, roll, yaw)
     orientation.
     """
     # Mirror the float round-trip in renderRotation().
@@ -283,12 +327,9 @@ def _render_group(context: Context, rots: list[_Rot]) -> list[IndexedImage]:
     return out
 
 
-def render_vehicle_frame(context: Context, sprite_flags: int,
-                         frame: int) -> list[IndexedImage]:
-    """Render every sprite for this vehicle frame.
-
-    `frame == 0` is the standard frame; `frame > 0` is a restraint
-    animation frame (4 flat rotations).
+def render_vehicle_frame(context: Context, sprite_flags: int, frame: int) -> list[IndexedImage]:
+    """
+    Render every sprite for this vehicle frame.
     """
     if frame > 0:
         print("Rendering restraint animation")
@@ -309,19 +350,34 @@ def render_vehicle_frame(context: Context, sprite_flags: int,
     emit_if(SpriteFlag.DIAGONAL_SLOPE, "Rendering diagonal sprites", _DIAGONAL_SLOPE_ROT)
     emit_if(SpriteFlag.BANKING, "Rendering banked sprites", _BANKING_ROT)
     emit_if(SpriteFlag.INLINE_TWIST, "Rendering inline twist sprites", _INLINE_TWIST_ROT)
-    emit_if(SpriteFlag.SLOPE_BANK_TRANSITION, "Rendering slope-bank transition sprites",
-            _SLOPE_BANK_T_ROT)
-    emit_if(SpriteFlag.DIAGONAL_BANK_TRANSITION,
-            "Rendering diagonal slope-bank transition sprites", _DIAG_BANK_T_ROT)
-    emit_if(SpriteFlag.SLOPED_BANK_TRANSITION,
-            "Rendering sloped bank transition sprites", _SLOPED_BANK_T_ROT)
-    emit_if(SpriteFlag.DIAGONAL_SLOPED_BANK_TRANSITION,
-            "Rendering diagonal sloped bank transition sprites",
-            _DIAG_SLOPED_BANK_T_ROT)
-    emit_if(SpriteFlag.SLOPED_BANKED_TURN, "Rendering sloped banked sprites",
-            _SLOPED_BANKED_TURN_ROT)
-    emit_if(SpriteFlag.BANKED_SLOPE_TRANSITION,
-            "Rendering banked slope transition sprites", _BANKED_SLOPE_T_ROT)
+    emit_if(
+        SpriteFlag.SLOPE_BANK_TRANSITION,
+        "Rendering slope-bank transition sprites",
+        _SLOPE_BANK_T_ROT,
+    )
+    emit_if(
+        SpriteFlag.DIAGONAL_BANK_TRANSITION,
+        "Rendering diagonal slope-bank transition sprites",
+        _DIAG_BANK_T_ROT,
+    )
+    emit_if(
+        SpriteFlag.SLOPED_BANK_TRANSITION,
+        "Rendering sloped bank transition sprites",
+        _SLOPED_BANK_T_ROT,
+    )
+    emit_if(
+        SpriteFlag.DIAGONAL_SLOPED_BANK_TRANSITION,
+        "Rendering diagonal sloped bank transition sprites",
+        _DIAG_SLOPED_BANK_T_ROT,
+    )
+    emit_if(
+        SpriteFlag.SLOPED_BANKED_TURN, "Rendering sloped banked sprites", _SLOPED_BANKED_TURN_ROT
+    )
+    emit_if(
+        SpriteFlag.BANKED_SLOPE_TRANSITION,
+        "Rendering banked slope transition sprites",
+        _BANKED_SLOPE_T_ROT,
+    )
 
     if sf & SpriteFlag.ZERO_G_ROLL:
         print("Rendering zero G roll sprites")

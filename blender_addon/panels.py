@@ -74,9 +74,7 @@ class VG_PT_ride(Panel):
         box = layout.box()
         box.label(text="Car Types", icon="MOD_PHYSICS")
         row = box.row()
-        row.template_list(
-            "VG_UL_car_types", "", rs, "car_types", rs, "car_type_index", rows=3
-        )
+        row.template_list("VG_UL_car_types", "", rs, "car_types", rs, "car_type_index", rows=3)
         col = row.column(align=True)
         col.operator("vg.car_type_add", icon="ADD", text="")
         col.operator("vg.car_type_remove", icon="REMOVE", text="")
@@ -96,8 +94,9 @@ class VG_PT_ride(Panel):
             for attr, _name in props.flag_items("vf_"):
                 sub.prop(ct, attr)
         else:
-            box.label(text="No car types - exporting the whole scene as one default car.",
-                      icon="INFO")
+            box.label(
+                text="No car types - exporting the whole scene as one default car.", icon="INFO"
+            )
 
         layout.prop(rs, "preview")
 

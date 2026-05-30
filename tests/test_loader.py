@@ -31,12 +31,14 @@ def _make_ride(tmp_path, **overrides):
         "secondary_sound": "scream1",
         "default_colors": [["bright_red", "black", "yellow"]],
         "meshes": [str(tmp_path / "m.obj")],
-        "vehicles": [{
-            "model": {"mesh_index": 0},
-            "mass": 100,
-            "spacing": 2.0,
-            "draw_order": 1,
-        }],
+        "vehicles": [
+            {
+                "model": {"mesh_index": 0},
+                "mass": 100,
+                "spacing": 2.0,
+                "draw_order": 1,
+            }
+        ],
     }
     base.update(overrides)
     path = tmp_path / "ride.json"
@@ -158,10 +160,14 @@ def test_seat_count_derived_from_riders(tmp_path):
         "spacing": 2.0,
         "draw_order": 1,
         "riders": [
-            [{"mesh_index": 0, "position": [0.5, 0, -0.4]},
-             {"mesh_index": 0, "position": [0.5, 0, 0.4]}],
-            [{"mesh_index": 0, "position": [-0.5, 0, -0.4]},
-             {"mesh_index": 0, "position": [-0.5, 0, 0.4]}],
+            [
+                {"mesh_index": 0, "position": [0.5, 0, -0.4]},
+                {"mesh_index": 0, "position": [0.5, 0, 0.4]},
+            ],
+            [
+                {"mesh_index": 0, "position": [-0.5, 0, -0.4]},
+                {"mesh_index": 0, "position": [-0.5, 0, 0.4]},
+            ],
         ],
     }
     ride = load_ride(_make_ride(tmp_path, vehicles=[vehicle]))
@@ -217,23 +223,26 @@ def test_build_ride_ignores_config_paths_uses_args(tmp_path):
 
 
 def test_load_lights_normalizes_direction():
-    lights = load_lights([
-        {"type": "diffuse", "shadow": False, "direction": [0, 3, 0], "strength": 0.5},
-        {"type": "specular", "shadow": True, "direction": [2, 0, 0], "strength": 1.0},
-    ])
+    lights = load_lights(
+        [
+            {"type": "diffuse", "shadow": False, "direction": [0, 3, 0], "strength": 0.5},
+            {"type": "specular", "shadow": True, "direction": [2, 0, 0], "strength": 1.0},
+        ]
+    )
     assert len(lights) == 2
     assert np.isclose(np.linalg.norm(lights[0].direction), 1.0)
     assert lights[1].shadow == 1
 
 
 def test_load_lights_shadow_defaults_false():
-    lights = load_lights([
-        {"type": "diffuse", "direction": [0, 1, 0], "strength": 0.5},
-    ])
+    lights = load_lights(
+        [
+            {"type": "diffuse", "direction": [0, 1, 0], "strength": 0.5},
+        ]
+    )
     assert lights[0].shadow == 0
 
 
 def test_load_lights_rejects_unknown_type():
     with pytest.raises(LoadError):
-        load_lights([{"type": "glow", "shadow": False,
-                      "direction": [0, 1, 0], "strength": 1.0}])
+        load_lights([{"type": "glow", "shadow": False, "direction": [0, 1, 0], "strength": 1.0}])

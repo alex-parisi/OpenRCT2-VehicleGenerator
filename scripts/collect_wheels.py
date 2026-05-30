@@ -62,9 +62,7 @@ TARGETS = (
 
 def ensure_pip() -> None:
     try:
-        subprocess.run(
-            [sys.executable, "-m", "pip", "--version"], check=True, capture_output=True
-        )
+        subprocess.run([sys.executable, "-m", "pip", "--version"], check=True, capture_output=True)
     except (subprocess.CalledProcessError, FileNotFoundError):
         raise SystemExit(
             "pip is not available in this interpreter. Re-run with:\n"
@@ -99,12 +97,20 @@ def download_deps() -> None:
     for py, abi in PYTHONS:
         for _renderer_tag, plat_tags in TARGETS:
             cmd = [
-                sys.executable, "-m", "pip", "download",
-                "--only-binary=:all:", "--no-deps",
-                "--python-version", py,
-                "--implementation", "cp",
-                "--abi", abi,
-                "-d", str(WHEELS),
+                sys.executable,
+                "-m",
+                "pip",
+                "download",
+                "--only-binary=:all:",
+                "--no-deps",
+                "--python-version",
+                py,
+                "--implementation",
+                "cp",
+                "--abi",
+                abi,
+                "-d",
+                str(WHEELS),
             ]
             for tag in plat_tags:
                 cmd += ["--platform", tag]
@@ -127,9 +133,7 @@ def dep_wheel_names() -> list[str]:
 
 def write_manifest(wheel_names: list[str]) -> None:
     entries = sorted(set(wheel_names))
-    block = "\n".join(
-        ["wheels = ["] + [f'    "./wheels/{name}",' for name in entries] + ["]"]
-    )
+    block = "\n".join(["wheels = ["] + [f'    "./wheels/{name}",' for name in entries] + ["]"])
     text = MANIFEST.read_text(encoding="utf-8")
     new_text, n = re.subn(r"wheels = \[.*?\]", block, text, count=1, flags=re.DOTALL)
     if n != 1:
@@ -147,13 +151,17 @@ def main() -> None:
     renderer = renderer_wheel_names(version)
     deps = dep_wheel_names()
     write_manifest(renderer + deps)
-    print(f"\nManifest updated: {len(set(renderer + deps))} wheels "
-          f"({len(renderer)} renderer + {len(deps)} deps).")
+    print(
+        f"\nManifest updated: {len(set(renderer + deps))} wheels "
+        f"({len(renderer)} renderer + {len(deps)} deps)."
+    )
 
     missing = [n for n in renderer if not (WHEELS / n).exists()]
     if missing:
-        print("\nRenderer wheels still missing -- unzip CI artifacts into "
-              f"{WHEELS.relative_to(REPO)}/ before `extension build`:")
+        print(
+            "\nRenderer wheels still missing -- unzip CI artifacts into "
+            f"{WHEELS.relative_to(REPO)}/ before `extension build`:"
+        )
         for m in missing:
             print(f"  - {m}")
 

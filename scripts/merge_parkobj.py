@@ -52,7 +52,7 @@ def merge(parkobj_path: Path, sprites_out_path: Path, workdir: Path) -> None:
         disk_path = workdir / entry["path"]
         src_path = entry["path"]
         if src_path.startswith("object/"):
-            archive_path = src_path[len("object/"):]
+            archive_path = src_path[len("object/") :]
         else:
             archive_path = src_path
         if not disk_path.is_file():

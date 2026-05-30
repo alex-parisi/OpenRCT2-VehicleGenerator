@@ -108,7 +108,7 @@ def split(parkobj_path: Path) -> None:
             zout.writestr(name, data)
 
     parkobj_path.write_bytes(buf.getvalue())
-    print(f"rewrote {parkobj_path} ({parkobj_path.stat().st_size/1024/1024:.2f} MB)")
+    print(f"rewrote {parkobj_path} ({parkobj_path.stat().st_size / 1024 / 1024:.2f} MB)")
 
 
 def main() -> None:

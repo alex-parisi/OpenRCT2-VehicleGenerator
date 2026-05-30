@@ -1,10 +1,6 @@
-"""Load a ride config (JSON or YAML) into a Ride dataclass.
-
-Ports src/rct2-ride-gen/ProjectLoader.cpp. Mirrors validation behavior:
-required fields, enum-name resolution, implied sprite flags, model
-animation frame broadcasting.
 """
-
+Load a ride config (JSON or YAML) into a Ride dataclass.
+"""
 
 import json
 from pathlib import Path
@@ -37,11 +33,8 @@ class LoadError(Exception):
 
 
 def parse_config(json_path: Path | str) -> dict:
-    """Parse a ride config file into a dict.
-
-    Format is chosen by extension: `.yaml`/`.yml` use a YAML parser (safe
-    mode — supports comments and anchors/aliases), anything else is JSON.
-    Both produce the same dict/list structure the rest of the loader expects.
+    """
+    Parse a ride config file into a dict.
     """
     path = Path(json_path)
     text = path.read_text()
@@ -50,7 +43,8 @@ def parse_config(json_path: Path | str) -> dict:
             import yaml
         except ImportError:
             raise LoadError(
-                "PyYAML is required to load .yaml configs (pip install pyyaml)") from None
+                "PyYAML is required to load .yaml configs (pip install pyyaml)"
+            ) from None
         root = yaml.safe_load(text)
     else:
         root = json.loads(text)
@@ -59,14 +53,10 @@ def parse_config(json_path: Path | str) -> dict:
     return root
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 def _require_string(obj: dict, key: str) -> str:
     v = obj.get(key)
     if not isinstance(v, str):
-        raise LoadError(f"Property \"{key}\" not found or is not a string")
+        raise LoadError(f'Property "{key}" not found or is not a string')
     return v
 
 
@@ -75,7 +65,7 @@ def _optional_string(obj: dict, key: str) -> str:
     if v is None:
         return ""
     if not isinstance(v, str):
-        raise LoadError(f"Property \"{key}\" is not a string")
+        raise LoadError(f'Property "{key}" is not a string')
     return v
 
 
@@ -86,11 +76,9 @@ def _optional_string_list(obj: dict, key: str) -> list[str]:
     if isinstance(v, str):
         v = [v]
     if not isinstance(v, list):
-        raise LoadError(f"Property \"{key}\" is not a string or array of strings")
+        raise LoadError(f'Property "{key}" is not a string or array of strings')
     out = []
     for item in v:
-        if not isinstance(item, str):
-            raise LoadError(f"Array \"{key}\" contains a non-string value")
         out.append(item)
     return out
 
@@ -98,7 +86,7 @@ def _optional_string_list(obj: dict, key: str) -> list[str]:
 def _require_int(obj: dict, key: str) -> int:
     v = obj.get(key)
     if not isinstance(v, int) or isinstance(v, bool):
-        raise LoadError(f"Property \"{key}\" not found or is not an integer")
+        raise LoadError(f'Property "{key}" not found or is not an integer')
     return v
 
 
@@ -107,34 +95,34 @@ def _optional_int(obj: dict, key: str, default: int) -> int:
     if v is None:
         return default
     if not isinstance(v, int) or isinstance(v, bool):
-        raise LoadError(f"Property \"{key}\" is not an integer")
+        raise LoadError(f'Property "{key}" is not an integer')
     return v
 
 
 def _require_number(obj: dict, key: str) -> float:
     v = obj.get(key)
     if not isinstance(v, (int, float)) or isinstance(v, bool):
-        raise LoadError(f"Property \"{key}\" not found or is not a number")
+        raise LoadError(f'Property "{key}" not found or is not a number')
     return float(v)
 
 
 def _enum_index(value: Any, names: list[str], prop: str, label: str) -> int:
     if not isinstance(value, str):
-        raise LoadError(f"Property \"{prop}\" not found or is not a string")
+        raise LoadError(f'Property "{prop}" not found or is not a string')
     if value not in names:
-        raise LoadError(f"Unrecognized {label} \"{value}\"")
+        raise LoadError(f'Unrecognized {label} "{value}"')
     return names.index(value)
 
 
 def _flag_bits(value: Any, names: list[str], prop: str, label: str) -> int:
     if not isinstance(value, list):
-        raise LoadError(f"Property \"{prop}\" not found or is not an array")
+        raise LoadError(f'Property "{prop}" not found or is not an array')
     flags = 0
     for tag in value:
         if not isinstance(tag, str):
-            raise LoadError(f"Array \"{prop}\" contains non-string value")
+            raise LoadError(f'Array "{prop}" contains non-string value')
         if tag not in names:
-            raise LoadError(f"Unrecognized {label} \"{tag}\"")
+            raise LoadError(f'Unrecognized {label} "{tag}"')
         flags |= 1 << names.index(tag)
     return flags
 
@@ -155,13 +143,9 @@ def _as_array_or_wrap(value: Any) -> list:
     return [value]
 
 
-# ---------------------------------------------------------------------------
-# Lights
-# ---------------------------------------------------------------------------
-
 def load_lights(value: Any) -> list[Light]:
     if not isinstance(value, list):
-        raise LoadError("\"lights\" is not an array")
+        raise LoadError('"lights" is not an array')
     out: list[Light] = []
     for light in value:
         if not isinstance(light, dict):
@@ -173,47 +157,43 @@ def load_lights(value: Any) -> list[Light]:
         elif type_str == "specular":
             type_val = LIGHT_SPECULAR
         else:
-            raise LoadError(f"Unrecognized light type \"{type_str}\"")
+            raise LoadError(f'Unrecognized light type "{type_str}"')
         shadow = light.get("shadow", False)
-        if not isinstance(shadow, bool):
-            raise LoadError("Property \"shadow\" is not a boolean")
         direction = _read_vector3(light.get("direction"))
         n = np.linalg.norm(direction)
         if n > 0:
             direction = direction / n
         intensity = _require_number(light, "strength")
-        out.append(Light(type=type_val, shadow=int(shadow),
-                         direction=direction, intensity=intensity))
+        out.append(
+            Light(type=type_val, shadow=int(shadow), direction=direction, intensity=intensity)
+        )
     return out
 
 
-# ---------------------------------------------------------------------------
-# Model
-# ---------------------------------------------------------------------------
-
 def _load_model(value: Any, num_meshes: int, num_frames: int) -> Model:
     if value is None:
-        raise LoadError("Property \"model\" not found")
+        raise LoadError('Property "model" not found')
     arr = _as_array_or_wrap(value)
     meshes_out: list[list[MeshFrame]] = []
     for elem in arr:
         if not isinstance(elem, dict):
-            raise LoadError("Property \"model\" is not an object")
+            raise LoadError('Property "model" is not an object')
         # Build MAX_FRAMES entries (frames > num_frames are unused).
         frames = [MeshFrame() for _ in range(MAX_FRAMES)]
 
         mesh_idx_raw = elem.get("mesh_index")
         if mesh_idx_raw is None:
-            raise LoadError("Property \"mesh_index\" not found")
+            raise LoadError('Property "mesh_index" not found')
         mesh_arr = _as_array_or_wrap(mesh_idx_raw)
         mesh_count = len(mesh_arr)
         if mesh_count != 1 and mesh_count != num_frames:
             raise LoadError(
-                f"Number of elements in \"mesh_index\" ({mesh_count}) "
-                f"does not match number of frames ({num_frames})")
+                f'Number of elements in "mesh_index" ({mesh_count}) '
+                f"does not match number of frames ({num_frames})"
+            )
         for j, mi in enumerate(mesh_arr):
             if not isinstance(mi, int) or isinstance(mi, bool):
-                raise LoadError("Property \"mesh_index\" not found or is not an integer")
+                raise LoadError('Property "mesh_index" not found or is not an integer')
             if mi >= num_meshes or mi < -1:
                 raise LoadError(f"Mesh index {mi} is out of bounds")
             frames[j].mesh_index = int(mi)
@@ -237,14 +217,13 @@ def _load_model(value: Any, num_meshes: int, num_frames: int) -> Model:
             else:
                 raise LoadError(
                     f'Number of elements in "{key}" ({len(prop)}) does not match '
-                    f'number of frames ({num_frames})')
+                    f"number of frames ({num_frames})"
+                )
         meshes_out.append(frames)
     return Model(meshes=meshes_out)
 
 
 def _load_vehicle(value: dict, ride: Ride) -> Vehicle:
-    if not isinstance(value, dict):
-        raise LoadError("Vehicle array contains a non-object element")
     v = Vehicle()
     v.spacing = _require_number(value, "spacing")
     v.mass = _require_int(value, "mass")
@@ -263,30 +242,16 @@ def _load_vehicle(value: dict, ride: Ride) -> Vehicle:
         # Seat count is the total number of peep meshes across all rows; each
         # rider row is a Model whose submeshes are the individual peeps.
         v.num_riders = sum(
-            1
-            for row in v.riders
-            for submesh in row.meshes
-            if submesh[0].mesh_index >= 0
+            1 for row in v.riders for submesh in row.meshes if submesh[0].mesh_index >= 0
         )
     elif riders is not None:
-        raise LoadError("Property \"riders\" is not an array")
+        raise LoadError('Property "riders" is not an array')
     return v
 
 
-# ---------------------------------------------------------------------------
-# Top-level load
-# ---------------------------------------------------------------------------
-
 def build_ride(config: dict, meshes: list, preview: IndexedImage | None = None) -> Ride:
-    """Build a Ride from an already-parsed config dict + in-memory meshes.
-
-    This is the filesystem-free seam: callers that don't have config/meshes on
-    disk (e.g. the Blender add-on, which reads geometry straight from the
-    scene) construct the same dict shape `load_ride` parses, hand over loaded
-    `Mesh` objects and an optional preview image, and get back the identical
-    `Ride`. `load_ride` is now a thin wrapper that reads files and delegates
-    here. The `config` dict's `meshes`/`preview` keys (if present) are ignored
-    — geometry and preview come from the arguments.
+    """
+    Build a Ride from an already-parsed config dict + in-memory meshes.
     """
     root = config
 
@@ -311,16 +276,11 @@ def build_ride(config: dict, meshes: list, preview: IndexedImage | None = None) 
         else 0
     )
 
-    # "sprites" may be either an array of group names, or the string "all"
-    # to render every group. "all" guarantees the vehicle has correct
-    # sprites if someone swaps it onto a ride type with track pieces this
-    # ride_type doesn't normally support (avoids glitchy fallbacks in-game).
     sprites_raw = root.get("sprites")
     if sprites_raw == "all":
         ride.sprite_flags = (1 << len(SPRITE_GROUP_NAMES)) - 1  # all 16 bits
     else:
-        ride.sprite_flags = _flag_bits(sprites_raw, SPRITE_GROUP_NAMES,
-                                       "sprites", "sprite group")
+        ride.sprite_flags = _flag_bits(sprites_raw, SPRITE_GROUP_NAMES, "sprites", "sprite group")
         # Implied sprite flags.
         sf = ride.sprite_flags
         if sf & SpriteFlag.BANKING:
@@ -330,11 +290,7 @@ def build_ride(config: dict, meshes: list, preview: IndexedImage | None = None) 
             if sf & SpriteFlag.SLOPED_BANKED_TURN:
                 sf |= SpriteFlag.SLOPED_BANK_TRANSITION | SpriteFlag.BANKED_SLOPE_TRANSITION
         # Dive-loop sprites reuse the 8-frame zero-g sb22 rotations, so the
-        # two groups must travel together: count_sprites budgets dive loops as
-        # 96 own sprites + the 16-sprite sb22 upgrade that only renders when
-        # ZERO_G_ROLL is present. Every OpenRCT2 ride type pairs them already;
-        # imply it here so a hand-written sprites list can't desync the
-        # declared sprite count from what render_vehicle_frame emits.
+        # two groups must travel together
         if sf & SpriteFlag.DIVE_LOOP:
             sf |= SpriteFlag.ZERO_G_ROLL
         ride.sprite_flags = int(sf)
@@ -343,12 +299,12 @@ def build_ride(config: dict, meshes: list, preview: IndexedImage | None = None) 
     ride.tab_car = _optional_int(root, "preview_tab_car", 0)
     ride.build_menu_priority = _optional_int(root, "build_menu_priority", 0)
 
-    ride.running_sound = _enum_index(root.get("running_sound"),
-                                     RUNNING_SOUND_NAMES,
-                                     "running_sound", "running sound")
-    ride.secondary_sound = _enum_index(root.get("secondary_sound"),
-                                       SECONDARY_SOUND_NAMES,
-                                       "secondary_sound", "secondary sound")
+    ride.running_sound = _enum_index(
+        root.get("running_sound"), RUNNING_SOUND_NAMES, "running_sound", "running sound"
+    )
+    ride.secondary_sound = _enum_index(
+        root.get("secondary_sound"), SECONDARY_SOUND_NAMES, "secondary_sound", "secondary sound"
+    )
 
     ride.min_cars_per_train = _require_int(root, "min_cars_per_train")
     ride.max_cars_per_train = _require_int(root, "max_cars_per_train")
@@ -356,12 +312,10 @@ def build_ride(config: dict, meshes: list, preview: IndexedImage | None = None) 
     # Configuration: optional object with `default` (defaults to 0), plus
     # optional front/second/third/rear. Single-car-type rides can omit it.
     config = root.get("configuration", {"default": 0})
-    if not isinstance(config, dict):
-        raise LoadError("Property \"configuration\" is not an object")
     ride.configuration = [0xFF] * 5
     default = config.get("default")
     if not isinstance(default, int) or isinstance(default, bool):
-        raise LoadError("Property \"default\" not found or is not an integer")
+        raise LoadError('Property "default" not found or is not an integer')
     ride.configuration[CarIndex.DEFAULT] = int(default)
     for key, idx in [
         ("front", CarIndex.FRONT),
@@ -373,17 +327,16 @@ def build_ride(config: dict, meshes: list, preview: IndexedImage | None = None) 
         if v is None:
             continue
         if not isinstance(v, int) or isinstance(v, bool):
-            raise LoadError(f"Property \"{key}\" is not an integer")
+            raise LoadError(f'Property "{key}" is not an integer')
         ride.configuration[idx] = int(v)
 
     # Colors.
     raw_colors = root.get("default_colors")
     if not isinstance(raw_colors, list):
-        raise LoadError("Property \"default_colors\" not found or is not an array")
+        raise LoadError('Property "default_colors" not found or is not an array')
     for entry in raw_colors:
         if not isinstance(entry, list):
-            raise LoadError(
-                "Property \"default_colors\" contains an element which is not an array")
+            raise LoadError('Property "default_colors" contains an element which is not an array')
         triple = [0, 0, 0]
         for j, color in enumerate(entry[:3]):
             triple[j] = _enum_index(color, COLOR_NAMES, "default_colors", "color")
@@ -395,7 +348,7 @@ def build_ride(config: dict, meshes: list, preview: IndexedImage | None = None) 
     # Vehicles.
     vehicles = root.get("vehicles")
     if not isinstance(vehicles, list):
-        raise LoadError("Property \"vehicles\" does not exist or is not an array")
+        raise LoadError('Property "vehicles" does not exist or is not an array')
     ride.num_sprites = 3
     for vj in vehicles:
         veh = _load_vehicle(vj, ride)
@@ -416,7 +369,7 @@ def load_ride(json_path: Path | str) -> Ride:
     preview_path = root.get("preview")
     if preview_path is not None:
         if not isinstance(preview_path, str):
-            raise LoadError("Property \"preview\" is not a string")
+            raise LoadError('Property "preview" is not a string')
         try:
             preview = read_png(preview_path)
         except Exception as e:
@@ -425,7 +378,7 @@ def load_ride(json_path: Path | str) -> Ride:
     # Meshes.
     mesh_paths = root.get("meshes")
     if not isinstance(mesh_paths, list):
-        raise LoadError("Property \"meshes\" does not exist or is not an array")
+        raise LoadError('Property "meshes" does not exist or is not an array')
     meshes = []
     for mp in mesh_paths:
         if not isinstance(mp, str):

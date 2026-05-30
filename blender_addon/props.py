@@ -256,7 +256,8 @@ for _prefix, _names in FLAG_GROUPS.items():
     target = VGCarType if _prefix == "vf_" else VGRideSettings
     for _name in _names:
         target.__annotations__[_prefix + _name] = BoolProperty(
-            name=_title(_name), default=(_prefix == "sg_" and _name == "flat"))
+            name=_title(_name), default=(_prefix == "sg_" and _name == "flat")
+        )
 
 
 _CLASSES = (VGColorPreset, VGMaterialSettings, VGObjectSettings, VGCarType, VGRideSettings)

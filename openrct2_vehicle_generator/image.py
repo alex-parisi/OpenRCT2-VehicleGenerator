@@ -1,8 +1,8 @@
-"""IndexedImage PNG I/O via Pillow.
+"""
+IndexedImage PNG I/O via Pillow.
 
 Ports the PNG read/write portion of src/iso-render/Image.cpp.
 """
-
 
 from pathlib import Path
 

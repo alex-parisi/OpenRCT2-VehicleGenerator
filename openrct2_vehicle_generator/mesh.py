@@ -1,11 +1,6 @@
-"""Pure-Python OBJ/MTL loader + Material/Texture types.
-
-Replaces src/iso-render/Mesh.cpp (which used assimp). Triangulates
-polygonal faces via fan decomposition. Generates per-vertex normals if
-the OBJ lacks them (area-weighted face normals, averaged at shared
-vertices).
 """
-
+Pure-Python OBJ/MTL loader + Material/Texture types.
+"""
 
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -26,9 +21,6 @@ from .constants import (
 )
 from .palette import _srgb2linear
 
-# ---------------------------------------------------------------------------
-# Texture
-# ---------------------------------------------------------------------------
 
 @dataclass
 class Texture:
@@ -45,22 +37,19 @@ def load_texture(path: Path | str) -> Texture:
     return Texture(width=w, height=h, pixels=linear)
 
 
-# ---------------------------------------------------------------------------
-# Material
-# ---------------------------------------------------------------------------
-
 @dataclass
 class Material:
     flags: int = 0
     region: int = 0
     specular_exponent: float = 50.0
     specular_color: np.ndarray = field(
-        default_factory=lambda: np.array([0.5, 0.5, 0.5], dtype=np.float64))
+        default_factory=lambda: np.array([0.5, 0.5, 0.5], dtype=np.float64)
+    )
     ambient_color: np.ndarray = field(
-        default_factory=lambda: np.array([0.0, 0.0, 0.0], dtype=np.float64))
+        default_factory=lambda: np.array([0.0, 0.0, 0.0], dtype=np.float64)
+    )
     # One of (color, texture) is meaningful, depending on flags.
-    color: np.ndarray = field(
-        default_factory=lambda: np.array([0.5, 0.5, 0.5], dtype=np.float64))
+    color: np.ndarray = field(default_factory=lambda: np.array([0.5, 0.5, 0.5], dtype=np.float64))
     texture: Texture | None = None
 
 
@@ -155,21 +144,13 @@ def _parse_mtl(path: Path, base_dir: Path) -> dict[str, Material]:
                 current.texture = load_texture(tex_full)
                 current.flags |= MATERIAL_HAS_TEXTURE
             except FileNotFoundError:
-                print(f"Failed to load texture \"{tex_path}\"")
+                print(f'Failed to load texture "{tex_path}"')
     commit()
     return materials
 
 
-# ---------------------------------------------------------------------------
-# Mesh
-# ---------------------------------------------------------------------------
-
 @dataclass
 class Mesh:
-    # vertices, normals: (N, 3) float32
-    # uvs: (N, 2) float32
-    # faces: (F, 3) uint32 (vertex indices)
-    # face_materials: (F,) uint32
     vertices: np.ndarray
     normals: np.ndarray
     uvs: np.ndarray
@@ -179,9 +160,8 @@ class Mesh:
 
 
 def _generate_normals(vertices: np.ndarray, faces: np.ndarray) -> np.ndarray:
-    """Area-weighted per-face normals averaged at shared vertices.
-
-    Mirrors `aiProcess_GenNormals` (used in Mesh.cpp via assimp).
+    """
+    Area-weighted per-face normals averaged at shared vertices.
     """
     normals = np.zeros_like(vertices)
     v0 = vertices[faces[:, 0]]
@@ -197,11 +177,8 @@ def _generate_normals(vertices: np.ndarray, faces: np.ndarray) -> np.ndarray:
 
 
 def load_mesh(filename: str | Path, transform: np.ndarray | None = None) -> Mesh:
-    """Load an OBJ + MTL into a Mesh.
-
-    `transform` is an optional 3x3 matrix applied to vertices and normals
-    (matches mesh_load_transform). If the matrix is mirroring (det < 0),
-    we flip the winding order to match aiProcess_FlipWindingOrder.
+    """
+    Load an OBJ + MTL into a Mesh.
     """
     if transform is None:
         transform = np.eye(3, dtype=np.float64)
@@ -222,7 +199,8 @@ def load_mesh(filename: str | Path, transform: np.ndarray | None = None) -> Mesh
     raw_faces: list[tuple[int, list[tuple[int, int, int]]]] = []
 
     materials: dict[str, Material] = {}
-    material_order: list[str] = []  # ordered list of material names in use
+    # ordered list of material names in use
+    material_order: list[str] = []
     name_to_index: dict[str, int] = {}
 
     def material_index(name: str) -> int:
@@ -290,10 +268,7 @@ def load_mesh(filename: str | Path, transform: np.ndarray | None = None) -> Mesh
             return idx - 1
         return n + idx
 
-    # Build expanded vertex list keyed by (v, vt, vn) tuples — this is the
-    # equivalent of aiProcess_JoinIdenticalVertices, since we need per-corner
-    # uvs and normals while still letting the ray tracer hand out one
-    # normal per Embree vertex.
+    # Build expanded vertex list keyed by (v, vt, vn) tuples
     vert_cache: dict[tuple[int, int, int], int] = {}
     out_vertices: list[tuple[float, float, float]] = []
     out_normals_raw: list[tuple[float, float, float] | None] = []
@@ -319,9 +294,7 @@ def load_mesh(filename: str | Path, transform: np.ndarray | None = None) -> Mesh
         out_faces.append((face_idx[0], face_idx[1], face_idx[2]))
         out_face_materials.append(mat_idx)
 
-    # Keep float64 throughout geometry processing for precision; convert to
-    # the C++ target dtypes only at the end so add_model's astype(copy=False)
-    # calls are true no-ops.
+    # Keep float64 throughout geometry processing for precision
     vertices_f64 = np.array(out_vertices, dtype=np.float64)
     uvs_f64 = np.array(out_uvs, dtype=np.float64)
     faces_u32 = np.array(out_faces, dtype=np.uint32)

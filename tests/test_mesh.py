@@ -82,20 +82,14 @@ def test_negative_face_indices_resolve_relative(tmp_path):
     obj = "v 0 0 0\nv 1 0 0\nv 0 1 0\nf -3 -2 -1\n"
     mesh = load_mesh(_write_obj(tmp_path, obj))
     assert mesh.faces.shape == (1, 3)
-    assert np.allclose(np.sort(mesh.vertices, axis=0),
-                       np.sort([[0, 0, 0], [1, 0, 0], [0, 1, 0]], axis=0))
+    assert np.allclose(
+        np.sort(mesh.vertices, axis=0), np.sort([[0, 0, 0], [1, 0, 0], [0, 1, 0]], axis=0)
+    )
 
 
 def test_material_order_follows_usemtl(tmp_path):
-    mtl = (
-        "newmtl Red\nKd 1 0 0\n"
-        "newmtl BlueRemap1\nKd 0 0 1\n"
-    )
-    obj = (
-        "v 0 0 0\nv 1 0 0\nv 1 1 0\n"
-        "usemtl BlueRemap1\nf 1 2 3\n"
-        "usemtl Red\nf 1 2 3\n"
-    )
+    mtl = "newmtl Red\nKd 1 0 0\nnewmtl BlueRemap1\nKd 0 0 1\n"
+    obj = "v 0 0 0\nv 1 0 0\nv 1 1 0\nusemtl BlueRemap1\nf 1 2 3\nusemtl Red\nf 1 2 3\n"
     mesh = load_mesh(_write_obj(tmp_path, obj, mtl))
     # First referenced material is BlueRemap1 -> index 0, remappable region 1.
     assert mesh.materials[0].region == 1

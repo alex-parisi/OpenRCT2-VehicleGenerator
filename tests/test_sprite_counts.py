@@ -34,9 +34,7 @@ def stub_render(monkeypatch):
 # ZERO_G_ROLL -- see test_dive_loop_alone_would_desync), plus the combination
 # that exercises the shared sb22 accounting, plus the everything-on case.
 _FLAG_CASES = [
-    pytest.param(int(f), id=f.name)
-    for f in SpriteFlag
-    if f is not SpriteFlag.DIVE_LOOP
+    pytest.param(int(f), id=f.name) for f in SpriteFlag if f is not SpriteFlag.DIVE_LOOP
 ] + [
     pytest.param(int(SpriteFlag.ZERO_G_ROLL | SpriteFlag.DIVE_LOOP), id="zerog+dive"),
     pytest.param(ALL_SPRITE_FLAGS, id="all"),
@@ -55,9 +53,7 @@ def test_restraint_frames_add_twelve(stub_render):
     with_restraint = count_sprites(sf, int(VehicleFlag.RESTRAINT_ANIMATION))
     assert with_restraint - base == 12
     # Restraint frames 1..3 each render 4 flat rotations -> 12 total.
-    rendered = sum(
-        len(render_vehicle_frame(None, sf, frame=f)) for f in (1, 2, 3)
-    )
+    rendered = sum(len(render_vehicle_frame(None, sf, frame=f)) for f in (1, 2, 3))
     assert rendered == 12
 
 

@@ -1,7 +1,6 @@
-"""Dataclasses mirroring the C++ structs in Project.hpp / Vehicle.hpp /
-Model.hpp / Renderer.hpp.
 """
-
+Dataclasses
+"""
 
 from dataclasses import dataclass, field
 from typing import Any
@@ -14,17 +13,12 @@ MAX_FRAMES = 4
 @dataclass
 class MeshFrame:
     mesh_index: int = -1
-    position: np.ndarray = field(
-        default_factory=lambda: np.zeros(3, dtype=np.float64))
-    orientation: np.ndarray = field(
-        default_factory=lambda: np.zeros(3, dtype=np.float64))
+    position: np.ndarray = field(default_factory=lambda: np.zeros(3, dtype=np.float64))
+    orientation: np.ndarray = field(default_factory=lambda: np.zeros(3, dtype=np.float64))
 
 
 @dataclass
 class Model:
-    # Outer list: one entry per submesh. Each inner list always has
-    # MAX_FRAMES MeshFrames (broadcast from a single one when the JSON
-    # specifies a non-animated model).
     meshes: list[list[MeshFrame]] = field(default_factory=list)
 
 

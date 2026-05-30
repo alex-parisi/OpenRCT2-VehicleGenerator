@@ -9,7 +9,10 @@ from openrct2_vehicle_generator.types import IndexedImage
 
 def _img(w, h, x_offset, y_offset, fill):
     return IndexedImage(
-        width=w, height=h, x_offset=x_offset, y_offset=y_offset,
+        width=w,
+        height=h,
+        x_offset=x_offset,
+        y_offset=y_offset,
         pixels=np.full((h, w), fill, dtype=np.uint8),
     )
 
@@ -19,10 +22,8 @@ def _parse_images_dat(data: bytes):
     elements = []
     elem_base = 8
     for i in range(num):
-        off, w, h, xo, yo, flags, zoom = struct.unpack_from(
-            "<IhhhhHH", data, elem_base + i * 16)
-        elements.append(dict(offset=off, w=w, h=h, x=xo, y=yo,
-                             flags=flags, zoom=zoom))
+        off, w, h, xo, yo, flags, zoom = struct.unpack_from("<IhhhhHH", data, elem_base + i * 16)
+        elements.append(dict(offset=off, w=w, h=h, x=xo, y=yo, flags=flags, zoom=zoom))
     pixel_base = elem_base + num * 16
     return num, total, elements, data[pixel_base:]
 
@@ -51,7 +52,7 @@ def test_images_dat_roundtrip(tmp_path):
         assert el["flags"] == _G1_FLAG_BMP
         assert el["zoom"] == 0
         assert el["offset"] == cursor
-        chunk = pixels[cursor:cursor + img.width * img.height]
+        chunk = pixels[cursor : cursor + img.width * img.height]
         assert np.array_equal(
             np.frombuffer(chunk, dtype=np.uint8).reshape(img.height, img.width),
             img.pixels,

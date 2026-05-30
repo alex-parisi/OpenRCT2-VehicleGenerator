@@ -33,8 +33,11 @@ def resolve_ride_type(track_types: dict, ride_type: str) -> dict:
     info = track_types.get(ride_type)
     if not info:
         matches = [k for k in track_types if ride_type.lower() in k.lower()]
-        hint = f"\nDid you mean: {', '.join(matches)}" if matches else \
-               "\nRun 'ride_gen.py list' to see all available types."
+        hint = (
+            f"\nDid you mean: {', '.join(matches)}"
+            if matches
+            else "\nRun 'ride_gen.py list' to see all available types."
+        )
         sys.exit(f"Unknown ride type: '{ride_type}'.{hint}")
     return info
 
@@ -51,6 +54,7 @@ def _mesh_for_car(meshes: list[str], car_index: int) -> str:
 # ---------------------------------------------------------------------------
 # Subcommands
 # ---------------------------------------------------------------------------
+
 
 def cmd_list(track_types: dict, _args) -> None:
     for ride_type, info in track_types.items():
@@ -93,13 +97,15 @@ def cmd_generate(track_types: dict, args) -> None:
     for i, car in enumerate(cars):
         # Merge required flags from the track type with any user-supplied extras
         vflags = sorted(set(car["vehicle_flags"]) | set(args.extra_flags))
-        vehicles.append({
-            "flags": vflags,
-            "model": [{"mesh_index": i, "position": [0, 0, 0], "orientation": [0, 0, 0]}],
-            "mass": args.mass,
-            "spacing": args.spacing,
-            "draw_order": args.draw_order,
-        })
+        vehicles.append(
+            {
+                "flags": vflags,
+                "model": [{"mesh_index": i, "position": [0, 0, 0], "orientation": [0, 0, 0]}],
+                "mass": args.mass,
+                "spacing": args.spacing,
+                "draw_order": args.draw_order,
+            }
+        )
 
     # meshes list: one entry per distinct mesh path (deduplicated by car index)
     meshes = [_mesh_for_car(args.meshes, i) for i in range(len(cars))]
@@ -140,6 +146,7 @@ def cmd_generate(track_types: dict, args) -> None:
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Generate makeride vehicle JSON for an existing in-game track type."
@@ -156,42 +163,55 @@ def main() -> None:
     # generate
     p_gen = sub.add_parser("generate", help="Generate a skeleton vehicle JSON")
     p_gen.add_argument("ride_type")
-    p_gen.add_argument("--id",    required=True, help="Object ID (e.g. mymod.ride.mycoaster)")
-    p_gen.add_argument("--name",  required=True, help="Display name")
+    p_gen.add_argument("--id", required=True, help="Object ID (e.g. mymod.ride.mycoaster)")
+    p_gen.add_argument("--name", required=True, help="Display name")
     p_gen.add_argument("--description", default="", metavar="TEXT")
-    p_gen.add_argument("--capacity",    default="", metavar="TEXT",
-                       help="Capacity string shown in the ride info window")
-    p_gen.add_argument("--authors",     nargs="*", default=[], metavar="NAME",
-                       help="One or more author names")
-    p_gen.add_argument("--meshes", nargs="+", default=["vehicle.obj"], metavar="FILE",
-                       help=(
-                           "Mesh file path(s) for each car type. Provide one path per car "
-                           "type in the same order as 'info' lists them (default=car[0], "
-                           "front=car[1], etc.). If fewer paths than car types are given, "
-                           "the last path is reused for remaining cars."
-                       ))
-    p_gen.add_argument("--min-cars",   type=int,   default=1)
-    p_gen.add_argument("--max-cars",   type=int,   default=1)
-    p_gen.add_argument("--mass",       type=int,   default=500)
-    p_gen.add_argument("--spacing",    type=float, default=1.9,
-                       help="Car spacing in tile units (default: 1.9)")
-    p_gen.add_argument("--draw-order", type=int,   default=6)
-    p_gen.add_argument("--running-sound",   default="steel",
-                       choices=VALID_RUNNING_SOUNDS)
-    p_gen.add_argument("--secondary-sound", default="scream1",
-                       choices=VALID_SECONDARY_SOUNDS)
-    p_gen.add_argument("--extra-flags", nargs="+", default=[],
-                       choices=VALID_VEHICLE_FLAGS, metavar="FLAG",
-                       help="Additional vehicle flags to add to every car type")
-    p_gen.add_argument("--output", "-o", metavar="FILE",
-                       help="Write JSON to this file instead of stdout")
+    p_gen.add_argument(
+        "--capacity",
+        default="",
+        metavar="TEXT",
+        help="Capacity string shown in the ride info window",
+    )
+    p_gen.add_argument(
+        "--authors", nargs="*", default=[], metavar="NAME", help="One or more author names"
+    )
+    p_gen.add_argument(
+        "--meshes",
+        nargs="+",
+        default=["vehicle.obj"],
+        metavar="FILE",
+        help=(
+            "Mesh file path(s) for each car type. Provide one path per car "
+            "type in the same order as 'info' lists them (default=car[0], "
+            "front=car[1], etc.). If fewer paths than car types are given, "
+            "the last path is reused for remaining cars."
+        ),
+    )
+    p_gen.add_argument("--min-cars", type=int, default=1)
+    p_gen.add_argument("--max-cars", type=int, default=1)
+    p_gen.add_argument("--mass", type=int, default=500)
+    p_gen.add_argument(
+        "--spacing", type=float, default=1.9, help="Car spacing in tile units (default: 1.9)"
+    )
+    p_gen.add_argument("--draw-order", type=int, default=6)
+    p_gen.add_argument("--running-sound", default="steel", choices=VALID_RUNNING_SOUNDS)
+    p_gen.add_argument("--secondary-sound", default="scream1", choices=VALID_SECONDARY_SOUNDS)
+    p_gen.add_argument(
+        "--extra-flags",
+        nargs="+",
+        default=[],
+        choices=VALID_VEHICLE_FLAGS,
+        metavar="FLAG",
+        help="Additional vehicle flags to add to every car type",
+    )
+    p_gen.add_argument(
+        "--output", "-o", metavar="FILE", help="Write JSON to this file instead of stdout"
+    )
 
     args = parser.parse_args()
     track_types = load_track_types()
 
-    {"list": cmd_list, "info": cmd_info, "generate": cmd_generate}[args.command](
-        track_types, args
-    )
+    {"list": cmd_list, "info": cmd_info, "generate": cmd_generate}[args.command](track_types, args)
 
 
 if __name__ == "__main__":

@@ -2,7 +2,6 @@
 Build object.json and assemble the .parkobj ZIP.
 """
 
-
 import json
 import math
 import struct
@@ -27,9 +26,6 @@ from .ray_trace import Context, render_view, rotate_x, rotate_y, rotate_z
 from .sprite_renderer import count_sprites, render_vehicle_frame
 from .types import Model, Ride
 
-# ---------------------------------------------------------------------------
-# object.json construction
-# ---------------------------------------------------------------------------
 
 def _emit_sprite_groups(sf: int, vf: int) -> dict[str, int]:
     out: dict[str, int] = {}
@@ -95,14 +91,13 @@ def _emit_sprite_groups(sf: int, vf: int) -> dict[str, int]:
     return out
 
 
-# OpenRCT2 G1 image flag bits. We only ever emit BMP (raw indexed pixel
-# data, no compression). RLE (0x0008) would be more compact but requires
-# encoding transparent runs / visible runs per scanline; not implemented.
+# OpenRCT2 G1 image flag bits
 _G1_FLAG_BMP = 0x0001
 
 
 def _write_images_dat(images: list, out_path: Path) -> None:
-    """Write a sequence of IndexedImages as an OpenRCT2 `images.dat` (G1) blob.
+    """
+    Write a sequence of IndexedImages as an OpenRCT2 `images.dat` (G1) blob.
 
     Format (matches the vanilla parkobj's `images.dat`):
       - Header (8 bytes): u32 num_entries, u32 total_pixel_data_size.
@@ -124,7 +119,8 @@ def _write_images_dat(images: list, out_path: Path) -> None:
         pixels = img.pixels.tobytes()  # uint8 (H, W) row-major
         assert len(pixels) == img.width * img.height, (
             f"sprite pixel buffer size mismatch: "
-            f"got {len(pixels)}, expected {img.width}*{img.height}")
+            f"got {len(pixels)}, expected {img.width}*{img.height}"
+        )
         offsets.append(cur)
         chunks.append(pixels)
         cur += len(pixels)
@@ -150,8 +146,7 @@ def _write_images_dat(images: list, out_path: Path) -> None:
 
 
 def build_ride_json(ride: Ride) -> dict[str, Any]:
-    out: dict[str, Any] = {}
-    out["id"] = ride.id
+    out: dict[str, Any] = {"id": ride.id}
     if ride.original_id:
         out["originalId"] = ride.original_id
     out["version"] = ride.version
@@ -159,14 +154,15 @@ def build_ride_json(ride: Ride) -> dict[str, Any]:
     out["authors"] = list(ride.authors)
     out["objectType"] = "ride"
 
-    properties: dict[str, Any] = {}
-    properties["type"] = [ride.ride_type]
-    properties["category"] = CATEGORY_NAMES[ride.category]
-    properties["minCarsPerTrain"] = ride.min_cars_per_train
-    properties["maxCarsPerTrain"] = ride.max_cars_per_train
-    properties["numEmptyCars"] = ride.zero_cars
-    properties["tabCar"] = ride.tab_car
-    properties["defaultCar"] = ride.configuration[CarIndex.DEFAULT]
+    properties: dict[str, Any] = {
+        "type": [ride.ride_type],
+        "category": CATEGORY_NAMES[ride.category],
+        "minCarsPerTrain": ride.min_cars_per_train,
+        "maxCarsPerTrain": ride.max_cars_per_train,
+        "numEmptyCars": ride.zero_cars,
+        "tabCar": ride.tab_car,
+        "defaultCar": ride.configuration[CarIndex.DEFAULT],
+    }
     front = ride.configuration[CarIndex.FRONT]
     if front != 0xFF:
         properties["headCars"] = front
@@ -189,15 +185,19 @@ def build_ride_json(ride: Ride) -> dict[str, Any]:
 
     cars = []
     for vehicle in ride.vehicles:
-        car: dict[str, Any] = {}
-        car["rotationFrameMask"] = 31
-        car["spacing"] = int((vehicle.spacing * 278912) / TILE_SIZE)
-        car["mass"] = vehicle.mass
-        car["numSeats"] = vehicle.num_riders
-        car["numSeatRows"] = len(vehicle.riders)
+        car: dict[str, Any] = {
+            "rotationFrameMask": 31,
+            "spacing": int((vehicle.spacing * 278912) / TILE_SIZE),
+            "mass": vehicle.mass,
+            "numSeats": vehicle.num_riders,
+            "numSeatRows": len(vehicle.riders),
+        }
 
-        friction = (FRICTION_SOUND_IDS[ride.running_sound]
-                    if ride.running_sound < len(FRICTION_SOUND_IDS) else 0)
+        friction = (
+            FRICTION_SOUND_IDS[ride.running_sound]
+            if ride.running_sound < len(FRICTION_SOUND_IDS)
+            else 0
+        )
         car["frictionSoundId"] = friction
         car["soundRange"] = ride.secondary_sound
         car["effectVisual"] = vehicle.effect_visual
@@ -236,40 +236,26 @@ def build_ride_json(ride: Ride) -> dict[str, Any]:
     return out
 
 
-# ---------------------------------------------------------------------------
-# Sprite rendering orchestration
-# ---------------------------------------------------------------------------
-
-def _add_model_to_context(ride: Ride, context: Context, model: Model,
-                          frame: int, mask: int) -> None:
+def _add_model_to_context(
+    ride: Ride, context: Context, model: Model, frame: int, mask: int
+) -> None:
     for mesh_frames in model.meshes:
         mf = mesh_frames[frame]
         if mf.mesh_index == -1:
             continue
-        # Orientation order matches ProjectExporter.cpp:
-        #   rotate_y(deg2rad(orientation.x))
-        # * rotate_z(deg2rad(orientation.y))
-        # * rotate_x(deg2rad(orientation.z))
-        rx, ry, rz = (mf.orientation * math.pi / 180.0)
+        rx, ry, rz = mf.orientation * math.pi / 180.0
         matrix = rotate_y(rx) @ rotate_z(ry) @ rotate_x(rz)
         translation = mf.position.astype(np.float64)
         context.add_model(ride.meshes[mf.mesh_index], matrix, translation, mask)
 
 
-
 def _render_sprites(ride: Ride, context: Context, object_dir: Path) -> list:
-    """Render every sprite for the ride and write a single `images.dat`.
-
-    Returns the `images` JSON value to embed in object.json — a one-element
-    list containing the `$LGX:images.dat[0..N-1]` reference. Matches the
-    vanilla parkobj format and loads ~50x faster than per-PNG output in
-    OpenRCT2's object picker.
+    """
+    Render every sprite for the ride and write a single `images.dat`.
     """
     all_images: list = []
 
-    # Three preview entries (same image, three copies in the blob — that's
-    # how vanilla parkobjs are laid out; OpenRCT2 references them at
-    # specific indices for the build-menu icon stack).
+    # Three preview entries
     all_images.extend([ride.preview] * 3)
 
     for i, vehicle in enumerate(ride.vehicles):
@@ -314,14 +300,9 @@ def _render_sprites(ride: Ride, context: Context, object_dir: Path) -> list:
 
     out_path = object_dir / "images.dat"
     _write_images_dat(all_images, out_path)
-    print(f"wrote {out_path} ({len(all_images)} sprites, "
-          f"{out_path.stat().st_size / 1024:.1f} KB)")
+    print(f"wrote {out_path} ({len(all_images)} sprites, {out_path.stat().st_size / 1024:.1f} KB)")
     return [f"$LGX:images.dat[0..{len(all_images) - 1}]"]
 
-
-# ---------------------------------------------------------------------------
-# .parkobj assembly
-# ---------------------------------------------------------------------------
 
 def _make_parkobj(ride: Ride, object_dir: Path, output_path: Path) -> None:
     with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
@@ -339,15 +320,15 @@ def _clean_working_dir(ride: Ride, object_dir: Path) -> None:
             p.unlink()
 
 
-def export_ride_to(ride: Ride, context: Context, parkobj_path: Path | str,
-                   work_dir: Path | str, skip_render: bool = False) -> None:
-    """Render and assemble a .parkobj using explicit, caller-chosen paths.
-
-    `work_dir` holds the intermediate `object.json` + `images.dat`;
-    `parkobj_path` is the final archive. Neither depends on the process CWD,
-    so this is safe to drive from environments (e.g. Blender) where CWD is
-    unpredictable. `export_ride` is a thin wrapper preserving the legacy
-    CWD-relative `object/` working dir + `<output>/<id>.parkobj` layout.
+def export_ride_to(
+    ride: Ride,
+    context: Context,
+    parkobj_path: Path | str,
+    work_dir: Path | str,
+    skip_render: bool = False,
+) -> None:
+    """
+    Render and assemble a .parkobj using explicit, caller-chosen paths.
     """
     parkobj_path = Path(parkobj_path)
     work_dir = Path(work_dir)
@@ -360,7 +341,7 @@ def export_ride_to(ride: Ride, context: Context, parkobj_path: Path | str,
         prev = json.loads((work_dir / "object.json").read_text())
         images_json = prev.get("images")
         if not isinstance(images_json, list):
-            raise RuntimeError("Property \"images\" is not an array")
+            raise RuntimeError('Property "images" is not an array')
     else:
         _clean_working_dir(ride, work_dir)
         images_json = _render_sprites(ride, context, work_dir)
@@ -373,11 +354,17 @@ def export_ride_to(ride: Ride, context: Context, parkobj_path: Path | str,
     _make_parkobj(ride, work_dir, parkobj_path)
 
 
-def export_ride(ride: Ride, context: Context, output_directory: Path | str,
-                skip_render: bool = False) -> None:
+def export_ride(
+    ride: Ride, context: Context, output_directory: Path | str, skip_render: bool = False
+) -> None:
     output_directory = Path(output_directory)
-    export_ride_to(ride, context, output_directory / f"{ride.id}.parkobj",
-                   Path("object"), skip_render=skip_render)
+    export_ride_to(
+        ride,
+        context,
+        output_directory / f"{ride.id}.parkobj",
+        Path("object"),
+        skip_render=skip_render,
+    )
 
 
 def export_ride_test(ride: Ride, context: Context, test_dir: Path | str = "test") -> None:

@@ -4,7 +4,6 @@ Usage:
     python -m openrct2_vehicle_generator [--test|--skip-render] <input.json|.yaml>
 """
 
-
 import argparse
 import sys
 from pathlib import Path
@@ -27,7 +26,10 @@ def _normalize(v: list[float]) -> np.ndarray:
 
 
 def _default_lights() -> list[Light]:
-    # Mirrors the hand-tuned rig in src/rct2-ride-gen/main.cpp.
+    """
+    Ported from X7's rendering engine
+    https://github.com/X123M3-256/RCTGen
+    """
     return [
         Light(LIGHT_DIFFUSE, 0, _normalize([0.0, -1.0, 0.0]), 0.1),
         Light(LIGHT_DIFFUSE, 0, _normalize([0.0, 0.5, -1.0]), 0.8),
@@ -44,10 +46,10 @@ def _default_lights() -> list[Light]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="openrct2-vehicle-generator")
     group = parser.add_mutually_exclusive_group()
-    group.add_argument("--test", action="store_true",
-                       help="single-viewpoint render to test/")
-    group.add_argument("--skip-render", action="store_true",
-                       help="reuse previously rendered sprites")
+    group.add_argument("--test", action="store_true", help="single-viewpoint render to test/")
+    group.add_argument(
+        "--skip-render", action="store_true", help="reuse previously rendered sprites"
+    )
     parser.add_argument("input", type=Path)
     args = parser.parse_args(argv)
 
@@ -82,8 +84,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.test:
             export_ride_test(ride, context)
         else:
-            export_ride(ride, context, output_directory,
-                        skip_render=args.skip_render)
+            export_ride(ride, context, output_directory, skip_render=args.skip_render)
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         return 1

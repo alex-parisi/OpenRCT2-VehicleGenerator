@@ -20,18 +20,24 @@ import os
 import bpy
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT_PATH  = os.path.join(REPO_ROOT, "examples", "wooden", "restraint.obj")
+OUT_PATH = os.path.join(REPO_ROOT, "examples", "wooden", "restraint.obj")
 
 # Dimensions (OBJ coords; pivot is at the bar's front-bottom corner)
-BAR_LEN    = 0.42         # reach back from pivot (along -X when closed)
-BAR_WIDTH  = 1.25         # crossbar length (along Z, across the car)
-BAR_RADIUS = 0.045        # tube radius (shared by crossbar and side arms)
+BAR_LEN = 0.42  # reach back from pivot (along -X when closed)
+BAR_WIDTH = 1.25  # crossbar length (along Z, across the car)
+BAR_RADIUS = 0.045  # tube radius (shared by crossbar and side arms)
 
-POST_THICK = 0.06         # side-post cross-section
-POST_DROP  = 0.08         # how far the side posts hang below the bar (Y)
+POST_THICK = 0.06  # side-post cross-section
+POST_DROP = 0.08  # how far the side posts hang below the bar (Y)
 
-def loc(x, y, z):  return (x, -z, y)
-def scl(dx, dy, dz): return (dx, dz, dy)
+
+def loc(x, y, z):
+    return (x, -z, y)
+
+
+def scl(dx, dy, dz):
+    return (dx, dz, dy)
+
 
 def clear_scene():
     if bpy.context.scene.objects:
@@ -41,11 +47,13 @@ def clear_scene():
         for item in list(coll):
             coll.remove(item)
 
+
 def material(name):
     m = bpy.data.materials.get(name)
     if m is None:
         m = bpy.data.materials.new(name)
     return m
+
 
 def add_box(name, center, size, material_name):
     cx, cy, cz = center
@@ -58,6 +66,7 @@ def add_box(name, center, size, material_name):
     o.data.materials.append(material(material_name))
     return o
 
+
 def add_cylinder(name, center, axis, length, radius, material_name, segs=16):
     """Centered at OBJ-space `center`; `axis` is 'x', 'y', or 'z' in OBJ space."""
     cx, cy, cz = center
@@ -69,7 +78,9 @@ def add_cylinder(name, center, axis, length, radius, material_name, segs=16):
         "z": (math.radians(90), 0.0, 0.0),
     }[axis]
     bpy.ops.mesh.primitive_cylinder_add(
-        vertices=segs, radius=radius, depth=length,
+        vertices=segs,
+        radius=radius,
+        depth=length,
         location=loc(cx, cy, cz),
         rotation=rot,
     )
@@ -77,6 +88,7 @@ def add_cylinder(name, center, axis, length, radius, material_name, segs=16):
     o.name = name
     o.data.materials.append(material(material_name))
     return o
+
 
 def build_bar():
     # Pivot is at the bar's FORWARD-bottom edge (+X side, since +X = direction
@@ -97,9 +109,7 @@ def build_bar():
     for z_sign in (-1, +1):
         add_cylinder(
             f"Lap_Bar_Arm_{'L' if z_sign < 0 else 'R'}",
-            center=(-BAR_LEN / 2,
-                    BAR_RADIUS,
-                    z_sign * (BAR_WIDTH / 2 - BAR_RADIUS)),
+            center=(-BAR_LEN / 2, BAR_RADIUS, z_sign * (BAR_WIDTH / 2 - BAR_RADIUS)),
             axis="x",
             length=BAR_LEN,
             radius=BAR_RADIUS,
@@ -109,12 +119,11 @@ def build_bar():
     for z_sign in (-1, +1):
         add_box(
             f"Lap_Bar_Post_{'L' if z_sign < 0 else 'R'}",
-            center=(-POST_THICK / 2,
-                    -POST_DROP / 2,
-                    z_sign * (BAR_WIDTH / 2 - POST_THICK / 2)),
+            center=(-POST_THICK / 2, -POST_DROP / 2, z_sign * (BAR_WIDTH / 2 - POST_THICK / 2)),
             size=(POST_THICK, POST_DROP, POST_THICK),
             material_name="ShinyMetal_Edge",
         )
+
 
 def export_obj():
     bpy.ops.object.select_all(action="SELECT")
@@ -127,6 +136,7 @@ def export_obj():
         export_uv=False,
         path_mode="RELATIVE",
     )
+
 
 def post_process_obj():
     with open(OUT_PATH) as f:
@@ -147,12 +157,14 @@ def post_process_obj():
     if os.path.exists(sidecar):
         os.remove(sidecar)
 
+
 def main():
     clear_scene()
     build_bar()
     export_obj()
     post_process_obj()
     print(f"[build_wooden_restraint] wrote {OUT_PATH}")
+
 
 if __name__ == "__main__":
     main()
