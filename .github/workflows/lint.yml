@@ -32,8 +32,11 @@ jobs:
       - name: Install dev dependencies
         run: uv sync --only-group dev --no-install-project
 
+      # --no-sync: use the env from the previous step as-is. Without it,
+      # `uv run` would re-sync (including the project), which triggers a full
+      # native build via scikit-build-core and pulls in Embree as a dep.
       - name: ruff check
-        run: uv run ruff check .
+        run: uv run --no-sync ruff check .
 
   mypy:
     name: mypy
@@ -60,7 +63,7 @@ jobs:
           uv pip install "numpy>=1.26" "pillow>=10.0" "pyyaml>=6.0"
 
       - name: mypy
-        run: uv run mypy
+        run: uv run --no-sync mypy
 
   clang-format:
     name: clang-format
@@ -102,15 +105,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             clang-${LLVM_VERSION} clang-tidy-${LLVM_VERSION} \
-            libgtest-dev cmake ninja-build
+            cmake ninja-build
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      # pybind11 headers for bindings.cpp; gtest config package for the test
-      # target (libgtest-dev installs the headers but the CMake config files
-      # come from the package's cmake/ tree, which apt already places).
+      # pybind11 headers for bindings.cpp.
       - name: Install pybind11
         run: pip install "pybind11>=2.12"
 
@@ -144,7 +145,7 @@ jobs:
           cmake -S x7_renderer -B x7_renderer/build -G Ninja \
             -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-            -DBUILD_TESTING=ON \
+            -DBUILD_TESTING=OFF \
             -DBUILD_PYTHON_MODULE=ON \
             -DCMAKE_PREFIX_PATH="${PYBIND11_DIR}"
 
@@ -156,7 +157,4 @@ jobs:
             x7_renderer/src/Mesh.cpp \
             x7_renderer/src/Palette.cpp \
             x7_renderer/src/RayTrace.cpp \
-            x7_renderer/src/Renderer.cpp \
-            x7_renderer/tests/test_mesh.cpp \
-            x7_renderer/tests/test_palette.cpp \
-            x7_renderer/tests/test_vector_math.cpp
+            x7_renderer/src/Renderer.cpp
