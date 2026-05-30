@@ -1,9 +1,8 @@
-# OpenRCT2-VehicleGenerator
-## X7 Renderer
+### X7 Renderer
 
 Heavily inspired by X7's [RCTGen](https://github.com/X123M3-256/RCTGen) project.
 
-## How it works
+#### How it works
 
 Input is a set of triangle meshes with materials and optional textures. Output
 is palette-indexed sprites in OpenRCT2's image format.

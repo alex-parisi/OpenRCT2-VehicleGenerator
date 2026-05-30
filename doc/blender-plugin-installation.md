@@ -5,7 +5,7 @@
 3. Go to File --> Preferences:
 
    <img src="_static/install1.png" width="300">
-4. Click the downwards pointing arrow in the top-right, and select "Install from Disk":
+4. On the left side panel, click "Add-ons", then click the downwards pointing arrow in the top-right and select "Install from Disk":
 
    <img src="_static/install2.png" width="500">
 5. Select the `.zip` file you downloaded in Step 1.
