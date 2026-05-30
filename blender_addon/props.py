@@ -99,7 +99,7 @@ OBJECT_ROLE_ITEMS = [
     ("IGNORE", "Ignore", "Not part of the vehicle"),
     ("BODY", "Body", "Static part of the car"),
     ("RESTRAINT", "Restraint", "Lap bar / restraint that animates"),
-    ("RIDER", "Rider seat", "A peep mesh; grouped into rows by Rider Row"),
+    ("RIDER", "Rider seat", "A peep mesh; paired into seat rows by Rider Number"),
 ]
 
 
@@ -162,9 +162,13 @@ class VGObjectSettings(PropertyGroup):
         items=OBJECT_ROLE_ITEMS,
         default="IGNORE",
     )
-    rider_row: IntProperty(
-        name="Rider Row",
-        description="Seat row index (riders are grouped into rows, not individuals)",
+    rider_number: IntProperty(
+        name="Rider Number",
+        description=(
+            "Order this peep among the car's riders. Peeps are sorted by this "
+            "number and paired into seat rows: 0+1 = first row, 2+3 = second row, "
+            "and so on."
+        ),
         default=0,
         min=0,
     )

@@ -91,10 +91,6 @@ Just like `car.obj`, import `peep.obj` into the Scene.
 
 While it's highlighted, open the "Object" panel, and assign it the "Rider set" role.
 
-When designing a car with two rows of seats, the rider row index of 0 corresponds to the 
-front row, and index 1 corresponds to the back row. Ensure the peeps that are placed in these 
-rows have the correct index.
-
 First, move the peep into the top-left seat of the car. About here should do it:
 
 <img src="_static/peep-placement-1.png" width="500">
@@ -105,9 +101,13 @@ mesh.
 
 <img src="_static/peep-placement-2.png" width="500">
 
-As mentioned above, ensure all the peep meshes are assigned the "Rider set" role, and that 
-the peeps in the front row have the "Rider Row" value set to 0, and to 1 for the peeps in the 
-back.
+Ensure all the peep meshes are assigned the "Rider set" role.
+
+Each peep also has a **Rider Number** field in the Object panel. The exporter sorts 
+peeps by this number and pairs them into seat rows: numbers 0 and 1 form the first row, 
+2 and 3 form the second, and so on. For the 2x2 wooden car above, set the two front-row 
+peeps to 0 and 1, and the two back-row peeps to 2 and 3. OpenRCT2 only supports pairs of 
+riders per row (or a single rider for one-seat cars).
 
 ### Assign Color Remap Meshes
 
@@ -137,8 +137,7 @@ for the peep sitting in the back-right seat.
 
 - Place the peep model(s) in the seats you want peeps to sit at in-game.
 - Assign the peep mesh to the "Rider seat" role
-- Ensure that peeps in the front row have the "Rider Row" value set to 0
-- Ensure that peeps in the back row have the "Rider Row" value set to 1
+- Set each peep's "Rider Number" so that the two peeps sharing a row get consecutive values (0/1 for the first row, 2/3 for the second, etc.)
 - Set the material for the shirt of the peeps on the left side to "_Remap1_"
 - Set the material for the shirt of the peeps on the right side to "_Remap2_"
 

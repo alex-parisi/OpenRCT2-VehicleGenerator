@@ -121,7 +121,8 @@ class VG_PT_object(Panel):
         os_ = context.object.vg_object
         layout.prop(os_, "role")
         if os_.role == "RIDER":
-            layout.prop(os_, "rider_row")
+            layout.prop(os_, "rider_number")
+            layout.label(text="Peeps pair into seat rows: 0+1, 2+3, ...", icon="INFO")
         elif os_.role == "RESTRAINT":
             layout.prop(os_, "restraint_swing_deg")
             layout.label(text="Set object origin to the hinge", icon="INFO")
