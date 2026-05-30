@@ -23,7 +23,7 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_PATH = os.path.join(REPO_ROOT, "examples", "wooden", "restraint.obj")
 
 # Dimensions (OBJ coords; pivot is at the bar's front-bottom corner)
-BAR_LEN = 0.42  # reach back from pivot (along -X when closed)
+BAR_LEN = 0.3  # reach back from pivot (along -X when closed)
 BAR_WIDTH = 1.25  # crossbar length (along Z, across the car)
 BAR_RADIUS = 0.045  # tube radius (shared by crossbar and side arms)
 

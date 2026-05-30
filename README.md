@@ -18,7 +18,7 @@ Heavily inspired by X7's [RCTGen](https://github.com/X123M3-256/RCTGen) project.
 
 1. Download the latest version of the Blender add-on [here](https://github.com/alex-parisi/OpenRCT2-VehicleGenerator/releases/latest)
 2. Install the add-on into Blender. If you are not sure how, follow [these instructions](doc/blender-plugin-installation.md)
-3. Follow the tutorial [here]()
+3. Follow the tutorial [here](doc/blender-plugin-tutorial.md)
 
 ## Material Triggers
 
@@ -40,6 +40,31 @@ Material names trigger special handling. Include one of these substrings to opt 
 Mesh OBJs use **+X = direction of travel (front of car)**, **+Y = up**,
 **+Z = passenger's right**. Geometry that should lead the moving train must
 sit at positive X.
+
+## Project Architecture
+
+This project is composed of three layers:
+
+#### X7 Renderer
+
+Ported from X7's [RCTGen](https://github.com/X123M3-256/RCTGen) project, I started by first modernizing the C code 
+to C++23, and then isolated most of the IsoRenderer code. As I was making changes, 
+I ensured all outputs from both the `makevehicle` and `maketrack` executables were 
+byte-identical.
+
+On top of this, I added some pybind11 bindings so the Python package could use the 
+X7 renderer.
+
+#### Python Package
+
+All other operations, like OBJ/MTL parsing, JSON/YAML configuration, most of the 
+rotation tables, and the `.parkobj` assembly, are handled by the `openrct2_vehicle_generator` 
+Python Package.
+
+#### Blender Add-On
+
+A proper Blender 4.2+ add-on that vendors the X7 renderer as pre-built wheels, 
+statically linking the Embree backend alongside the other OpenRCT2-specific functions.
 
 ## How It Works
 
@@ -64,10 +89,7 @@ plus four animation frames per view when `restraint_animation` is set. All
 frames are concatenated into a single `images.dat` binary blob in the same
 layout vanilla rides ship, an `object.json` is emitted referencing it via
 OpenRCT2's `$LGX:` syntax, and the pair is zipped into a `.parkobj` ready to
-drop into your `object/` folder. Using one blob instead of per-sprite PNGs (or
-the older `src_x`-atlas format that current OpenRCT2 silently rejects for
-exceeding the 256×256 PNG size limit) keeps the object-picker load near
-instant.
+drop into your `object/` folder.
 
 ## CLI Usage
 

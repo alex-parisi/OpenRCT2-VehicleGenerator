@@ -36,7 +36,7 @@ OUT_PATH = os.path.join(REPO_ROOT, "examples", "wooden", "car.obj")
 # --- Dimensions (OBJ space, units ~= meters) -------------------------------
 
 # Chassis floor plate
-CHASSIS_LEN = 1.9  # +X = direction of travel (front of car)
+CHASSIS_LEN = 2.0  # +X = direction of travel (front of car)
 CHASSIS_WIDTH = 1.50
 CHASSIS_THICK = 0.08
 CHASSIS_Y = 0.26  # bottom-of-floor (raised to clear bigger wheels)
@@ -77,7 +77,7 @@ END_HEIGHT = SIDE_HEIGHT
 BENCH_DEPTH = 0.40  # along X (per row)
 BENCH_HEIGHT = 0.25  # cushion thickness
 BENCH_WIDTH = CHASSIS_WIDTH - 2 * SIDE_THICK - 0.04  # fits between side walls
-FRONT_BENCH_X = +0.40  # center of front-row cushion (forward in +X)
+FRONT_BENCH_X = +0.35  # center of front-row cushion (forward in +X)
 BACK_BENCH_X = -0.35  # center of back-row cushion (behind front row)
 
 # Seat backs go BEHIND each row, i.e. at lower X than the row's cushion.
