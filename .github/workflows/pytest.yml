@@ -1,0 +1,44 @@
+name: pytest
+
+# Pure-Python unit tests. The suite never imports ray_trace/_x7_renderer (see
+# CLAUDE.md: "renderer stubbed; no Embree needed"), so we skip the native
+# build entirely and run the package straight from the source tree.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  pytest:
+    name: pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # uv.lock is gitignored in this repo, so key the cache off pyproject.toml
+      # instead of the default **/uv.lock glob.
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      # Same trick as the mypy job: pull the dev group (pytest) plus the
+      # runtime deps the tests import, but skip --install-project so
+      # scikit-build-core doesn't try to compile the extension (which would
+      # demand Embree).
+      - name: Install dependencies
+        run: |
+          uv sync --only-group dev --no-install-project
+          uv pip install "numpy>=1.26" "pillow>=10.0" "pyyaml>=6.0"
+
+      # Without an installed project, the package isn't on sys.path; point
+      # PYTHONPATH at the repo root so `import openrct2_vehicle_generator`
+      # resolves to the source tree.
+      - name: pytest
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: uv run --no-sync pytest
