@@ -125,7 +125,13 @@ class VG_PT_object(Panel):
             layout.label(text="Peeps pair into seat rows: 0+1, 2+3, ...", icon="INFO")
         elif os_.role == "RESTRAINT":
             layout.prop(os_, "restraint_swing_deg")
+            layout.prop(os_, "anim_start_frame")
+            layout.prop(os_, "anim_end_frame")
             layout.label(text="Set object origin to the hinge", icon="INFO")
+            layout.label(
+                text="Keyframe the transform to override the swing value",
+                icon="INFO",
+            )
 
 
 class VG_PT_material(Panel):

@@ -176,9 +176,29 @@ class VGObjectSettings(PropertyGroup):
         name="Restraint Swing",
         description=(
             "Total degrees the restraint swings across its 4 animation frames. "
-            "Set the object's ORIGIN to the hinge so it pivots correctly."
+            "Set the object's ORIGIN to the hinge so it pivots correctly. "
+            "Ignored if the object has keyframes — the keyframed transform is "
+            "sampled instead."
         ),
         default=90.0,
+    )
+    anim_start_frame: IntProperty(
+        name="Anim Start Frame",
+        description=(
+            "First scene frame to sample for keyframed restraint animation. "
+            "Only used when the object has keyframes."
+        ),
+        default=1,
+        min=0,
+    )
+    anim_end_frame: IntProperty(
+        name="Anim End Frame",
+        description=(
+            "Last scene frame to sample. The four animation states are sampled "
+            "at evenly-spaced ticks across [start, end]."
+        ),
+        default=4,
+        min=0,
     )
 
 
