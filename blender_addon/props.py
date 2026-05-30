@@ -20,6 +20,7 @@ from bpy.props import (
     CollectionProperty,
     EnumProperty,
     FloatProperty,
+    FloatVectorProperty,
     IntProperty,
     PointerProperty,
     StringProperty,
@@ -227,6 +228,33 @@ class VGCarType(PropertyGroup):
     # Restraint object exists in this car type's collection.
 
 
+# Light type identifiers must match what loader.load_lights validates against
+# ("diffuse"/"specular"); operators.py maps them onto the LIGHT_* constants.
+LIGHT_TYPE_ITEMS = [
+    ("diffuse", "Diffuse", "Directional diffuse light"),
+    ("specular", "Specular", "Specular highlight light"),
+]
+
+
+class VGLight(PropertyGroup):
+    """One entry in a custom lighting rig. Mirrors a `lights[]` config entry."""
+
+    type: EnumProperty(name="Type", items=LIGHT_TYPE_ITEMS, default="diffuse")
+    shadow: BoolProperty(
+        name="Casts Shadow",
+        description="Whether this light contributes to ambient-occlusion shadowing",
+        default=False,
+    )
+    direction: FloatVectorProperty(
+        name="Direction",
+        description="Direction in OBJ space (+X forward, +Y up, +Z right); normalized at render",
+        size=3,
+        default=(0.0, 1.0, 0.0),
+        subtype="XYZ",
+    )
+    strength: FloatProperty(name="Strength", description="Light intensity", default=0.5, min=0.0)
+
+
 class VGRideSettings(PropertyGroup):
     # --- Identity -----------------------------------------------------------
     id: StringProperty(
@@ -269,6 +297,17 @@ class VGRideSettings(PropertyGroup):
     car_types: CollectionProperty(type=VGCarType)
     car_type_index: IntProperty(default=0)
 
+    # --- Custom lighting ---------------------------------------------------
+    # An optional override rig. With no entries the renderer uses the built-in
+    # default lights; with one or more entries those replace the defaults.
+    lights: CollectionProperty(type=VGLight)
+    light_index: IntProperty(default=0)
+    show_lights: BoolProperty(
+        name="Custom Lighting",
+        description="Override the default lighting rig with a custom one",
+        default=False,
+    )
+
     preview: StringProperty(
         name="Preview Image",
         description="Path to a preview image on disk",
@@ -289,7 +328,7 @@ for _prefix, _names in FLAG_GROUPS.items():
         )
 
 
-_CLASSES = (VGColorPreset, VGMaterialSettings, VGObjectSettings, VGCarType, VGRideSettings)
+_CLASSES = (VGColorPreset, VGLight, VGMaterialSettings, VGObjectSettings, VGCarType, VGRideSettings)
 
 
 def register():
