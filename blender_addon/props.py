@@ -269,7 +269,12 @@ class VGRideSettings(PropertyGroup):
     car_types: CollectionProperty(type=VGCarType)
     car_type_index: IntProperty(default=0)
 
-    preview: PointerProperty(name="Preview Image", type=bpy.types.Image)
+    preview: StringProperty(
+        name="Preview Image",
+        description="Path to a preview image on disk",
+        subtype="FILE_PATH",
+        default="",
+    )
 
 
 # Inject one BoolProperty per flag before registration, so register_class

@@ -37,7 +37,7 @@ from openrct2_vehicle_generator.constants import (
     MATERIAL_NO_AO,
     MATERIAL_NO_BLEED,
 )
-from openrct2_vehicle_generator.image import read_png
+from openrct2_vehicle_generator.image import quantize_to_indexed, read_png
 from openrct2_vehicle_generator.mesh import Material, Mesh, load_texture
 from openrct2_vehicle_generator.types import IndexedImage
 
@@ -219,14 +219,20 @@ def _sample_keyframed_transform(
     return rest_mesh, positions, orientations
 
 
-def _load_preview(image) -> IndexedImage | None:
-    if image is None:
+def _load_preview(filepath) -> IndexedImage | None:
+    if not filepath:
         return None
-    path = bpy.path.abspath(image.filepath_from_user() or image.filepath)
+    path = bpy.path.abspath(filepath)
     if not path or not os.path.exists(path):
         return None
+    # An already-paletted RCT2 PNG is used verbatim (indices are RCT2 indices);
+    # anything else (RGB/JPEG/oversized) is resized and quantized to the palette.
     try:
         return read_png(path)
+    except Exception:
+        pass
+    try:
+        return quantize_to_indexed(path)
     except Exception:
         return None
 
