@@ -160,10 +160,33 @@ Copy these meshes and put a restraint for the back row as well:
 
 <img src="_static/restraints.png" width="400">
 
+### Animation: Swing degrees vs. keyframes
+
+The Restraint role panel exposes two ways to drive the 4-frame restraint animation
+OpenRCT2 expects:
+
+- **Restraint Swing** (degrees): the simple path. The add-on linearly
+  interpolates the bar from 0° to your value across the 4 frames, swinging
+  around the object's origin. Good enough for a classic lap bar.
+- **Keyframes on the restraint object's transform**: for anything more
+  expressive. If the restraint object has *any* keyframes (rotation,
+  translation, or both), the add-on samples its world transform at 4
+  evenly-spaced scene frames between `Anim Start Frame` and `Anim End Frame`
+  (also on the Restraint panel) and ignores the Swing value. This lets you
+  use Blender's graph editor for easing, multi-axis swings, shoulder bars
+  that drop *then* slide forward, etc. You can also scrub the timeline
+  in Blender to preview the motion before rendering.
+
+Set the rest-pose keyframe at `Anim Start Frame`; the mesh is extracted at
+that frame, so whatever orientation the restraint has there becomes frame 0
+of the animation.
+
 ### Checklist
 
 - Ensure all restraint meshes are assigned the "Restraint" role.
 - Ensure that the origin for all the restraint meshes is the central pivot point.
+- If you keyframed the restraint, set `Anim Start Frame` / `Anim End Frame`
+  to the timeline range that contains your animation.
 
 ## Plugin Usage
 

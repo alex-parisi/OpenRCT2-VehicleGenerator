@@ -20,6 +20,7 @@ pivots about the object's ORIGIN via per-frame orientation.
 
 from __future__ import annotations
 
+import math
 import os
 
 import bpy
@@ -157,6 +158,67 @@ def _object_position(obj) -> list[float]:
     return [float(p.x), float(p.y), float(p.z)]
 
 
+def _sample_keyframed_transform(
+    obj, scene, num_frames: int
+) -> tuple[Mesh | None, list[list[float]], list[list[float]]]:
+    """Sample obj's transform across `num_frames` evenly-spaced scene frames.
+
+    Returns ``(rest_mesh, positions, orientations)``. The mesh is re-extracted
+    at the rest frame so its baked world rotation lines up with the
+    orientation ``[0, 0, 0]`` emitted for frame 0; subsequent orientations are
+    deltas from rest, mapped into the renderer's OBJ-space YZX convention.
+    The scene frame is restored on exit so the user's Blender state is
+    unchanged.
+
+    Currently called only for restraint animation (4 frames), but the helper
+    is intentionally generic — animated vehicle bodies, oars, and rigged
+    peeps want the same per-frame sampling with a different frame count.
+    """
+    vg = obj.vg_object
+    f_start = int(vg.anim_start_frame)
+    f_end = int(vg.anim_end_frame)
+    if f_end == f_start:
+        frames = [f_start] * num_frames
+    else:
+        frames = [
+            f_start + round(i * (f_end - f_start) / (num_frames - 1))
+            for i in range(num_frames)
+        ]
+
+    orig_frame = scene.frame_current
+    try:
+        scene.frame_set(frames[0])
+        dg = bpy.context.evaluated_depsgraph_get()
+        rest_mesh = _extract_mesh(obj, dg)
+        R_rest_inv = obj.evaluated_get(dg).matrix_world.to_3x3().inverted()
+
+        positions: list[list[float]] = []
+        orientations: list[list[float]] = []
+        for f in frames:
+            scene.frame_set(f)
+            dg = bpy.context.evaluated_depsgraph_get()
+            M_f = obj.evaluated_get(dg).matrix_world
+
+            p = _BASIS @ M_f.to_translation()
+            positions.append([float(p.x), float(p.y), float(p.z)])
+
+            R_rel = M_f.to_3x3() @ R_rest_inv
+            R_obj = _BASIS @ R_rel @ _BASIS.transposed()
+            # Renderer applies rotate_y(a) @ rotate_z(b) @ rotate_x(c).
+            # Blender's "YZX" Euler reconstructs as Ry(e.y) @ Rz(e.z) @ Rx(e.x),
+            # so emit angles in that order.
+            e = R_obj.to_euler("YZX")
+            orientations.append([
+                float(math.degrees(e.y)),
+                float(math.degrees(e.z)),
+                float(math.degrees(e.x)),
+            ])
+    finally:
+        scene.frame_set(orig_frame)
+
+    return rest_mesh, positions, orientations
+
+
 def _load_preview(image) -> IndexedImage | None:
     if image is None:
         return None
@@ -186,6 +248,7 @@ def _build_vehicle(
     effect_visual: int,
     vf_flags: list[str],
     meshes: list[Mesh],
+    scene,
     depsgraph,
     label: str,
 ) -> dict:
@@ -204,23 +267,45 @@ def _build_vehicle(
         role = obj.vg_object.role
         if role == "IGNORE":
             continue
-        mesh = _extract_mesh(obj, depsgraph)
+
+        is_keyframed_restraint = (
+            role == "RESTRAINT"
+            and obj.animation_data is not None
+            and obj.animation_data.action is not None
+        )
+
+        if is_keyframed_restraint:
+            mesh, kf_positions, kf_orientations = _sample_keyframed_transform(
+                obj, scene, _RESTRAINT_FRAMES
+            )
+        else:
+            mesh = _extract_mesh(obj, depsgraph)
         if mesh is None:
             continue
         idx = len(meshes)
         meshes.append(mesh)
-        pos = _object_position(obj)
 
         if role == "BODY":
+            pos = _object_position(obj)
             body_entries.append({"mesh_index": idx, "position": pos, "orientation": [0, 0, 0]})
         elif role == "RESTRAINT":
             has_restraint = True
-            swing = float(obj.vg_object.restraint_swing_deg)
-            orient = [
-                [0.0, -swing * f / (_RESTRAINT_FRAMES - 1), 0.0] for f in range(_RESTRAINT_FRAMES)
-            ]
-            body_entries.append({"mesh_index": idx, "position": pos, "orientation": orient})
+            if is_keyframed_restraint:
+                body_entries.append({
+                    "mesh_index": idx,
+                    "position": kf_positions,
+                    "orientation": kf_orientations,
+                })
+            else:
+                pos = _object_position(obj)
+                swing = float(obj.vg_object.restraint_swing_deg)
+                orient = [
+                    [0.0, -swing * f / (_RESTRAINT_FRAMES - 1), 0.0]
+                    for f in range(_RESTRAINT_FRAMES)
+                ]
+                body_entries.append({"mesh_index": idx, "position": pos, "orientation": orient})
         elif role == "RIDER":
+            pos = _object_position(obj)
             rider_entries.append((
                 int(obj.vg_object.rider_number),
                 obj.name,
@@ -287,6 +372,7 @@ def build_config_and_meshes(context):
                 effect_visual=int(ct.effect_visual),
                 vf_flags=[n for attr, n in props.flag_items("vf_") if getattr(ct, attr)],
                 meshes=meshes,
+                scene=scene,
                 depsgraph=depsgraph,
                 label=f"Car type '{ct.name}'",
             )
@@ -304,6 +390,7 @@ def build_config_and_meshes(context):
             effect_visual=1,
             vf_flags=[],
             meshes=meshes,
+            scene=scene,
             depsgraph=depsgraph,
             label="Scene",
         )
