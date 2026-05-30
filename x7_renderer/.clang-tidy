@@ -23,6 +23,8 @@ Checks: >
   -modernize-avoid-c-arrays,
   -modernize-use-nodiscard,
   -modernize-use-designated-initializers,
+  -modernize-use-std-print,
+  -modernize-use-std-format,
   -portability-avoid-pragma-once,
   -misc-non-private-member-variables-in-classes,
   -misc-no-recursion,

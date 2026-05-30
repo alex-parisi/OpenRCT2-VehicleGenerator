@@ -3,13 +3,13 @@ name = "OpenRCT2-VehicleGenerator"
 version = "0.1.0"
 description = "Python interface to the OpenRCT2 vehicle sprite generator (Embree-backed)."
 readme = "readme.md"
-# Floor is 3.11: the add-on ships wheels for CPython 3.11 (Blender 4.2/4.5 LTS)
-# and 3.13 (Blender 5.x). 3.11 is the lowest interpreter we support.
 requires-python = ">=3.11"
 dependencies = [
     "numpy>=1.26",
     "pillow>=10.0",
+    "pybind11>=2.12",
     "pyyaml>=6.0",
+    "scikit-build-core>=0.10",
 ]
 
 [project.scripts]
@@ -34,7 +34,6 @@ target-version = "py311"
 src = ["openrct2_vehicle_generator", "scripts", "tests"]
 
 [tool.ruff.lint]
-# pyflakes (F), pycodestyle (E/W), isort (I), pyupgrade (UP), bugbear (B).
 select = ["E", "F", "I", "UP", "B", "W"]
 
 [tool.mypy]
@@ -54,39 +53,25 @@ cmake.version = ">=3.25"
 wheel.packages = ["openrct2_vehicle_generator"]
 build-dir = "build/{wheel_tag}"
 
-# ---------------------------------------------------------------------------
-# Wheel building for the Blender add-on bundle.
-#
-# Build for the interpreters Blender ships: CPython 3.11 (4.2/4.5 LTS) and 3.13
-# (5.x). (Building against the limited API / abi3 could collapse this to one
-# wheel per platform via pybind11's STABLE_ABI, but explicit cp311+cp313 keeps
-# the toolchain simple and known-good.) Embree (+ its bundled TBB) is downloaded
-# by CI and vendored into each wheel by the platform repair tool (auditwheel /
-# delocate / delvewheel) so the resulting wheel needs no system Embree at runtime.
-# ---------------------------------------------------------------------------
+# Wheel building for the Blender add-on bundle
 [tool.cibuildwheel]
 build = "cp311-* cp313-*"
 build-frontend = "build"
 skip = ["*-musllinux*", "*_i686", "*-win32"]
+
 # Sanity check: the extension imports and Embree resolves from vendored libs.
 test-command = "python -c \"import openrct2_vehicle_generator._native as n; print('embree ok', n.LIGHT_DIFFUSE)\""
 
 [tool.cibuildwheel.linux]
-# The native extension is C++23; the default manylinux2014 image only has
-# GCC 10, which can't compile it. manylinux_2_28 (AlmaLinux 8) ships a modern
-# gcc-toolset with full C++23 support.
 manylinux-x86_64-image = "manylinux_2_28"
-# Runs inside the manylinux container; installs Embree to /embree.
+# Install Embree to /embree.
 before-all = "bash {project}/scripts/ci/install_embree_linux.sh"
 environment = { EMBREE_ROOT = "/embree", CMAKE_PREFIX_PATH = "/embree", LD_LIBRARY_PATH = "/embree/lib64" }
 
 [tool.cibuildwheel.macos]
-# EMBREE_ROOT / DYLD path are exported by the workflow step before cibuildwheel.
 environment = { MACOSX_DEPLOYMENT_TARGET = "11.0" }
 
 [tool.cibuildwheel.windows]
 before-build = "pip install delvewheel"
-# Embree DLLs live in <EMBREE_ROOT>\bin; delvewheel vendors them into the wheel.
-# cibuildwheel runs the repair command via cmd.exe and does not expand its own
-# {env:...} placeholder here, so reference the variable with cmd's %VAR% syntax.
+# Embree DLLs live in <EMBREE_ROOT>\bin
 repair-wheel-command = "delvewheel repair --add-path %EMBREE_ROOT%\\bin -w {dest_dir} {wheel}"

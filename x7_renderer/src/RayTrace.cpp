@@ -7,7 +7,6 @@
 #include <cstdlib>
 #include <functional>
 #include <limits>
-#include <print>
 
 #include "RayTrace.hpp"
 #include <embree4/rtcore.h>
@@ -15,7 +14,7 @@
 namespace RCTGen {
     namespace {
         void rt_error(void* /*user_ptr*/, enum RTCError error, const char* str) {
-            std::println(stderr, "error {}: {}", static_cast<int>(error), str);
+            std::fprintf(stderr, "error %d: %s\n", static_cast<int>(error), str);
             std::exit(1);
         }
 
@@ -36,7 +35,7 @@ namespace RCTGen {
     Device device_init() {
         Device device = rtcNewDevice(nullptr);
         if (!device) {
-            std::println(stderr, "error {}: cannot create device", static_cast<int>(rtcGetDeviceError(nullptr)));
+            std::fprintf(stderr, "error %d: cannot create device\n", static_cast<int>(rtcGetDeviceError(nullptr)));
             std::exit(1);
         }
         rtcSetDeviceErrorFunction(device, rt_error, nullptr);
@@ -81,7 +80,7 @@ namespace RCTGen {
         // Create Embree geometry
         RTCGeometry geom = rtcNewGeometry(scene.embree_device, RTC_GEOMETRY_TYPE_TRIANGLE);
         if (geom == nullptr) {
-            std::println(stderr, "Failed allocating geometry");
+            std::fprintf(stderr, "Failed allocating geometry\n");
             return;
         }
 
@@ -93,7 +92,7 @@ namespace RCTGen {
         auto* indices = static_cast<unsigned int*>(rtcSetNewGeometryBuffer(
             geom, RTC_BUFFER_TYPE_INDEX, 0, RTC_FORMAT_UINT3, 3 * sizeof(unsigned int), mesh.faces.size()));
         if (!(vertices && indices && normals)) {
-            std::println(stderr, "Failed allocating geometry buffer");
+            std::fprintf(stderr, "Failed allocating geometry buffer\n");
             rtcReleaseGeometry(geom);
             return;
         }
