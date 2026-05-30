@@ -195,7 +195,7 @@ def _build_vehicle(
     dict. Raises ``SceneError`` if no body/restraint objects are found.
     """
     body_entries: list[dict] = []
-    rider_rows: dict[int, list[dict]] = {}
+    rider_entries: list[tuple[int, str, dict]] = []
     has_restraint = False
 
     for obj in objects:
@@ -221,10 +221,11 @@ def _build_vehicle(
             ]
             body_entries.append({"mesh_index": idx, "position": pos, "orientation": orient})
         elif role == "RIDER":
-            row = int(obj.vg_object.rider_row)
-            rider_rows.setdefault(row, []).append(
-                {"mesh_index": idx, "position": pos, "orientation": [0, 0, 0]}
-            )
+            rider_entries.append((
+                int(obj.vg_object.rider_number),
+                obj.name,
+                {"mesh_index": idx, "position": pos, "orientation": [0, 0, 0]},
+            ))
 
     if not body_entries:
         raise SceneError(
@@ -236,7 +237,14 @@ def _build_vehicle(
     if has_restraint and "restraint_animation" not in flags:
         flags.append("restraint_animation")
 
-    riders = [rider_rows[k] for k in sorted(rider_rows)]
+    # Peeps are sorted by Rider Number, then chunked into consecutive pairs:
+    # numbers 0+1 form the first row, 2+3 the second, etc. A trailing unpaired
+    # peep becomes a 1-peep row. Object name is a stable tiebreaker if two
+    # peeps share a number.
+    rider_entries.sort(key=lambda e: (e[0], e[1]))
+    riders = [
+        [e[2] for e in rider_entries[i : i + 2]] for i in range(0, len(rider_entries), 2)
+    ]
     vehicle: dict = {
         "flags": flags,
         "mass": mass,
