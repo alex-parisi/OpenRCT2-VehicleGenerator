@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(openrct2_vehicle_generator_native LANGUAGES CXX)
+project(openrct2_vehicle_generator_x7_renderer LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -38,32 +38,32 @@ find_package(Threads REQUIRED)
 set(SRC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # Core Library
-add_library(_native_core STATIC
+add_library(_x7_renderer_core STATIC
     ${SRC}/Mesh.cpp
     ${SRC}/Palette.cpp
     ${SRC}/RayTrace.cpp
     ${SRC}/Renderer.cpp
 )
-set_target_properties(_native_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_include_directories(_native_core PUBLIC ${SRC})
-target_compile_options(_native_core PRIVATE
+set_target_properties(_x7_renderer_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_include_directories(_x7_renderer_core PUBLIC ${SRC})
+target_compile_options(_x7_renderer_core PRIVATE
     $<$<CXX_COMPILER_ID:MSVC>:/W3>
     $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wno-unused-parameter>
 )
-target_link_libraries(_native_core PUBLIC embree Threads::Threads)
+target_link_libraries(_x7_renderer_core PUBLIC embree Threads::Threads)
 
 # Python Extension Module
 option(BUILD_PYTHON_MODULE "Build the pybind11 Python extension module" ON)
 if(BUILD_PYTHON_MODULE)
     find_package(pybind11 CONFIG REQUIRED)
-    pybind11_add_module(_native MODULE bindings.cpp)
-    target_include_directories(_native PRIVATE ${SRC})
-    target_compile_options(_native PRIVATE
+    pybind11_add_module(_x7_renderer MODULE bindings.cpp)
+    target_include_directories(_x7_renderer PRIVATE ${SRC})
+    target_compile_options(_x7_renderer PRIVATE
         $<$<CXX_COMPILER_ID:MSVC>:/W3>
         $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wno-unused-parameter>
     )
-    target_link_libraries(_native PRIVATE _native_core)
-    install(TARGETS _native LIBRARY DESTINATION openrct2_vehicle_generator)
+    target_link_libraries(_x7_renderer PRIVATE _x7_renderer_core)
+    install(TARGETS _x7_renderer LIBRARY DESTINATION openrct2_vehicle_generator)
 endif()
 
 # Unit Tests

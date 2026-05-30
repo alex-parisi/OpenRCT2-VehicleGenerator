@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from . import _native  # type: ignore[attr-defined]  # C extension, no stubs
+from . import _x7_renderer  # type: ignore[attr-defined]  # C extension, no stubs
 from .constants import MATERIAL_HAS_TEXTURE, TILE_SIZE
 from .mesh import Mesh
 from .types import IndexedImage, Light
@@ -62,11 +62,11 @@ class Context:
     lights: list[Light]
     dither: bool
     upt: float
-    _inner: _native.Context = field(repr=False)
+    _inner: _x7_renderer.Context = field(repr=False)
 
     @classmethod
     def make(cls, lights: list[Light], dither: bool = True, upt: float = TILE_SIZE) -> "Context":
-        inner = _native.Context(lights=lights, dither=dither, upt=upt)
+        inner = _x7_renderer.Context(lights=lights, dither=dither, upt=upt)
         return cls(lights=lights, dither=dither, upt=upt, _inner=inner)
 
     def begin_render(self) -> None:

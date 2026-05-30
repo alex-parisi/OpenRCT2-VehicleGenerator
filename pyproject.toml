@@ -60,7 +60,7 @@ build-frontend = "build"
 skip = ["*-musllinux*", "*_i686", "*-win32"]
 
 # Sanity check: the extension imports and Embree resolves from vendored libs.
-test-command = "python -c \"import openrct2_vehicle_generator._native as n; print('embree ok', n.LIGHT_DIFFUSE)\""
+test-command = "python -c \"import openrct2_vehicle_generator._x7_renderer as n; print('embree ok', n.LIGHT_DIFFUSE)\""
 
 [tool.cibuildwheel.linux]
 manylinux-x86_64-image = "manylinux_2_28"

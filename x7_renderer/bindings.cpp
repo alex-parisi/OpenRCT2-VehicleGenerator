@@ -250,7 +250,7 @@ namespace {
 
 } // namespace
 
-PYBIND11_MODULE(_native, m) {
+PYBIND11_MODULE(_x7_renderer, m) {
     m.doc() = "Native renderer (Embree) for OpenRCT2-VehicleGenerator.";
 
     // Re-export constants the Python wrapper uses to construct material

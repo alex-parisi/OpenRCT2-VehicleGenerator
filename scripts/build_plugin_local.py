@@ -228,7 +228,7 @@ def verify_wheel(wheel: Path) -> None:
             str(wheel),
             "python",
             "-c",
-            "import openrct2_vehicle_generator._native as n;print('embree ok:', n.LIGHT_DIFFUSE)",
+            "import openrct2_vehicle_generator._x7_renderer as n;print('embree ok:', n.LIGHT_DIFFUSE)",
         ]
     )
 
