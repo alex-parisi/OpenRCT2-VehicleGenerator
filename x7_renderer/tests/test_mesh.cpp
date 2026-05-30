@@ -6,15 +6,17 @@
 
 using namespace RCTGen;
 
-static constexpr float kEps = 1e-6f;
+namespace {
+    constexpr float kEps = 1e-6f;
 
-// Build a Texture from a std::vector so span lifetime is tied to the vector.
-static std::pair<std::vector<Vector3>, Texture>
-make_texture(std::uint16_t w, std::uint16_t h, std::initializer_list<Vector3> pixels) {
-    std::vector<Vector3> buf(pixels);
-    Texture tex{w, h, std::span<const Vector3>(buf)};
-    return {std::move(buf), tex};
-}
+    // Build a Texture from a std::vector so span lifetime is tied to the vector.
+    std::pair<std::vector<Vector3>, Texture>
+    make_texture(std::uint16_t w, std::uint16_t h, std::initializer_list<Vector3> pixels) {
+        std::vector<Vector3> buf(pixels);
+        Texture const tex{w, h, std::span<const Vector3>(buf)};
+        return {std::move(buf), tex};
+    }
+} // namespace
 
 // ---------------------------------------------------------------------------
 // Single-pixel texture
@@ -22,9 +24,9 @@ make_texture(std::uint16_t w, std::uint16_t h, std::initializer_list<Vector3> pi
 
 TEST(TextureSample, SinglePixelAlwaysReturnsItself) {
     auto [buf, tex] = make_texture(1, 1, {{1.0f, 0.5f, 0.25f}});
-    for (float u : {0.0f, 0.5f, 0.99f, 1.0f, 1.5f, 2.0f, -0.5f}) {
-        for (float v : {0.0f, 0.5f, 0.99f}) {
-            Vector3 s = texture_sample(tex, vector2(u, v));
+    for (float const u : {0.0f, 0.5f, 0.99f, 1.0f, 1.5f, 2.0f, -0.5f}) {
+        for (float const v : {0.0f, 0.5f, 0.99f}) {
+            Vector3 const s = texture_sample(tex, vector2(u, v));
             EXPECT_NEAR(s.x, 1.0f, kEps) << "u=" << u << " v=" << v;
             EXPECT_NEAR(s.y, 0.5f, kEps) << "u=" << u << " v=" << v;
             EXPECT_NEAR(s.z, 0.25f, kEps) << "u=" << u << " v=" << v;
@@ -51,10 +53,10 @@ TEST(TextureSample, QuadrantLookup) {
 
     auto sample = [&](float u, float v) { return texture_sample(tex, vector2(u, v)); };
 
-    Vector3 red = sample(0.0f, 0.0f);
-    Vector3 green = sample(0.5f, 0.0f);
-    Vector3 blue = sample(0.0f, 0.5f);
-    Vector3 yellow = sample(0.5f, 0.5f);
+    Vector3 const red = sample(0.0f, 0.0f);
+    Vector3 const green = sample(0.5f, 0.0f);
+    Vector3 const blue = sample(0.0f, 0.5f);
+    Vector3 const yellow = sample(0.5f, 0.5f);
 
     EXPECT_NEAR(red.x, 1.0f, kEps);
     EXPECT_NEAR(red.y, 0.0f, kEps);

@@ -5,22 +5,29 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <utility>
 
 namespace RCTGen {
-    float vector3_get_luma(Vector3 color) noexcept { return 0.299f * color.x + 0.587f * color.y + 0.114f * color.z; }
+    namespace {
+        float vector3_get_luma(Vector3 color) noexcept {
+            return 0.299f * color.x + 0.587f * color.y + 0.114f * color.z;
+        }
 
-    float srgb2linear(float x) noexcept {
-        if (x <= 0.04045f) return x / 12.92f;
-        return std::pow((x + 0.055f) / 1.055f, 2.4f);
-    }
+        float srgb2linear(float x) noexcept {
+            if (x <= 0.04045f) return x / 12.92f;
+            return std::pow((x + 0.055f) / 1.055f, 2.4f);
+        }
 
-    float linear2srgb(float x) noexcept {
-        if (x <= 0.0031308f) return x * 12.92f;
-        return 1.055f * std::pow(x, 1.0f / 2.4f) - 0.055f;
-    }
+        float linear2srgb(float x) noexcept {
+            if (x <= 0.0031308f) return x * 12.92f;
+            return 1.055f * std::pow(x, 1.0f / 2.4f) - 0.055f;
+        }
+    } // namespace
 
     Vector3 vector_from_color(Color color) {
-        return vector3(srgb2linear(color.r / 255.0f), srgb2linear(color.g / 255.0f), srgb2linear(color.b / 255.0f));
+        return vector3(srgb2linear(static_cast<float>(color.r) / 255.0f),
+                       srgb2linear(static_cast<float>(color.g) / 255.0f),
+                       srgb2linear(static_cast<float>(color.b) / 255.0f));
     }
 
     Color color_from_vector(Vector3 v) {
@@ -33,14 +40,14 @@ namespace RCTGen {
     PaletteResult palette_get_nearest(const Palette& palette, std::uint8_t region, Vector3 target) {
         std::uint8_t nearest_index = palette.regions[region].start_indices[0];
         float minimum_error = std::numeric_limits<float>::infinity();
-        int num_subregions = palette.regions[region].subregions;
+        int const num_subregions = palette.regions[region].subregions;
         for (int s = 0; s < num_subregions; s++) {
             std::uint8_t start_index = palette.regions[region].start_indices[s];
             std::uint8_t end_index = palette.regions[region].end_indices[s];
-            for (int i = start_index; i < end_index; i++) {
-                Vector3 pal_color = vector_from_color(
+            for (int i = start_index; std::cmp_less(i, end_index); i++) {
+                Vector3 const pal_color = vector_from_color(
                     palette.regions[region].remap ? palette.remap_colors[i - start_index] : palette.colors[i]);
-                float err = vector3_norm(vector3_sub(target, pal_color));
+                float const err = vector3_norm(vector3_sub(target, pal_color));
                 if (err < minimum_error) {
                     nearest_index = static_cast<std::uint8_t>(i);
                     minimum_error = err;

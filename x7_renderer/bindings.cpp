@@ -13,6 +13,7 @@
 #include <cstring>
 #include <memory>
 #include <span>
+#include <utility>
 #include <vector>
 
 #include "Mesh.hpp"
@@ -26,7 +27,7 @@ using namespace RCTGen;
 
 namespace {
 
-    Matrix3 matrix3_from_array(py::array_t<float, py::array::c_style | py::array::forcecast> arr) {
+    Matrix3 matrix3_from_array(const py::array_t<float, py::array::c_style | py::array::forcecast>& arr) {
         if (arr.ndim() != 2 || arr.shape(0) != 3 || arr.shape(1) != 3)
             throw std::invalid_argument("matrix must be a (3, 3) float array");
         Matrix3 m{};
@@ -36,13 +37,13 @@ namespace {
         return m;
     }
 
-    Vector3 vec3_from_array(py::array_t<float, py::array::c_style | py::array::forcecast> arr) {
+    Vector3 vec3_from_array(const py::array_t<float, py::array::c_style | py::array::forcecast>& arr) {
         if (arr.ndim() != 1 || arr.shape(0) != 3) throw std::invalid_argument("vector must be a (3,) float array");
         auto r = arr.unchecked<1>();
         return vector3(r(0), r(1), r(2));
     }
 
-    Vector3 vec3_from_seq(py::sequence s) {
+    Vector3 vec3_from_seq(const py::sequence& s) {
         if (py::len(s) != 3) throw std::invalid_argument("vector must have 3 components");
         return vector3(s[0].cast<float>(), s[1].cast<float>(), s[2].cast<float>());
     }
@@ -59,15 +60,15 @@ namespace {
 
     class RenderContext {
     public:
-        RenderContext(py::list lights_py, bool dither, float upt) {
+        RenderContext(const py::list& lights_py, bool dither, float upt) {
             lights_.reserve(py::len(lights_py));
             for (auto h : lights_py) {
-                py::object o = py::reinterpret_borrow<py::object>(h);
+                auto const o = py::reinterpret_borrow<py::object>(h);
                 Light L{};
                 L.type = o.attr("type").cast<std::uint16_t>();
                 L.shadow = o.attr("shadow").cast<std::uint16_t>();
                 L.intensity = o.attr("intensity").cast<float>();
-                py::array_t<float, py::array::c_style | py::array::forcecast> dir =
+                auto const dir =
                     o.attr("direction").cast<py::array_t<float, py::array::c_style | py::array::forcecast>>();
                 L.direction = vec3_from_array(dir);
                 lights_.push_back(L);
@@ -108,14 +109,14 @@ namespace {
             context_finalize_render(ctx_);
         }
 
-        void add_mesh(py::array_t<float, py::array::c_style | py::array::forcecast> vertices,
-                      py::array_t<float, py::array::c_style | py::array::forcecast> normals,
-                      py::array_t<float, py::array::c_style | py::array::forcecast> uvs,
-                      py::array_t<uint32_t, py::array::c_style | py::array::forcecast> faces,
-                      py::array_t<uint32_t, py::array::c_style | py::array::forcecast> face_materials,
-                      py::list materials,
-                      py::array_t<float, py::array::c_style | py::array::forcecast> matrix,
-                      py::array_t<float, py::array::c_style | py::array::forcecast> translation,
+        void add_mesh(const py::array_t<float, py::array::c_style | py::array::forcecast>& vertices,
+                      const py::array_t<float, py::array::c_style | py::array::forcecast>& normals,
+                      const py::array_t<float, py::array::c_style | py::array::forcecast>& uvs,
+                      const py::array_t<uint32_t, py::array::c_style | py::array::forcecast>& faces,
+                      const py::array_t<uint32_t, py::array::c_style | py::array::forcecast>& face_materials,
+                      const py::list& materials,
+                      const py::array_t<float, py::array::c_style | py::array::forcecast>& matrix,
+                      const py::array_t<float, py::array::c_style | py::array::forcecast>& translation,
                       int mask) {
             if (!scene_open_) throw std::runtime_error("add_mesh before begin_render");
 
@@ -160,11 +161,11 @@ namespace {
             }
 
             // Materials.
-            const std::size_t M = static_cast<std::size_t>(py::len(materials));
+            const auto M = static_cast<std::size_t>(py::len(materials));
             om->materials.resize(M);
             om->texture_pixels.resize(M);
             for (std::size_t i = 0; i < M; i++) {
-                py::dict d = materials[i].cast<py::dict>();
+                auto const d = materials[i].cast<py::dict>();
                 Material& mat = om->materials[i];
                 mat.flags = d["flags"].cast<std::uint16_t>();
                 mat.region = d["region"].cast<std::uint8_t>();
@@ -173,8 +174,7 @@ namespace {
                 mat.ambient_color = vec3_from_seq(d["ambient_color"].cast<py::sequence>());
 
                 if (mat.flags & MATERIAL_HAS_TEXTURE) {
-                    py::array_t<float, py::array::c_style | py::array::forcecast> tex =
-                        d["texture"].cast<py::array_t<float, py::array::c_style | py::array::forcecast>>();
+                    auto const tex = d["texture"].cast<py::array_t<float, py::array::c_style | py::array::forcecast>>();
                     if (tex.ndim() != 3 || tex.shape(2) != 3)
                         throw std::invalid_argument("texture must be (H, W, 3) float32 linear RGB");
                     const auto H = tex.shape(0);
@@ -200,26 +200,27 @@ namespace {
             om->mesh.materials = std::span<const Material>(om->materials);
 
             // Apply transform.
-            Transform xform = transform(matrix3_from_array(matrix), vec3_from_array(translation));
+            Transform const xform = transform(matrix3_from_array(matrix), vec3_from_array(translation));
             context_add_model(ctx_, om->mesh, xform, mask);
         }
 
-        py::dict render_view(py::array_t<float, py::array::c_style | py::array::forcecast> view) {
+        py::dict render_view(const py::array_t<float, py::array::c_style | py::array::forcecast>& view) {
             return render_internal(view, /*silhouette=*/false);
         }
 
-        py::dict render_silhouette(py::array_t<float, py::array::c_style | py::array::forcecast> view) {
+        py::dict render_silhouette(const py::array_t<float, py::array::c_style | py::array::forcecast>& view) {
             return render_internal(view, /*silhouette=*/true);
         }
 
     private:
-        py::dict render_internal(py::array_t<float, py::array::c_style | py::array::forcecast> view, bool silhouette) {
-            Matrix3 m = matrix3_from_array(view);
+        py::dict render_internal(const py::array_t<float, py::array::c_style | py::array::forcecast>& view,
+                                 bool silhouette) {
+            Matrix3 const m = matrix3_from_array(view);
             // Release the GIL for the ray-tracing hot path so a Python worker
             // thread keeps its host UI responsive while a render is in flight
             Image img;
             {
-                py::gil_scoped_release release;
+                py::gil_scoped_release const release;
                 img = silhouette ? context_render_silhouette(ctx_, m) : context_render_view(ctx_, m);
             }
 

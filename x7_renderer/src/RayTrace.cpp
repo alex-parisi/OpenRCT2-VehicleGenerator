@@ -7,20 +7,36 @@
 #include <cstdlib>
 #include <functional>
 #include <limits>
+#include <print>
 
 #include "RayTrace.hpp"
 #include <embree4/rtcore.h>
 
 namespace RCTGen {
-    void rt_error(void* /*user_ptr*/, enum RTCError error, const char* str) {
-        std::fprintf(stderr, "error %d: %s\n", error, str);
-        std::exit(1);
-    }
+    namespace {
+        void rt_error(void* /*user_ptr*/, enum RTCError error, const char* str) {
+            std::println(stderr, "error {}: {}", static_cast<int>(error), str);
+            std::exit(1);
+        }
+
+        void occlusionFilter(const struct RTCFilterFunctionNArguments* args) {
+            // Check that packet size is 1 (guaranteed by Embree for scalar calls)
+            [[maybe_unused]] const unsigned int N = args->N;
+            assert(N == 1);
+
+            // RTCRayN/RTCHitN are opaque incomplete types in Embree's API;
+            // reinterpret_cast is the correct tool here.
+            auto const* ray = reinterpret_cast<struct RTCRay*>(args->ray);
+            auto const* hit = reinterpret_cast<struct RTCHit*>(args->hit);
+
+            if (hit->Ng_x * ray->dir_x + hit->Ng_y * ray->dir_y + hit->Ng_z * ray->dir_z > 0) args->valid[0] = 0;
+        }
+    } // namespace
 
     Device device_init() {
         Device device = rtcNewDevice(nullptr);
         if (!device) {
-            std::fprintf(stderr, "error %d: cannot create device\n", rtcGetDeviceError(nullptr));
+            std::println(stderr, "error {}: cannot create device", static_cast<int>(rtcGetDeviceError(nullptr)));
             std::exit(1);
         }
         rtcSetDeviceErrorFunction(device, rt_error, nullptr);
@@ -51,22 +67,9 @@ namespace RCTGen {
 
     void scene_destroy(Scene& scene) { rtcReleaseScene(scene.embree_scene); }
 
-    void occlusionFilter(const struct RTCFilterFunctionNArguments* args) {
-        // Check that packet size is 1 (guaranteed by Embree for scalar calls)
-        [[maybe_unused]] const unsigned int N = args->N;
-        assert(N == 1);
-
-        // RTCRayN/RTCHitN are opaque incomplete types in Embree's API;
-        // reinterpret_cast is the correct tool here.
-        struct RTCRay* ray = reinterpret_cast<struct RTCRay*>(args->ray);
-        struct RTCHit* hit = reinterpret_cast<struct RTCHit*>(args->hit);
-
-        if (hit->Ng_x * ray->dir_x + hit->Ng_y * ray->dir_y + hit->Ng_z * ray->dir_z > 0) args->valid[0] = 0;
-    }
-
     void scene_add_model(Scene& scene,
                          const Mesh& mesh,
-                         std::function<Vertex(Vector3, Vector3, bool)> transform_fn,
+                         const std::function<Vertex(Vector3, Vector3, bool)>& transform_fn,
                          int flags) {
         // Add mesh to list of meshes
         assert(scene.num_meshes < kMaxMeshes);
@@ -78,31 +81,31 @@ namespace RCTGen {
         // Create Embree geometry
         RTCGeometry geom = rtcNewGeometry(scene.embree_device, RTC_GEOMETRY_TYPE_TRIANGLE);
         if (geom == nullptr) {
-            std::fprintf(stderr, "Failed allocating geometry\n");
+            std::println(stderr, "Failed allocating geometry");
             return;
         }
 
         rtcSetGeometryVertexAttributeCount(geom, 1);
-        float* vertices = static_cast<float*>(rtcSetNewGeometryBuffer(
-            geom, RTC_BUFFER_TYPE_VERTEX, 0, RTC_FORMAT_FLOAT3, 3 * sizeof(float), mesh.vertices.size()));
-        float* normals = static_cast<float*>(rtcSetNewGeometryBuffer(
+        auto* vertices = static_cast<float*>(rtcSetNewGeometryBuffer(geom, RTC_BUFFER_TYPE_VERTEX, 0, RTC_FORMAT_FLOAT3,
+                                                                     3 * sizeof(float), mesh.vertices.size()));
+        auto* normals = static_cast<float*>(rtcSetNewGeometryBuffer(
             geom, RTC_BUFFER_TYPE_VERTEX_ATTRIBUTE, 0, RTC_FORMAT_FLOAT3, 3 * sizeof(float), mesh.vertices.size()));
-        unsigned int* indices = static_cast<unsigned int*>(rtcSetNewGeometryBuffer(
+        auto* indices = static_cast<unsigned int*>(rtcSetNewGeometryBuffer(
             geom, RTC_BUFFER_TYPE_INDEX, 0, RTC_FORMAT_UINT3, 3 * sizeof(unsigned int), mesh.faces.size()));
         if (!(vertices && indices && normals)) {
-            std::fprintf(stderr, "Failed allocating geometry buffer\n");
+            std::println(stderr, "Failed allocating geometry buffer");
             rtcReleaseGeometry(geom);
             return;
         }
 
         // Flat-shading is a per-mesh property: pre-compute once instead of re-scanning
         // all faces for every vertex (was O(V*F), now O(F+V)).
-        const bool flat_shaded = std::any_of(mesh.faces.begin(), mesh.faces.end(), [&mesh](const Face& f) {
-            return bool(mesh.materials[f.material].flags & MATERIAL_IS_FLAT_SHADED);
+        const bool flat_shaded = std::ranges::any_of(mesh.faces, [&mesh](const Face& f) {
+            return static_cast<bool>(mesh.materials[f.material].flags & MATERIAL_IS_FLAT_SHADED);
         });
 
         for (std::size_t i = 0; i < mesh.vertices.size(); i++) {
-            Vertex transformed_vertex = transform_fn(mesh.vertices[i], mesh.normals[i], flat_shaded);
+            Vertex const transformed_vertex = transform_fn(mesh.vertices[i], mesh.normals[i], flat_shaded);
             vertices[3 * i + 0] = transformed_vertex.vertex.x;
             vertices[3 * i + 1] = transformed_vertex.vertex.y;
             vertices[3 * i + 2] = transformed_vertex.vertex.z;

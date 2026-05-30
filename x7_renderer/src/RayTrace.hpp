@@ -60,7 +60,7 @@ namespace RCTGen {
 
     void scene_add_model(Scene& scene,
                          const Mesh& mesh,
-                         std::function<Vertex(Vector3, Vector3, bool)> transform_fn,
+                         const std::function<Vertex(Vector3, Vector3, bool)>& transform_fn,
                          int flags);
 
     bool scene_trace_ray(Scene& scene, Vector3 origin, Vector3 direction, RayHit& hit);

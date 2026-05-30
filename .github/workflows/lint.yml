@@ -16,10 +16,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # uv.lock is gitignored in this repo, so key the cache off pyproject.toml
+      # instead of the default **/uv.lock glob.
       - name: Install uv
         uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
 
       - name: Set up Python
         run: uv python install 3.11
@@ -38,10 +41,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # uv.lock is gitignored in this repo, so key the cache off pyproject.toml
+      # instead of the default **/uv.lock glob.
       - name: Install uv
         uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
 
       - name: Set up Python
         run: uv python install 3.11
@@ -97,12 +103,6 @@ jobs:
           sudo apt-get install -y \
             clang-${LLVM_VERSION} clang-tidy-${LLVM_VERSION} \
             libgtest-dev cmake ninja-build
-          sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy \
-            /usr/bin/clang-tidy-${LLVM_VERSION} 100
-          sudo update-alternatives --install /usr/bin/clang clang \
-            /usr/bin/clang-${LLVM_VERSION} 100
-          sudo update-alternatives --install /usr/bin/clang++ clang++ \
-            /usr/bin/clang++-${LLVM_VERSION} 100
 
       - uses: actions/setup-python@v5
         with:
@@ -122,7 +122,12 @@ jobs:
             "$BASE/v${EMBREE_VERSION}/embree-${EMBREE_VERSION}.x86_64.linux.tar.gz"
           mkdir -p "$EMB"
           tar -xzf /tmp/embree.tar.gz -C "$EMB"
+          # Point find_package straight at the CMake config dir so the search
+          # never has to guess between lib/ and lib64/.
+          EMBREE_CMAKE_DIR=$(find "$EMB" -type d -path '*/cmake/embree-*' | head -n1)
+          test -n "$EMBREE_CMAKE_DIR" || { echo "embree cmake dir not found"; exit 1; }
           echo "EMBREE_ROOT=$EMB" >> "$GITHUB_ENV"
+          echo "embree_DIR=$EMBREE_CMAKE_DIR" >> "$GITHUB_ENV"
           echo "LD_LIBRARY_PATH=$EMB/lib64" >> "$GITHUB_ENV"
 
       # Generate compile_commands.json with the same toolchain that runs tidy,
@@ -131,8 +136,8 @@ jobs:
       # the compile DB and clang-tidy produces phantom "file not found" errors).
       - name: Configure CMake (compile DB)
         env:
-          CC: clang
-          CXX: clang++
+          CC: clang-${{ env.LLVM_VERSION }}
+          CXX: clang++-${{ env.LLVM_VERSION }}
         run: |
           PYBIND11_DIR=$(python -c \
             "import pybind11; print(pybind11.get_cmake_dir())")
@@ -141,12 +146,12 @@ jobs:
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
             -DBUILD_TESTING=ON \
             -DBUILD_PYTHON_MODULE=ON \
-            -DCMAKE_PREFIX_PATH="${EMBREE_ROOT};${PYBIND11_DIR}"
+            -DCMAKE_PREFIX_PATH="${PYBIND11_DIR}"
 
       - name: clang-tidy
         run: |
-          clang-tidy --version
-          clang-tidy -p x7_renderer/build --warnings-as-errors='*' \
+          clang-tidy-${LLVM_VERSION} --version
+          clang-tidy-${LLVM_VERSION} -p x7_renderer/build --warnings-as-errors='*' \
             x7_renderer/bindings.cpp \
             x7_renderer/src/Mesh.cpp \
             x7_renderer/src/Palette.cpp \

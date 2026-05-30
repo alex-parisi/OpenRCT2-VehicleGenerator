@@ -9,19 +9,21 @@ using namespace RCTGen;
 // Helpers
 // ---------------------------------------------------------------------------
 
-static constexpr float kEps = 1e-5f;
+namespace {
+    constexpr float kEps = 1e-5f;
 
-static void ExpectVec3Near(Vector3 actual, Vector3 expected, float eps = kEps) {
-    EXPECT_NEAR(actual.x, expected.x, eps);
-    EXPECT_NEAR(actual.y, expected.y, eps);
-    EXPECT_NEAR(actual.z, expected.z, eps);
-}
+    void ExpectVec3Near(Vector3 actual, Vector3 expected, float eps = kEps) {
+        EXPECT_NEAR(actual.x, expected.x, eps);
+        EXPECT_NEAR(actual.y, expected.y, eps);
+        EXPECT_NEAR(actual.z, expected.z, eps);
+    }
 
-static void ExpectMat3Near(Matrix3 actual, Matrix3 expected, float eps = kEps) {
-    for (std::size_t r = 0; r < 3; ++r)
-        for (std::size_t c = 0; c < 3; ++c)
-            EXPECT_NEAR(actual(r, c), expected(r, c), eps) << "at (" << r << "," << c << ")";
-}
+    void ExpectMat3Near(Matrix3 actual, Matrix3 expected, float eps = kEps) {
+        for (std::size_t r = 0; r < 3; ++r)
+            for (std::size_t c = 0; c < 3; ++c)
+                EXPECT_NEAR(actual(r, c), expected(r, c), eps) << "at (" << r << "," << c << ")";
+    }
+} // namespace
 
 // ---------------------------------------------------------------------------
 // Vector2
@@ -131,11 +133,11 @@ TEST(Vector3, Splat) {
 // ---------------------------------------------------------------------------
 
 TEST(Matrix3, IdentityMultiplication) {
-    Matrix3 I = matrix_identity();
+    Matrix3 const I = matrix_identity();
     auto v = vector3(1.0f, 2.0f, 3.0f);
     ExpectVec3Near(matrix_vector(I, v), v);
 
-    Matrix3 m = matrix(1, 2, 3, 4, 5, 6, 7, 8, 9);
+    Matrix3 const m = matrix(1, 2, 3, 4, 5, 6, 7, 8, 9);
     ExpectMat3Near(matrix_mult(I, m), m);
     ExpectMat3Near(matrix_mult(m, I), m);
 }
@@ -144,18 +146,18 @@ TEST(Matrix3, Determinant) {
     EXPECT_NEAR(matrix_identity().determinant(), 1.0f, kEps);
 
     // det([[1,2,3],[0,1,4],[5,6,0]]) = -24 + 40 - 15 = 1
-    Matrix3 m = matrix(1, 2, 3, 0, 1, 4, 5, 6, 0);
+    Matrix3 const m = matrix(1, 2, 3, 0, 1, 4, 5, 6, 0);
     EXPECT_NEAR(m.determinant(), 1.0f, kEps);
 
     // Scaling matrix: det = s^3
-    float s = 2.0f;
-    Matrix3 scale = matrix(s, 0, 0, 0, s, 0, 0, 0, s);
+    float const s = 2.0f;
+    Matrix3 const scale = matrix(s, 0, 0, 0, s, 0, 0, 0, s);
     EXPECT_NEAR(scale.determinant(), s * s * s, kEps);
 }
 
 TEST(Matrix3, InverseIsIdentity) {
     // A * inv(A) should equal identity.
-    Matrix3 m = matrix(1, 2, 3, 0, 1, 4, 5, 6, 0);
+    Matrix3 const m = matrix(1, 2, 3, 0, 1, 4, 5, 6, 0);
     ExpectMat3Near(matrix_mult(m, matrix_inverse(m)), matrix_identity());
     ExpectMat3Near(matrix_mult(matrix_inverse(m), m), matrix_identity());
 }
@@ -175,20 +177,20 @@ TEST(Matrix3, Transpose) {
 
 TEST(Matrix3, Multiply) {
     // Verify a known product.
-    Matrix3 a = matrix(1, 0, 2, 0, 3, 0, 4, 0, 5);
-    Matrix3 b = matrix(1, 2, 3, 0, 1, 0, 4, 0, 1);
+    Matrix3 const a = matrix(1, 0, 2, 0, 3, 0, 4, 0, 5);
+    Matrix3 const b = matrix(1, 2, 3, 0, 1, 0, 4, 0, 1);
     // Row 0: (1,0,2)*(col0=(1,0,4), col1=(2,1,0), col2=(3,0,1))
     //        → (1+0+8, 2+0+0, 3+0+2) = (9,2,5)
     // Row 1: (0,3,0)*(same cols)
     //        → (0,3,0) = (0,3,0)
     // Row 2: (4,0,5)*(same cols)
     //        → (4+0+20, 8+0+0, 12+0+5) = (24,8,17)
-    Matrix3 expected = matrix(9, 2, 5, 0, 3, 0, 24, 8, 17);
+    Matrix3 const expected = matrix(9, 2, 5, 0, 3, 0, 24, 8, 17);
     ExpectMat3Near(matrix_mult(a, b), expected);
 }
 
 TEST(Matrix3, VectorMultiply) {
-    Matrix3 m = matrix(1, 2, 0, 0, 3, 4, 5, 0, 6);
+    Matrix3 const m = matrix(1, 2, 0, 0, 3, 4, 5, 0, 6);
     auto v = vector3(1, 2, 3);
     // Row 0: 1*1 + 2*2 + 0*3 = 5
     // Row 1: 0*1 + 3*2 + 4*3 = 18
@@ -205,8 +207,8 @@ TEST(Rotation, RotateX) {
     ExpectMat3Near(rotate_x(0.0f), matrix_identity());
 
     // rotate_x(pi/2): Y -> Z
-    float pi2 = std::numbers::pi_v<float> / 2.0f;
-    Matrix3 r = rotate_x(pi2);
+    float const pi2 = std::numbers::pi_v<float> / 2.0f;
+    Matrix3 const r = rotate_x(pi2);
     ExpectVec3Near(matrix_vector(r, vector3(1, 0, 0)), vector3(1, 0, 0));  // X unchanged
     ExpectVec3Near(matrix_vector(r, vector3(0, 1, 0)), vector3(0, 0, 1));  // Y -> Z
     ExpectVec3Near(matrix_vector(r, vector3(0, 0, 1)), vector3(0, -1, 0)); // Z -> -Y
@@ -215,8 +217,8 @@ TEST(Rotation, RotateX) {
 TEST(Rotation, RotateY) {
     ExpectMat3Near(rotate_y(0.0f), matrix_identity());
 
-    float pi2 = std::numbers::pi_v<float> / 2.0f;
-    Matrix3 r = rotate_y(pi2);
+    float const pi2 = std::numbers::pi_v<float> / 2.0f;
+    Matrix3 const r = rotate_y(pi2);
     ExpectVec3Near(matrix_vector(r, vector3(0, 1, 0)), vector3(0, 1, 0));  // Y unchanged
     ExpectVec3Near(matrix_vector(r, vector3(0, 0, 1)), vector3(1, 0, 0));  // Z -> X
     ExpectVec3Near(matrix_vector(r, vector3(1, 0, 0)), vector3(0, 0, -1)); // X -> -Z
@@ -225,8 +227,8 @@ TEST(Rotation, RotateY) {
 TEST(Rotation, RotateZ) {
     ExpectMat3Near(rotate_z(0.0f), matrix_identity());
 
-    float pi2 = std::numbers::pi_v<float> / 2.0f;
-    Matrix3 r = rotate_z(pi2);
+    float const pi2 = std::numbers::pi_v<float> / 2.0f;
+    Matrix3 const r = rotate_z(pi2);
     ExpectVec3Near(matrix_vector(r, vector3(0, 0, 1)), vector3(0, 0, 1));  // Z unchanged
     ExpectVec3Near(matrix_vector(r, vector3(1, 0, 0)), vector3(0, 1, 0));  // X -> Y
     ExpectVec3Near(matrix_vector(r, vector3(0, 1, 0)), vector3(-1, 0, 0)); // Y -> -X
@@ -234,7 +236,7 @@ TEST(Rotation, RotateZ) {
 
 TEST(Rotation, OrthogonalAndRightHanded) {
     // For any rotation R: R^T = R^-1, and det(R) = 1.
-    float angle = 1.234f;
+    float const angle = 1.234f;
     for (auto R : {rotate_x(angle), rotate_y(angle), rotate_z(angle)}) {
         // R * R^T should be identity.
         ExpectMat3Near(matrix_mult(R, matrix_transpose(R)), matrix_identity());
@@ -248,28 +250,28 @@ TEST(Rotation, OrthogonalAndRightHanded) {
 // ---------------------------------------------------------------------------
 
 TEST(Transform, IdentityTransform) {
-    Transform t = transform(matrix_identity(), vector3(0, 0, 0));
+    Transform const t = transform(matrix_identity(), vector3(0, 0, 0));
     auto v = vector3(1, 2, 3);
     ExpectVec3Near(transform_vector(t, v), v);
 }
 
 TEST(Transform, Translation) {
-    Transform t = transform(matrix_identity(), vector3(1, 2, 3));
+    Transform const t = transform(matrix_identity(), vector3(1, 2, 3));
     ExpectVec3Near(transform_vector(t, vector3(0, 0, 0)), vector3(1, 2, 3));
     ExpectVec3Near(transform_vector(t, vector3(1, 0, 0)), vector3(2, 2, 3));
 }
 
 TEST(Transform, RotationAndTranslation) {
-    float pi2 = std::numbers::pi_v<float> / 2.0f;
-    Transform t = transform(rotate_z(pi2), vector3(5, 0, 0));
+    float const pi2 = std::numbers::pi_v<float> / 2.0f;
+    Transform const t = transform(rotate_z(pi2), vector3(5, 0, 0));
     // rotate_z(pi/2) maps (1,0,0) -> (0,1,0), then translate by (5,0,0)
     ExpectVec3Near(transform_vector(t, vector3(1, 0, 0)), vector3(5, 1, 0));
 }
 
 TEST(Transform, Compose) {
     // Two translations: T1=(1,0,0), T2=(0,2,0), compose = (1,2,0).
-    Transform t1 = transform(matrix_identity(), vector3(1, 0, 0));
-    Transform t2 = transform(matrix_identity(), vector3(0, 2, 0));
-    Transform t12 = transform_compose(t1, t2);
+    Transform const t1 = transform(matrix_identity(), vector3(1, 0, 0));
+    Transform const t2 = transform(matrix_identity(), vector3(0, 2, 0));
+    Transform const t12 = transform_compose(t1, t2);
     ExpectVec3Near(transform_vector(t12, vector3(0, 0, 0)), vector3(1, 2, 0));
 }
