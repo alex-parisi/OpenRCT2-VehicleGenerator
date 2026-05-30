@@ -103,6 +103,30 @@ OBJECT_ROLE_ITEMS = [
 ]
 
 
+# Slot identifiers map onto CarIndex in the exporter. `second`/`third` are
+# parsed by the loader but not emitted to object.json today, so we hide them
+# until that path is wired up.
+SLOT_ITEMS = [
+    ("NONE", "(none)", "Don't include this car type in the output"),
+    ("DEFAULT", "Default", "Standard car for the middle of the train"),
+    ("FRONT", "Front (head car)", "Used for the lead car"),
+    ("REAR", "Rear (tail car)", "Used for the last car"),
+]
+
+
+def _slot_update(self, context):
+    """Enforce slot uniqueness: clear the slot on any other car type that holds it."""
+    if self.slot == "NONE":
+        return
+    rs = self.id_data.vg_ride
+    me = self.as_pointer()
+    for ct in rs.car_types:
+        if ct.as_pointer() == me:
+            continue
+        if ct.slot == self.slot:
+            ct.slot = "NONE"
+
+
 class VGColorPreset(PropertyGroup):
     main: EnumProperty(name="Main", items=_simple_items(COLOR_NAMES), default="bright_red")
     secondary: EnumProperty(name="Secondary", items=_simple_items(COLOR_NAMES), default="black")
@@ -154,6 +178,31 @@ class VGObjectSettings(PropertyGroup):
     )
 
 
+class VGCarType(PropertyGroup):
+    """One car-type variant (default/front/rear). Becomes one entry in vehicles[]."""
+
+    name: StringProperty(name="Name", default="Car Type")
+    collection: PointerProperty(
+        name="Collection",
+        description="Blender Collection containing this car type's objects",
+        type=bpy.types.Collection,
+    )
+    slot: EnumProperty(
+        name="Slot",
+        description="Which OpenRCT2 car slot this car type fills",
+        items=SLOT_ITEMS,
+        default="NONE",
+        update=_slot_update,
+    )
+    mass: IntProperty(name="Mass", default=100, min=0)
+    spacing: FloatProperty(name="Spacing", default=2.0, min=0.0)
+    draw_order: IntProperty(name="Draw Order", default=1, min=0)
+    effect_visual: IntProperty(name="Effect Visual", default=1, min=0)
+    # Per-flag vehicle-flag bools are injected after this class (see FLAG_GROUPS).
+    # restraint_animation is excluded -- it's added automatically when a
+    # Restraint object exists in this car type's collection.
+
+
 class VGRideSettings(PropertyGroup):
     # --- Identity -----------------------------------------------------------
     id: StringProperty(
@@ -188,28 +237,29 @@ class VGRideSettings(PropertyGroup):
     color_presets: CollectionProperty(type=VGColorPreset)
     color_preset_index: IntProperty(default=0)
 
-    # --- Single vehicle params ---------------------------------------------
-    # Per-flag vehicle-flag bools are injected after the class (see FLAG_GROUPS).
-    # restraint_animation is excluded -- it's added automatically when a
-    # Restraint object exists.
-    mass: IntProperty(name="Mass", default=100, min=0)
-    spacing: FloatProperty(name="Spacing", default=2.0, min=0.0)
-    draw_order: IntProperty(name="Draw Order", default=1, min=0)
-    effect_visual: IntProperty(name="Effect Visual", default=1, min=0)
+    # --- Car types ---------------------------------------------------------
+    # A train can mix several car-type variants (default/front/rear). Each
+    # entry maps to one vehicles[] entry; the slot assignments become the
+    # configuration block. With no entries, the whole scene is rendered as a
+    # single default car using built-in defaults.
+    car_types: CollectionProperty(type=VGCarType)
+    car_type_index: IntProperty(default=0)
 
     preview: PointerProperty(name="Preview Image", type=bpy.types.Image)
 
 
-# Inject one BoolProperty per flag into VGRideSettings before registration, so
-# register_class picks them up from __annotations__. "flat" is on by default to
-# preserve the old sprite-group default.
+# Inject one BoolProperty per flag before registration, so register_class
+# picks them up from __annotations__. Vehicle flags belong to a car type
+# (each variant has its own); sprite-group and ride flags are ride-wide.
+# "flat" is on by default to preserve the old sprite-group default.
 for _prefix, _names in FLAG_GROUPS.items():
+    target = VGCarType if _prefix == "vf_" else VGRideSettings
     for _name in _names:
-        VGRideSettings.__annotations__[_prefix + _name] = BoolProperty(
+        target.__annotations__[_prefix + _name] = BoolProperty(
             name=_title(_name), default=(_prefix == "sg_" and _name == "flat"))
 
 
-_CLASSES = (VGColorPreset, VGMaterialSettings, VGObjectSettings, VGRideSettings)
+_CLASSES = (VGColorPreset, VGMaterialSettings, VGObjectSettings, VGCarType, VGRideSettings)
 
 
 def register():

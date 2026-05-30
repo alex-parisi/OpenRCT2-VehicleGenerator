@@ -208,11 +208,43 @@ class VG_OT_color_preset_remove(Operator):
         return {"FINISHED"}
 
 
+class VG_OT_car_type_add(Operator):
+    bl_idname = "vg.car_type_add"
+    bl_label = "Add Car Type"
+    bl_description = "Add another car-type variant (default / front / rear)"
+
+    def execute(self, context):
+        rs = context.scene.vg_ride
+        ct = rs.car_types.add()
+        ct.name = f"Car Type {len(rs.car_types)}"
+        # First car type defaults to the Default slot so a fresh setup is valid.
+        if len(rs.car_types) == 1:
+            ct.slot = "DEFAULT"
+        rs.car_type_index = len(rs.car_types) - 1
+        return {"FINISHED"}
+
+
+class VG_OT_car_type_remove(Operator):
+    bl_idname = "vg.car_type_remove"
+    bl_label = "Remove Car Type"
+    bl_description = "Remove the selected car type"
+
+    def execute(self, context):
+        rs = context.scene.vg_ride
+        if not rs.car_types:
+            return {"CANCELLED"}
+        rs.car_types.remove(rs.car_type_index)
+        rs.car_type_index = max(0, min(rs.car_type_index, len(rs.car_types) - 1))
+        return {"FINISHED"}
+
+
 _CLASSES = (
     VG_OT_test_render,
     VG_OT_export_parkobj,
     VG_OT_color_preset_add,
     VG_OT_color_preset_remove,
+    VG_OT_car_type_add,
+    VG_OT_car_type_remove,
 )
 
 

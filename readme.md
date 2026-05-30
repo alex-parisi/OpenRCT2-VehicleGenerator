@@ -148,6 +148,34 @@ vanilla OpenRCT2 object.
 5. **Install.** Copy the `.parkobj` into OpenRCT2's `object/` directory and
    restart OpenRCT2.
 
+### Multiple car types (front, rear, mid)
+
+A train can mix several distinct car types — a leading "head" car, a different
+"tail" car, etc. Author each as its own entry in `vehicles[]`, then map them to
+OpenRCT2's car slots with a `configuration` block:
+
+```yaml
+configuration:
+  default: 0   # vehicles[0] is the standard mid-train car
+  front: 1     # vehicles[1] is the head car
+  rear: 2      # vehicles[2] is the tail car
+
+vehicles:
+  - { mass: 100, spacing: 2.0, model: [...], riders: [...] }   # default
+  - { mass: 110, spacing: 2.0, model: [...], riders: [...] }   # front
+  - { mass: 110, spacing: 2.0, model: [...], riders: [...] }   # rear
+```
+
+The slots are `default` (required), plus optional `front`, `second`, `third`,
+and `rear`; each is a zero-based index into `vehicles[]`. You can point several
+slots at the same vehicle. The renderer makes a complete sprite set for every
+entry in `vehicles[]`, so additional car types means a larger `.parkobj` and a
+longer render. Single-car rides can omit `configuration` entirely.
+
+> **Current limitation:** only `default`, `front` (→ `headCars`), and `rear`
+> (→ `tailCars`) reach the `object.json` output. `second` and `third` are
+> parsed but dropped on export.
+
 ### Custom lighting
 
 Default lighting is a 9-light rig defined in `__main__.py`. To override it, add

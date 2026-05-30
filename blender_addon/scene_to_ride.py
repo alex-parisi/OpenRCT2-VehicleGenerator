@@ -169,21 +169,36 @@ def _load_preview(image) -> IndexedImage | None:
         return None
 
 
-def build_config_and_meshes(context):
-    """Return (config_dict, meshes, preview) read from the active scene.
+# Slot identifier -> the key the loader expects inside `configuration`.
+_SLOT_CONFIG_KEY = {
+    "DEFAULT": "default",
+    "FRONT": "front",
+    "REAR": "rear",
+}
 
-    Raises SceneError with a user-facing message on invalid scenes.
+
+def _build_vehicle(
+    objects,
+    *,
+    mass: int,
+    spacing: float,
+    draw_order: int,
+    effect_visual: int,
+    vf_flags: list[str],
+    meshes: list[Mesh],
+    depsgraph,
+    label: str,
+) -> dict:
+    """Build one ``vehicles[]`` entry from the given Blender objects.
+
+    Appends extracted ``Mesh`` entries to ``meshes`` and returns the vehicle
+    dict. Raises ``SceneError`` if no body/restraint objects are found.
     """
-    scene = context.scene
-    rs = scene.vg_ride
-    depsgraph = context.evaluated_depsgraph_get()
-
-    meshes: list[Mesh] = []
     body_entries: list[dict] = []
     rider_rows: dict[int, list[dict]] = {}
     has_restraint = False
 
-    for obj in scene.objects:
+    for obj in objects:
         if obj.type != "MESH":
             continue
         role = obj.vg_object.role
@@ -212,25 +227,81 @@ def build_config_and_meshes(context):
 
     if not body_entries:
         raise SceneError(
-            "No Body/Restraint objects found. Set object roles in the OpenRCT2 Vehicle panel."
+            f"{label}: no Body/Restraint objects found. "
+            "Set object roles in the OpenRCT2 Vehicle panel."
         )
 
-    veh_flags = [n for attr, n in props.flag_items("vf_") if getattr(rs, attr)]
-    if has_restraint and "restraint_animation" not in veh_flags:
-        veh_flags.append("restraint_animation")
+    flags = list(vf_flags)
+    if has_restraint and "restraint_animation" not in flags:
+        flags.append("restraint_animation")
 
     riders = [rider_rows[k] for k in sorted(rider_rows)]
-
     vehicle: dict = {
-        "flags": veh_flags,
-        "mass": int(rs.mass),
-        "spacing": float(rs.spacing),
-        "draw_order": int(rs.draw_order),
-        "effect_visual": int(rs.effect_visual),
+        "flags": flags,
+        "mass": mass,
+        "spacing": spacing,
+        "draw_order": draw_order,
+        "effect_visual": effect_visual,
         "model": body_entries,
     }
     if riders:
         vehicle["riders"] = riders
+    return vehicle
+
+
+def build_config_and_meshes(context):
+    """Return (config_dict, meshes, preview) read from the active scene.
+
+    Raises SceneError with a user-facing message on invalid scenes.
+    """
+    scene = context.scene
+    rs = scene.vg_ride
+    depsgraph = context.evaluated_depsgraph_get()
+
+    meshes: list[Mesh] = []
+    vehicles: list[dict] = []
+    configuration: dict[str, int] = {}
+
+    assigned_types = [ct for ct in rs.car_types if ct.slot != "NONE"]
+    if rs.car_types and not assigned_types:
+        raise SceneError(
+            "No car type has a slot assigned. Set at least one to 'Default'."
+        )
+
+    if assigned_types:
+        for ct in assigned_types:
+            if ct.collection is None:
+                raise SceneError(f"Car type '{ct.name}' has no Collection assigned.")
+            vehicle = _build_vehicle(
+                ct.collection.all_objects,
+                mass=int(ct.mass),
+                spacing=float(ct.spacing),
+                draw_order=int(ct.draw_order),
+                effect_visual=int(ct.effect_visual),
+                vf_flags=[n for attr, n in props.flag_items("vf_") if getattr(ct, attr)],
+                meshes=meshes,
+                depsgraph=depsgraph,
+                label=f"Car type '{ct.name}'",
+            )
+            configuration[_SLOT_CONFIG_KEY[ct.slot]] = len(vehicles)
+            vehicles.append(vehicle)
+        if "default" not in configuration:
+            raise SceneError("Need a car type assigned to the 'Default' slot.")
+    else:
+        # Back-compat: no car types -> whole scene is the default car with built-in defaults.
+        vehicle = _build_vehicle(
+            scene.objects,
+            mass=100,
+            spacing=2.0,
+            draw_order=1,
+            effect_visual=1,
+            vf_flags=[],
+            meshes=meshes,
+            depsgraph=depsgraph,
+            label="Scene",
+        )
+        vehicles.append(vehicle)
+        configuration["default"] = 0
 
     if rs.sprites_all:
         sprites: object = "all"
@@ -257,7 +328,8 @@ def build_config_and_meshes(context):
         "build_menu_priority": int(rs.build_menu_priority),
         "default_colors": [[p.main, p.secondary, p.tertiary] for p in rs.color_presets]
         or [["bright_red", "black", "grey"]],
-        "vehicles": [vehicle],
+        "configuration": configuration,
+        "vehicles": vehicles,
     }
 
     return config, meshes, _load_preview(rs.preview)

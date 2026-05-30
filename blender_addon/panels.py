@@ -14,6 +14,13 @@ class VG_UL_color_presets(UIList):
         row.prop(item, "tertiary", text="")
 
 
+class VG_UL_car_types(UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
+        row = layout.row(align=True)
+        row.prop(item, "name", text="", emboss=False, icon="MOD_PHYSICS")
+        row.prop(item, "slot", text="")
+
+
 class VG_PT_ride(Panel):
     bl_label = "OpenRCT2 Vehicle"
     bl_space_type = "VIEW_3D"
@@ -65,16 +72,32 @@ class VG_PT_ride(Panel):
         col.operator("vg.color_preset_remove", icon="REMOVE", text="")
 
         box = layout.box()
-        box.label(text="Vehicle", icon="MOD_PHYSICS")
-        box.label(text="Vehicle Flags:")
-        for attr, _name in props.flag_items("vf_"):
-            box.prop(rs, attr)
-        row = box.row(align=True)
-        row.prop(rs, "mass")
-        row.prop(rs, "spacing")
-        row = box.row(align=True)
-        row.prop(rs, "draw_order")
-        row.prop(rs, "effect_visual")
+        box.label(text="Car Types", icon="MOD_PHYSICS")
+        row = box.row()
+        row.template_list(
+            "VG_UL_car_types", "", rs, "car_types", rs, "car_type_index", rows=3
+        )
+        col = row.column(align=True)
+        col.operator("vg.car_type_add", icon="ADD", text="")
+        col.operator("vg.car_type_remove", icon="REMOVE", text="")
+
+        if rs.car_types:
+            ct = rs.car_types[rs.car_type_index]
+            sub = box.column()
+            sub.prop(ct, "collection")
+            sub.prop(ct, "slot")
+            row = sub.row(align=True)
+            row.prop(ct, "mass")
+            row.prop(ct, "spacing")
+            row = sub.row(align=True)
+            row.prop(ct, "draw_order")
+            row.prop(ct, "effect_visual")
+            sub.label(text="Vehicle Flags:")
+            for attr, _name in props.flag_items("vf_"):
+                sub.prop(ct, attr)
+        else:
+            box.label(text="No car types - exporting the whole scene as one default car.",
+                      icon="INFO")
 
         layout.prop(rs, "preview")
 
@@ -131,7 +154,7 @@ class VG_PT_material(Panel):
         layout.prop(ms, "texture")
 
 
-_CLASSES = (VG_UL_color_presets, VG_PT_ride, VG_PT_object, VG_PT_material)
+_CLASSES = (VG_UL_color_presets, VG_UL_car_types, VG_PT_ride, VG_PT_object, VG_PT_material)
 
 
 def register():
