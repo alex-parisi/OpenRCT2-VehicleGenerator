@@ -21,6 +21,14 @@ class VG_UL_car_types(UIList):
         row.prop(item, "slot", text="")
 
 
+class VG_UL_lights(UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
+        row = layout.row(align=True)
+        row.label(text="", icon="LIGHT")
+        row.prop(item, "type", text="")
+        row.prop(item, "strength", text="")
+
+
 class VG_PT_ride(Panel):
     bl_label = "OpenRCT2 Vehicle"
     bl_space_type = "VIEW_3D"
@@ -98,6 +106,31 @@ class VG_PT_ride(Panel):
                 text="No car types - exporting the whole scene as one default car.", icon="INFO"
             )
 
+        box = layout.box()
+        row = box.row()
+        row.prop(
+            rs,
+            "show_lights",
+            icon="TRIA_DOWN" if rs.show_lights else "TRIA_RIGHT",
+            emboss=False,
+        )
+        row.label(text="", icon="LIGHT_SUN")
+        if rs.show_lights:
+            row = box.row()
+            row.template_list("VG_UL_lights", "", rs, "lights", rs, "light_index", rows=3)
+            col = row.column(align=True)
+            col.operator("vg.light_add", icon="ADD", text="")
+            col.operator("vg.light_remove", icon="REMOVE", text="")
+            if rs.lights:
+                light = rs.lights[rs.light_index]
+                sub = box.column()
+                sub.prop(light, "type")
+                sub.prop(light, "shadow")
+                sub.prop(light, "direction")
+                sub.prop(light, "strength")
+            else:
+                box.label(text="No lights - using the default lighting rig.", icon="INFO")
+
         layout.prop(rs, "preview")
 
         col = layout.column(align=True)
@@ -160,7 +193,14 @@ class VG_PT_material(Panel):
         layout.prop(ms, "texture")
 
 
-_CLASSES = (VG_UL_color_presets, VG_UL_car_types, VG_PT_ride, VG_PT_object, VG_PT_material)
+_CLASSES = (
+    VG_UL_color_presets,
+    VG_UL_car_types,
+    VG_UL_lights,
+    VG_PT_ride,
+    VG_PT_object,
+    VG_PT_material,
+)
 
 
 def register():

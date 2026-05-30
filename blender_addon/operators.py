@@ -47,6 +47,25 @@ def _default_lights() -> list[Light]:
     ]
 
 
+_LIGHT_TYPES = {"diffuse": LIGHT_DIFFUSE, "specular": LIGHT_SPECULAR}
+
+
+def _lights_from_scene(context) -> list[Light]:
+    """Custom rig from the ride settings, or the default lights if none defined."""
+    rs = context.scene.vg_ride
+    if not rs.lights:
+        return _default_lights()
+    return [
+        Light(
+            type=_LIGHT_TYPES[lt.type],
+            shadow=int(lt.shadow),
+            direction=_normalize(list(lt.direction)),
+            intensity=lt.strength,
+        )
+        for lt in rs.lights
+    ]
+
+
 def _build_ride_from_scene(context):
     """Main-thread step: read bpy data into a Ride (raises on invalid scenes)."""
     config, meshes, preview = scene_to_ride.build_config_and_meshes(context)
@@ -68,7 +87,7 @@ class VG_OT_test_render(Operator):
             self.report({"ERROR"}, f"Invalid vehicle: {e}")
             return {"CANCELLED"}
 
-        ctx = Context.make(lights=_default_lights(), dither=True, upt=TILE_SIZE)
+        ctx = Context.make(lights=_lights_from_scene(context), dither=True, upt=TILE_SIZE)
         tmp = tempfile.mkdtemp(prefix="vg_test_")
         try:
             export_ride_test(ride, ctx, tmp)
@@ -125,10 +144,12 @@ class VG_OT_export_parkobj(Operator):
         self._done = False
         self._start_time = time.monotonic()
         self._spinner_step = 0
+        # Read lights on the main thread; the worker must not touch bpy data.
+        lights = _lights_from_scene(context)
 
         def worker():
             try:
-                ctx = Context.make(lights=_default_lights(), dither=True, upt=TILE_SIZE)
+                ctx = Context.make(lights=lights, dither=True, upt=TILE_SIZE)
                 export_ride_to(ride, ctx, self._parkobj, self._work)
             except Exception:
                 self._error = traceback.format_exc()
@@ -238,6 +259,32 @@ class VG_OT_car_type_remove(Operator):
         return {"FINISHED"}
 
 
+class VG_OT_light_add(Operator):
+    bl_idname = "vg.light_add"
+    bl_label = "Add Light"
+    bl_description = "Add a light to the custom lighting rig"
+
+    def execute(self, context):
+        rs = context.scene.vg_ride
+        rs.lights.add()
+        rs.light_index = len(rs.lights) - 1
+        return {"FINISHED"}
+
+
+class VG_OT_light_remove(Operator):
+    bl_idname = "vg.light_remove"
+    bl_label = "Remove Light"
+    bl_description = "Remove the selected light from the custom lighting rig"
+
+    def execute(self, context):
+        rs = context.scene.vg_ride
+        if not rs.lights:
+            return {"CANCELLED"}
+        rs.lights.remove(rs.light_index)
+        rs.light_index = max(0, min(rs.light_index, len(rs.lights) - 1))
+        return {"FINISHED"}
+
+
 _CLASSES = (
     VG_OT_test_render,
     VG_OT_export_parkobj,
@@ -245,6 +292,8 @@ _CLASSES = (
     VG_OT_color_preset_remove,
     VG_OT_car_type_add,
     VG_OT_car_type_remove,
+    VG_OT_light_add,
+    VG_OT_light_remove,
 )
 
 
