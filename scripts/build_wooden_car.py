@@ -168,7 +168,7 @@ def build_chassis():
             f"Chassis_Rail_{'L' if z_sign < 0 else 'R'}",
             center=(0.0, CHASSIS_Y - RAIL_H / 2, z_sign * RAIL_Z),
             size=(CHASSIS_LEN, RAIL_H, RAIL_W),
-            material_name="Metal",
+            material_name="Remap3",
         )
 
     # Front + rear bumper plates
@@ -181,7 +181,7 @@ def build_chassis():
                 0.0,
             ),
             size=(BUMPER_LEN, BUMPER_THICK, BUMPER_WIDTH),
-            material_name="Metal",
+            material_name="Remap3",
         )
 
 
@@ -191,7 +191,7 @@ def build_truck(name, center_x):
         f"Truck_{name}_Bolster",
         center=(center_x, WHEEL_R, 0.0),
         size=(AXLE_SPACING + 0.05, BOLSTER_HEIGHT, BOLSTER_WIDTH),
-        material_name="Metal",
+        material_name="Remap3",
     )
     # Four road wheels: 2 axles x 2 sides
     for ai, dx in enumerate((-AXLE_SPACING / 2, +AXLE_SPACING / 2)):
@@ -245,7 +245,7 @@ def build_seats():
             f"Seat_Back_{label}",
             center=(bx, CHASSIS_TOP + SEAT_BACK_HEIGHT / 2, 0.0),
             size=(SEAT_BACK_THICK, SEAT_BACK_HEIGHT, BENCH_WIDTH),
-            material_name="Remap1",
+            material_name="Remap2",
         )
 
 

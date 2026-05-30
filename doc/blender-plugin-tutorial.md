@@ -45,6 +45,8 @@ car meshes have the "Body" role.
 
 <img src="_static/copy-to-selected.png" width="300">
 
+All meshes associated with the vehicle car need to get assigned this role.
+
 ### Assign Color Remap Meshes
 
 Open the "Material" tab on the right side.
@@ -52,9 +54,7 @@ Open the "Material" tab on the right side.
 In the current example, the green surfaces are assigned the "Remap1" material, which corresponds 
 to the first color picker selection. 
 
-We'll leave these mostly as-is, but select the two seat-backs to change to "Remap2".
+Feel free to change them how you like.
 
-Select the two seat-back meshes with shift-click, then 
-
-
+### Import the Peep Object
 
