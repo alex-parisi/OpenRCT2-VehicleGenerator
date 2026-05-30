@@ -4,6 +4,8 @@ A Blender addon to generate custom ride-vehicle `.parkobj` files for [OpenRCT2](
 
 <img src="doc/_static/preview.png" width="600">
 
+<img src="doc/_static/in-game-preview.png" width="600">
+
 Heavily inspired by X7's [RCTGen](https://github.com/X123M3-256/RCTGen) project.
 
 ## Requirements
