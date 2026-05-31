@@ -14,7 +14,7 @@ install into your local Blender right now:
   4. Stage the add-on with a local-only manifest (just this platform + these 4
      wheels) and run `blender --command extension build`.
 
-The committed blender_addon/wheels/ and blender_manifest.toml are never touched;
+The committed <addon>/wheels/ and blender_manifest.toml are never touched;
 everything is staged in a temp dir.
 
 macOS only (vendoring uses delocate). For a Linux/Windows release, use CI.
@@ -35,8 +35,7 @@ import tempfile
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-ADDON = REPO / "blender_addon"
-MANIFEST = ADDON / "blender_manifest.toml"
+ADDONS = {"vehicle": "vehicle_renderer_addon", "scenery": "scenery_addon"}
 
 RENDERER = "openrct2_vehiclegenerator"
 DEPS = ("numpy", "pillow", "pyyaml")
@@ -192,9 +191,9 @@ def download_deps(out_dir: Path, py_version: str, abi: str, pip_platforms: list[
     run(cmd)
 
 
-def stage_addon(stage: Path, wheels_src: Path, manifest_platform: str) -> None:
+def stage_addon(stage: Path, wheels_src: Path, manifest_platform: str, addon_dir: Path) -> None:
     """Copy add-on source into `stage` with a local-only manifest + wheels."""
-    for item in ADDON.iterdir():
+    for item in addon_dir.iterdir():
         if item.suffix in {".py", ".toml", ".json"} and item.is_file():
             shutil.copy2(item, stage / item.name)
     stage_wheels = stage / "wheels"
@@ -228,7 +227,7 @@ def verify_wheel(wheel: Path) -> None:
             str(wheel),
             "python",
             "-c",
-            "import openrct2_vehicle_generator._x7_renderer as n;"
+            "import openrct2_iso_core._x7_renderer as n;"
             "print('embree ok:', n.LIGHT_DIFFUSE)",
         ]
     )
@@ -251,7 +250,11 @@ def main() -> None:
         action="store_true",
         help="skip the standalone import check of the renderer wheel",
     )
+    ap.add_argument(
+        "--addon", choices=ADDONS, default="vehicle", help="which add-on to build"
+    )
     args = ap.parse_args()
+    addon_dir = REPO / ADDONS[args.addon]
 
     manifest_platform, pip_platforms = local_target()
     py_version, abi = blender_python_tag()
@@ -271,7 +274,7 @@ def main() -> None:
         if not args.no_verify:
             verify_wheel(renderer)
         download_deps(wheels, py_version, abi, pip_platforms)
-        stage_addon(stage, wheels, manifest_platform)
+        stage_addon(stage, wheels, manifest_platform, addon_dir)
 
         run(
             [

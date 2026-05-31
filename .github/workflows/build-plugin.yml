@@ -140,8 +140,8 @@ jobs:
       # regenerate the manifest's wheel list using the same script run locally.
       - name: Bundle wheels + regenerate manifest
         run: |
-          mkdir -p blender_addon/wheels
-          cp renderer-wheels/*.whl blender_addon/wheels/
+          mkdir -p vehicle_renderer_addon/wheels
+          cp renderer-wheels/*.whl vehicle_renderer_addon/wheels/
           python -m pip install --upgrade pip
           pip install "numpy>=1.26" "pillow>=10.0" "pyyaml>=6.0"
           python scripts/collect_wheels.py
@@ -166,7 +166,7 @@ jobs:
           xvfb-run -a blender --version
           mkdir -p dist
           xvfb-run -a blender --command extension build \
-            --source-dir blender_addon --split-platforms --output-dir dist
+            --source-dir vehicle_renderer_addon --split-platforms --output-dir dist
           ls -lh dist
 
       - uses: actions/upload-artifact@v4

@@ -25,6 +25,7 @@ Run from the repo root (pip must be importable, so add it if your venv lacks it)
 
 from __future__ import annotations
 
+import argparse
 import importlib.metadata as md
 import re
 import subprocess
@@ -33,7 +34,9 @@ import tomllib
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-ADDON = REPO / "blender_addon"
+# Both add-ons bundle the identical wheel set; pick one per invocation.
+ADDONS = {"vehicle": "vehicle_renderer_addon", "scenery": "scenery_addon"}
+ADDON = REPO / ADDONS["vehicle"]
 WHEELS = ADDON / "wheels"
 MANIFEST = ADDON / "blender_manifest.toml"
 
@@ -142,6 +145,16 @@ def write_manifest(wheel_names: list[str]) -> None:
 
 
 def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument(
+        "--addon", choices=ADDONS, default="vehicle", help="which add-on's wheels/ to populate"
+    )
+    args = ap.parse_args()
+    global ADDON, WHEELS, MANIFEST
+    ADDON = REPO / ADDONS[args.addon]
+    WHEELS = ADDON / "wheels"
+    MANIFEST = ADDON / "blender_manifest.toml"
+
     ensure_pip()
     WHEELS.mkdir(parents=True, exist_ok=True)
     clear_dep_wheels()

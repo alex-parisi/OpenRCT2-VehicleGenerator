@@ -1,4 +1,5 @@
-blender_addon/wheels/
+vehicle_renderer_addon/wheels/
+scenery_addon/wheels/
 x7_renderer/.cache/
 
 uv.lock
