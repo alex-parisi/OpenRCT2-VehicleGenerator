@@ -1,8 +1,9 @@
 name: build-plugin
 
 # Build the self-contained, Embree-vendored renderer wheels (cp311 + cp313 per
-# platform), then package the Blender add-on into per-platform extension zips.
-# Triggered manually or on a tag.
+# platform), then package BOTH Blender add-ons (vehicle_renderer_addon and
+# scenery_addon) into per-platform extension zips. The renderer wheels are
+# shared; each add-on bundles the same set. Triggered manually or on a tag.
 on:
   workflow_dispatch:
   push:
@@ -137,14 +138,19 @@ jobs:
           merge-multiple: true
 
       # Stage renderer wheels, fetch the dependency wheels for every target, and
-      # regenerate the manifest's wheel list using the same script run locally.
-      - name: Bundle wheels + regenerate manifest
+      # regenerate each manifest's wheel list using the same script run locally.
+      # Both add-ons bundle the identical renderer + dependency wheels.
+      - name: Bundle wheels + regenerate manifests
         run: |
-          mkdir -p vehicle_renderer_addon/wheels
-          cp renderer-wheels/*.whl vehicle_renderer_addon/wheels/
           python -m pip install --upgrade pip
           pip install "numpy>=1.26" "pillow>=10.0" "pyyaml>=6.0"
-          python scripts/collect_wheels.py
+          for entry in "vehicle:vehicle_renderer_addon" "scenery:scenery_addon"; do
+            addon="${entry%%:*}"
+            dir="${entry##*:}"
+            mkdir -p "$dir/wheels"
+            cp renderer-wheels/*.whl "$dir/wheels/"
+            python scripts/collect_wheels.py --addon "$addon"
+          done
 
       - name: Install Blender runtime libs
         run: |
@@ -165,8 +171,10 @@ jobs:
         run: |
           xvfb-run -a blender --version
           mkdir -p dist
-          xvfb-run -a blender --command extension build \
-            --source-dir vehicle_renderer_addon --split-platforms --output-dir dist
+          for dir in vehicle_renderer_addon scenery_addon; do
+            xvfb-run -a blender --command extension build \
+              --source-dir "$dir" --split-platforms --output-dir dist
+          done
           ls -lh dist
 
       - uses: actions/upload-artifact@v4

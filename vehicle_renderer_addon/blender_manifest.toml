@@ -1,8 +1,9 @@
 schema_version = "1.0.0"
 
-# Distinct from the bundled wheel's top-level package (openrct2_vehicle_generator)
-# so the add-on module path and the imported renderer never collide.
-id = "openrct2vg"
+# Blender 4.2+ extensions import under the bl_ext.<repo>.<id> namespace, so this
+# id is namespaced away from the bundled wheel's top-level package of the same
+# name -- the add-on and the imported renderer do not collide.
+id = "openrct2_vehicle_generator"
 version = "0.1.1"
 name = "OpenRCT2 Vehicle Generator"
 tagline = "Author and export OpenRCT2 ride vehicles from the scene"

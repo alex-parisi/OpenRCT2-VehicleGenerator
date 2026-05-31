@@ -1,9 +1,9 @@
 schema_version = "1.0.0"
 
-# Distinct from the vehicle add-on (openrct2vg) and from the bundled wheel's
-# top-level packages, so module paths never collide. Both add-ons may be
+# Extensions import under bl_ext.<repo>.<id>, so this id is namespaced away from
+# the bundled wheel packages. Distinct from the vehicle add-on so both can be
 # installed at once.
-id = "openrct2vg_scenery"
+id = "openrct2_scenery_generator"
 version = "0.1.1"
 name = "OpenRCT2 Scenery Generator"
 tagline = "Author and export OpenRCT2 small/large scenery from the scene"
