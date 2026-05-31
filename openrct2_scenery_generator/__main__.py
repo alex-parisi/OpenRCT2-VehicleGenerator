@@ -18,8 +18,15 @@ from .exporter import (
     export_large_scenery_test,
     export_small_scenery,
     export_small_scenery_test,
+    export_wall_scenery,
+    export_wall_scenery_test,
 )
-from .loader import load_large_scenery, load_small_scenery, object_type_of
+from .loader import (
+    load_large_scenery,
+    load_small_scenery,
+    load_wall_scenery,
+    object_type_of,
+)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -67,6 +74,14 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 export_large_scenery(
                     large, context, output_directory, skip_render=args.skip_render
+                )
+        elif obj_type == "scenery_wall":
+            wall = load_wall_scenery(args.input)
+            if args.test:
+                export_wall_scenery_test(wall, context)
+            else:
+                export_wall_scenery(
+                    wall, context, output_directory, skip_render=args.skip_render
                 )
         else:
             small = load_small_scenery(args.input)

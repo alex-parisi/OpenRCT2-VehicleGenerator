@@ -32,3 +32,6 @@ COORDS_PER_TILE = 32
 # Scrolling mode 0 is a *valid, active* mode, so a plain object must use 255 or
 # the engine paints garbage scrolling text over it.
 SCROLLING_MODE_NONE = 255
+
+# Default cursor for wall objects (WallObject.cpp -> CursorID::FenceDown).
+WALL_DEFAULT_CURSOR = "CURSOR_FENCE_DOWN"

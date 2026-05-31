@@ -8,7 +8,12 @@ from typing import Any
 
 from openrct2_iso_core.types import IndexedImage, Model
 
-from .constants import DEFAULT_CURSOR, DEFAULT_HEIGHT, SCROLLING_MODE_NONE
+from .constants import (
+    DEFAULT_CURSOR,
+    DEFAULT_HEIGHT,
+    SCROLLING_MODE_NONE,
+    WALL_DEFAULT_CURSOR,
+)
 
 
 @dataclass
@@ -93,3 +98,51 @@ class LargeScenery:
     @property
     def num_tiles(self) -> int:
         return len(self.tiles)
+
+
+@dataclass
+class WallScenery:
+    id: str = ""
+    original_id: str = ""
+    name: str = ""
+    authors: list[str] = field(default_factory=list)
+    version: str = "1.0"
+
+    price: float = 1.0
+    cursor: str = WALL_DEFAULT_CURSOR
+    # `height` is in wall height units; the engine renders it `height * 8`
+    # coordinate units tall.
+    height: int = 1
+    scrolling_mode: int = SCROLLING_MODE_NONE
+    scenery_group: str = ""
+
+    has_primary_colour: bool = False
+    has_secondary_colour: bool = False
+    has_tertiary_colour: bool = False
+
+    is_allowed_on_slope: bool = False
+    has_glass: bool = False
+    is_double_sided: bool = False
+    is_door: bool = False
+    is_long_door_animation: bool = False
+    is_animated: bool = False
+    is_opaque: bool = False
+    door_sound: int | None = None
+
+    meshes: list[Any] = field(default_factory=list)  # list[Mesh]
+    model: Model = field(default_factory=Model)
+
+    preview: IndexedImage | None = None
+
+    @property
+    def num_sprites(self) -> int:
+        """Sprite count by capability. Doors use their own animation layout
+        (handled separately); this covers the flat/slope/glass/double-sided
+        combinations that share the offset-0..5 (+6/+12) scheme."""
+        base = 6 if self.is_allowed_on_slope else 2
+        n = base
+        if self.is_double_sided:
+            n += base
+        if self.has_glass:
+            n += base  # glass overlay set at base+6
+        return n

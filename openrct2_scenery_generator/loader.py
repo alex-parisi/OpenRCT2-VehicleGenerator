@@ -26,8 +26,9 @@ from .constants import (
     DEFAULT_HEIGHT,
     SCROLLING_MODE_NONE,
     SMALL_SCENERY_SHAPES,
+    WALL_DEFAULT_CURSOR,
 )
-from .types import LargeScenery, LargeSceneryTile, SmallScenery
+from .types import LargeScenery, LargeSceneryTile, SmallScenery, WallScenery
 
 
 def _load_model(value: Any, num_meshes: int) -> Model:
@@ -204,9 +205,55 @@ def load_large_scenery(json_path: Path | str) -> LargeScenery:
     return build_large_scenery(root, _load_meshes(root), _load_preview(root))
 
 
+def build_wall_scenery(
+    config: dict, meshes: list, preview: IndexedImage | None = None
+) -> WallScenery:
+    """Build a WallScenery from a parsed config dict + in-memory meshes."""
+    root = config
+    obj = WallScenery()
+
+    obj.id = require_string(root, "id")
+    obj.original_id = optional_string(root, "original_id")
+    obj.name = require_string(root, "name")
+    obj.authors = optional_string_list(root, "authors")
+    v_str = optional_string(root, "version")
+    if v_str:
+        obj.version = v_str
+    obj.preview = preview if preview is not None else IndexedImage.blank(1, 1)
+
+    obj.price = optional_number(root, "price", 1.0)
+    obj.cursor = optional_string(root, "cursor", WALL_DEFAULT_CURSOR)
+    obj.height = optional_int(root, "height", 1)
+    obj.scrolling_mode = optional_int(root, "scrolling_mode", SCROLLING_MODE_NONE)
+    obj.scenery_group = optional_string(root, "scenery_group")
+
+    obj.has_primary_colour = optional_bool(root, "has_primary_colour", False)
+    obj.has_secondary_colour = optional_bool(root, "has_secondary_colour", False)
+    obj.has_tertiary_colour = optional_bool(root, "has_tertiary_colour", False)
+    obj.is_allowed_on_slope = optional_bool(root, "is_allowed_on_slope", False)
+    obj.has_glass = optional_bool(root, "has_glass", False)
+    obj.is_double_sided = optional_bool(root, "is_double_sided", False)
+    obj.is_door = optional_bool(root, "is_door", False)
+    obj.is_long_door_animation = optional_bool(root, "is_long_door_animation", False)
+    obj.is_animated = optional_bool(root, "is_animated", False)
+    obj.is_opaque = optional_bool(root, "is_opaque", False)
+    ds = root.get("door_sound")
+    if ds is not None:
+        obj.door_sound = optional_int(root, "door_sound", 0)
+
+    obj.meshes = list(meshes)
+    obj.model = _load_model(root.get("model"), len(obj.meshes))
+    return obj
+
+
+def load_wall_scenery(json_path: Path | str) -> WallScenery:
+    root = parse_config(json_path)
+    return build_wall_scenery(root, _load_meshes(root), _load_preview(root))
+
+
 def object_type_of(config: dict) -> str:
     """Read the scenery object type, defaulting to small scenery."""
     t = optional_string(config, "object_type", "scenery_small")
-    if t not in ("scenery_small", "scenery_large"):
+    if t not in ("scenery_small", "scenery_large", "scenery_wall"):
         raise LoadError(f'Unrecognized object_type "{t}"')
     return t

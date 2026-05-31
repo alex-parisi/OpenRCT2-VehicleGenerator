@@ -47,6 +47,30 @@ def count_large_scenery_sprites(num_tiles: int) -> int:
     return LARGE_SCENERY_PREVIEW_SLOTS + 4 * num_tiles
 
 
+# Walls: a wall sprite is the panel along one diagonal, anchored at ONE END (a
+# tile corner) -- the engine places it on the correct edge via its paint offset,
+# so the sprite itself need not be on an edge. The two flat sprites are mirrored
+# (origin at opposite ends) and a half-tile-tall vertical drop below origin.
+# Calibrated to vanilla wall offsets (x_off -31/-1, base ~half-tile below): the
+# panel is shifted to its -Z end and rendered under VIEWS[1] (sprite 0) and
+# VIEWS[0] (sprite 1). The author models the panel running along OBJ +Z.
+_WALL_FLAT_VIEWS = (1, 0)
+_WALL_END_SHIFT = (0.0, 0.0, -_HALF_TILE)
+
+
+def render_wall_flat(context: Context, combined: Mesh) -> list[IndexedImage]:
+    """Render the 2 flat wall sprites (offsets 0 and 1), end-anchored."""
+    if combined.faces.shape[0] == 0:
+        return [IndexedImage.blank(1, 1) for _ in _WALL_FLAT_VIEWS]
+    translation = np.array(_WALL_END_SHIFT, dtype=np.float64)
+    context.begin_render()
+    context.add_model(combined, _IDENTITY3, translation, 0)
+    context.finalize_render()
+    out = [render_view(context, VIEWS[v]) for v in _WALL_FLAT_VIEWS]
+    context.end_render()
+    return out
+
+
 def _render_4_rotations(context: Context, mesh: Mesh, cx: float, cz: float) -> list[IndexedImage]:
     """Render the 4 cardinal rotations of `mesh`, anchoring each direction's
     world origin at the tile's per-direction corner (centre + corner offset).
