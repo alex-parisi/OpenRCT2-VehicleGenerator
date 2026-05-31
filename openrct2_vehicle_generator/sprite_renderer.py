@@ -8,10 +8,10 @@ import math
 from dataclasses import dataclass
 
 import numpy as np
+from openrct2_iso_core.ray_trace import Context, render_view, rotate_x, rotate_y, rotate_z
+from openrct2_iso_core.types import IndexedImage
 
 from .constants import SpriteFlag, VehicleFlag
-from .ray_trace import Context, render_view, rotate_x, rotate_y, rotate_z
-from .types import IndexedImage
 
 _TILE_SLOPE = 1.0 / math.sqrt(6.0)
 

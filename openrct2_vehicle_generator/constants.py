@@ -1,19 +1,90 @@
 """
-Constants ported from X7's rendering engine
+Vehicle-specific constants. Shared rendering constants (TILE_SIZE, render
+dimensions, MATERIAL_*/MESH_*/LIGHT_* flags, AA/AO sample counts) live in
+openrct2_iso_core.constants and are re-exported here for backwards-compatible
+imports.
+
+Ported from X7's rendering engine
 https://github.com/X123M3-256/RCTGen
 """
 
 from enum import IntEnum, IntFlag, auto
 
-TILE_SIZE = 3.3
+from openrct2_iso_core.constants import (
+    AA_NUM_SAMPLES_U,
+    AA_NUM_SAMPLES_V,
+    AO_NUM_SAMPLES_U,
+    AO_NUM_SAMPLES_V,
+    FRAGMENT_UNUSED,
+    LIGHT_DIFFUSE,
+    LIGHT_HEMI,
+    LIGHT_SPECULAR,
+    MATERIAL_BACKGROUND_AA,
+    MATERIAL_BACKGROUND_AA_DARK,
+    MATERIAL_HAS_TEXTURE,
+    MATERIAL_IS_FLAT_SHADED,
+    MATERIAL_IS_MASK,
+    MATERIAL_IS_REMAPPABLE,
+    MATERIAL_IS_VISIBLE_MASK,
+    MATERIAL_NO_AO,
+    MATERIAL_NO_BLEED,
+    MAX_REGIONS,
+    MESH_GHOST,
+    MESH_MASK,
+    REGION_MASK,
+    RENDER_HEIGHT,
+    RENDER_WIDTH,
+    TILE_SIZE,
+    UNITS_PER_PIXEL,
+    UNITS_PER_TILE,
+)
 
-RENDER_WIDTH = 255
-RENDER_HEIGHT = 256
-UNITS_PER_TILE = 4096
-UNITS_PER_PIXEL = 128
-FRAGMENT_UNUSED = 255
-REGION_MASK = 0x7
-MAX_REGIONS = 8
+__all__ = [
+    # Re-exported shared rendering constants.
+    "TILE_SIZE",
+    "RENDER_WIDTH",
+    "RENDER_HEIGHT",
+    "UNITS_PER_TILE",
+    "UNITS_PER_PIXEL",
+    "FRAGMENT_UNUSED",
+    "REGION_MASK",
+    "MAX_REGIONS",
+    "MATERIAL_HAS_TEXTURE",
+    "MATERIAL_IS_REMAPPABLE",
+    "MATERIAL_IS_MASK",
+    "MATERIAL_NO_AO",
+    "MATERIAL_BACKGROUND_AA",
+    "MATERIAL_BACKGROUND_AA_DARK",
+    "MATERIAL_IS_VISIBLE_MASK",
+    "MATERIAL_NO_BLEED",
+    "MATERIAL_IS_FLAT_SHADED",
+    "MESH_MASK",
+    "MESH_GHOST",
+    "LIGHT_HEMI",
+    "LIGHT_DIFFUSE",
+    "LIGHT_SPECULAR",
+    "AA_NUM_SAMPLES_U",
+    "AA_NUM_SAMPLES_V",
+    "AO_NUM_SAMPLES_U",
+    "AO_NUM_SAMPLES_V",
+    # Vehicle-specific.
+    "SpriteFlag",
+    "RideFlag",
+    "VehicleFlag",
+    "CarEntryAnimation",
+    "RunningSound",
+    "SecondarySound",
+    "CarIndex",
+    "Category",
+    "SPRITE_GROUP_NAMES",
+    "RIDE_FLAG_NAMES",
+    "VEHICLE_FLAG_NAMES",
+    "RUNNING_SOUND_NAMES",
+    "SECONDARY_SOUND_NAMES",
+    "COLOR_NAMES",
+    "CATEGORY_NAMES",
+    "FRICTION_SOUND_IDS",
+]
 
 
 class SpriteFlag(IntFlag):
@@ -45,6 +116,18 @@ class VehicleFlag(IntFlag):
     TERTIARY_REMAP = auto()
     RIDERS_SCREAM = auto()
     RESTRAINT_ANIMATION = auto()
+
+
+class CarEntryAnimation(IntEnum):
+    # Values mirror OpenRCT2's CarEntryAnimation enum (CarEntry.h).
+    NONE = 0
+    SIMPLE_VEHICLE = 1
+    STEAM_LOCOMOTIVE = 2
+    SWAN_BOAT = 3
+    MONORAIL_CYCLE = 4
+    MULTI_DIMENSION = 5
+    OBSERVATION_TOWER = 6
+    ANIMAL_FLYING = 7
 
 
 class RunningSound(IntEnum):
@@ -176,33 +259,3 @@ FRICTION_SOUND_IDS = [
     RunningSound.TRAIN.value,
     RunningSound.ENGINE.value,
 ]
-
-
-# Material flags (from src/iso-render/Mesh.hpp).
-MATERIAL_HAS_TEXTURE = 1 << 0
-MATERIAL_IS_REMAPPABLE = 1 << 1
-MATERIAL_IS_MASK = 1 << 2
-MATERIAL_NO_AO = 1 << 3
-MATERIAL_BACKGROUND_AA = 1 << 4
-MATERIAL_BACKGROUND_AA_DARK = 1 << 5
-MATERIAL_IS_VISIBLE_MASK = 1 << 6
-MATERIAL_NO_BLEED = 1 << 7
-MATERIAL_IS_FLAT_SHADED = 1 << 8
-
-
-# Mesh flags (RayTrace.hpp).
-MESH_MASK = 1 << 0
-MESH_GHOST = 1 << 1
-
-
-# Light types (Renderer.hpp).
-LIGHT_HEMI = 0
-LIGHT_DIFFUSE = 1
-LIGHT_SPECULAR = 2
-
-
-# AA / AO sample counts (Renderer.cpp).
-AA_NUM_SAMPLES_U = 4
-AA_NUM_SAMPLES_V = 4
-AO_NUM_SAMPLES_U = 8
-AO_NUM_SAMPLES_V = 4

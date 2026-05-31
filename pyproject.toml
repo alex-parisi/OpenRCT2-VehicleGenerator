@@ -14,6 +14,7 @@ dependencies = [
 
 [project.scripts]
 openrct2-vehicle-generator = "openrct2_vehicle_generator.__main__:main"
+openrct2-scenery-generator = "openrct2_scenery_generator.__main__:main"
 
 [dependency-groups]
 dev = [
@@ -31,14 +32,14 @@ addopts = "-q"
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-src = ["openrct2_vehicle_generator", "scripts", "tests"]
+src = ["openrct2_iso_core", "openrct2_vehicle_generator", "openrct2_scenery_generator", "scripts", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "W"]
 
 [tool.mypy]
 python_version = "3.11"
-files = ["openrct2_vehicle_generator"]
+files = ["openrct2_iso_core", "openrct2_vehicle_generator", "openrct2_scenery_generator"]
 warn_unused_ignores = true
 warn_redundant_casts = true
 warn_unused_configs = true
@@ -50,7 +51,7 @@ build-backend = "scikit_build_core.build"
 [tool.scikit-build]
 cmake.source-dir = "x7_renderer"
 cmake.version = ">=3.25"
-wheel.packages = ["openrct2_vehicle_generator"]
+wheel.packages = ["openrct2_iso_core", "openrct2_vehicle_generator", "openrct2_scenery_generator"]
 build-dir = "build/{wheel_tag}"
 
 # Wheel building for the Blender add-on bundle
@@ -60,7 +61,7 @@ build-frontend = "build"
 skip = ["*-musllinux*", "*_i686", "*-win32"]
 
 # Sanity check: the extension imports and Embree resolves from vendored libs.
-test-command = "python -c \"import openrct2_vehicle_generator._x7_renderer as n; print('embree ok', n.LIGHT_DIFFUSE)\""
+test-command = "python -c \"import openrct2_iso_core._x7_renderer as n; print('embree ok', n.LIGHT_DIFFUSE)\""
 
 [tool.cibuildwheel.linux]
 manylinux-x86_64-image = "manylinux_2_28"

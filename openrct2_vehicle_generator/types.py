@@ -1,27 +1,30 @@
 """
-Dataclasses
+Vehicle-specific dataclasses. Shared rendering primitives (MeshFrame, Model,
+IndexedImage, Light, MAX_FRAMES) live in openrct2_iso_core.types.
 """
 
 from dataclasses import dataclass, field
 from typing import Any
 
-import numpy as np
+from openrct2_iso_core.types import (
+    MAX_FRAMES,
+    IndexedImage,
+    Light,
+    MeshFrame,
+    Model,
+)
 
 from .constants import TILE_SIZE
 
-MAX_FRAMES = 4
-
-
-@dataclass
-class MeshFrame:
-    mesh_index: int = -1
-    position: np.ndarray = field(default_factory=lambda: np.zeros(3, dtype=np.float64))
-    orientation: np.ndarray = field(default_factory=lambda: np.zeros(3, dtype=np.float64))
-
-
-@dataclass
-class Model:
-    meshes: list[list[MeshFrame]] = field(default_factory=list)
+__all__ = [
+    "MAX_FRAMES",
+    "IndexedImage",
+    "Light",
+    "MeshFrame",
+    "Model",
+    "Vehicle",
+    "Ride",
+]
 
 
 @dataclass
@@ -35,27 +38,6 @@ class Vehicle:
     spacing: float = 0.0
     effect_visual: int = 1
     riders: list[Model] = field(default_factory=list)
-
-
-@dataclass
-class IndexedImage:
-    """8-bit palette image. Pixel value 0 is transparent."""
-
-    width: int
-    height: int
-    x_offset: int
-    y_offset: int
-    pixels: np.ndarray  # uint8 (height, width)
-
-    @classmethod
-    def blank(cls, width: int, height: int, x_offset: int = 0, y_offset: int = 0) -> "IndexedImage":
-        return cls(
-            width=width,
-            height=height,
-            x_offset=x_offset,
-            y_offset=y_offset,
-            pixels=np.zeros((height, width), dtype=np.uint8),
-        )
 
 
 @dataclass
@@ -95,11 +77,3 @@ class Ride:
     vehicles: list[Vehicle] = field(default_factory=list)
 
     preview: IndexedImage | None = None
-
-
-@dataclass
-class Light:
-    type: int  # LIGHT_HEMI / LIGHT_DIFFUSE / LIGHT_SPECULAR
-    shadow: int
-    direction: np.ndarray
-    intensity: float

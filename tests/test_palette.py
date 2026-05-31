@@ -1,7 +1,7 @@
 """Tests for the RCT2 palette tables."""
 
 import numpy as np
-from openrct2_vehicle_generator.palette import (
+from openrct2_iso_core.palette import (
     PALETTE_RGB,
     TRANSPARENT_INDEX,
 )

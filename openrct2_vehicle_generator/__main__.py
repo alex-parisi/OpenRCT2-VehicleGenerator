@@ -9,12 +9,12 @@ import sys
 from pathlib import Path
 
 import numpy as np
+from openrct2_iso_core.ray_trace import Context
+from openrct2_iso_core.types import Light
 
 from .constants import LIGHT_DIFFUSE, LIGHT_SPECULAR
 from .exporter import export_ride, export_ride_test
 from .loader import LoadError, load_lights, load_ride, parse_config
-from .ray_trace import Context
-from .types import Light
 
 
 def _normalize(v: list[float]) -> np.ndarray:

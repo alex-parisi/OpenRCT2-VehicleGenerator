@@ -3,8 +3,8 @@
 import struct
 
 import numpy as np
-from openrct2_vehicle_generator.exporter import _G1_FLAG_BMP, _write_images_dat
-from openrct2_vehicle_generator.types import IndexedImage
+from openrct2_iso_core.images_dat import G1_FLAG_BMP, write_images_dat
+from openrct2_iso_core.types import IndexedImage
 
 
 def _img(w, h, x_offset, y_offset, fill):
@@ -35,7 +35,7 @@ def test_images_dat_roundtrip(tmp_path):
         _img(1, 1, 0, 0, 255),
     ]
     out = tmp_path / "images.dat"
-    _write_images_dat(images, out)
+    write_images_dat(images, out)
 
     num, total, elements, pixels = _parse_images_dat(out.read_bytes())
 
@@ -49,7 +49,7 @@ def test_images_dat_roundtrip(tmp_path):
         assert el["h"] == img.height
         assert el["x"] == img.x_offset
         assert el["y"] == img.y_offset
-        assert el["flags"] == _G1_FLAG_BMP
+        assert el["flags"] == G1_FLAG_BMP
         assert el["zoom"] == 0
         assert el["offset"] == cursor
         chunk = pixels[cursor : cursor + img.width * img.height]
@@ -63,7 +63,7 @@ def test_images_dat_roundtrip(tmp_path):
 def test_images_dat_offsets_are_monotonic(tmp_path):
     images = [_img(w, w, 0, 0, w) for w in (1, 2, 3, 4)]
     out = tmp_path / "images.dat"
-    _write_images_dat(images, out)
+    write_images_dat(images, out)
     _num, _total, elements, _pixels = _parse_images_dat(out.read_bytes())
     offsets = [e["offset"] for e in elements]
     assert offsets == sorted(offsets)

@@ -4,12 +4,14 @@ Build object.json and assemble the .parkobj ZIP.
 
 import json
 import math
-import struct
 import zipfile
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+from openrct2_iso_core.image import write_png
+from openrct2_iso_core.images_dat import write_images_dat
+from openrct2_iso_core.ray_trace import Context, render_view, rotate_x, rotate_y, rotate_z
 
 from .constants import (
     CATEGORY_NAMES,
@@ -20,8 +22,6 @@ from .constants import (
     SpriteFlag,
     VehicleFlag,
 )
-from .image import write_png
-from .ray_trace import Context, render_view, rotate_x, rotate_y, rotate_z
 from .sprite_renderer import count_sprites, render_vehicle_frame
 from .types import Model, Ride
 
@@ -88,60 +88,6 @@ def _emit_sprite_groups(sf: int, vf: int) -> dict[str, int]:
     if vf & VehicleFlag.RESTRAINT_ANIMATION:
         add("restraintAnimation", 4)
     return out
-
-
-# OpenRCT2 G1 image flag bits
-_G1_FLAG_BMP = 0x0001
-
-
-def _write_images_dat(images: list, out_path: Path) -> None:
-    """
-    Write a sequence of IndexedImages as an OpenRCT2 `images.dat` (G1) blob.
-
-    Format (matches the vanilla parkobj's `images.dat`):
-      - Header (8 bytes): u32 num_entries, u32 total_pixel_data_size.
-      - num_entries * 16-byte G1 elements:
-          u32 offset (into the pixel data section),
-          i16 width, i16 height, i16 x_offset, i16 y_offset,
-          u16 flags, u16 zoom (we always write 0).
-      - Concatenated pixel data: each image is width*height bytes of
-        palette indices, with index 0 acting as transparent.
-
-    The matching `object.json` `images` entry is the single string
-    `"$LGX:images.dat[0..N-1]"`.
-    """
-    num = len(images)
-    offsets: list[int] = []
-    chunks: list[bytes] = []
-    cur = 0
-    for img in images:
-        pixels = img.pixels.tobytes()  # uint8 (H, W) row-major
-        assert len(pixels) == img.width * img.height, (
-            f"sprite pixel buffer size mismatch: "
-            f"got {len(pixels)}, expected {img.width}*{img.height}"
-        )
-        offsets.append(cur)
-        chunks.append(pixels)
-        cur += len(pixels)
-    total_pixel_size = cur
-
-    elements = bytearray()
-    for img, offset in zip(images, offsets, strict=False):
-        elements += struct.pack(
-            "<IhhhhHH",
-            offset,
-            int(img.width),
-            int(img.height),
-            int(img.x_offset),
-            int(img.y_offset),
-            _G1_FLAG_BMP,
-            0,
-        )
-
-    with open(out_path, "wb") as f:
-        f.write(struct.pack("<II", num, total_pixel_size))
-        f.write(bytes(elements))
-        f.writelines(chunks)
 
 
 def build_ride_json(ride: Ride) -> dict[str, Any]:
@@ -298,7 +244,7 @@ def _render_sprites(ride: Ride, context: Context, object_dir: Path) -> list:
         all_images.extend(car_images)
 
     out_path = object_dir / "images.dat"
-    _write_images_dat(all_images, out_path)
+    write_images_dat(all_images, out_path)
     print(f"wrote {out_path} ({len(all_images)} sprites, {out_path.stat().st_size / 1024:.1f} KB)")
     return [f"$LGX:images.dat[0..{len(all_images) - 1}]"]
 

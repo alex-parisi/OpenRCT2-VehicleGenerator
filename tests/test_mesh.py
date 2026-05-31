@@ -1,13 +1,13 @@
 """Tests for the pure-Python OBJ/MTL loader."""
 
 import numpy as np
-from openrct2_vehicle_generator.constants import (
+from openrct2_iso_core.constants import (
     MATERIAL_BACKGROUND_AA,
     MATERIAL_IS_MASK,
     MATERIAL_IS_REMAPPABLE,
     MATERIAL_NO_AO,
 )
-from openrct2_vehicle_generator.mesh import (
+from openrct2_iso_core.mesh import (
     Material,
     _classify_material_name,
     load_mesh,

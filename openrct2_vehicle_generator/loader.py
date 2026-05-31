@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from openrct2_iso_core.image import read_png
+from openrct2_iso_core.mesh import load_mesh
 
 from .constants import (
     COLOR_NAMES,
@@ -23,8 +25,6 @@ from .constants import (
     SpriteFlag,
     VehicleFlag,
 )
-from .image import read_png
-from .mesh import load_mesh
 from .sprite_renderer import count_sprites
 from .types import MAX_FRAMES, IndexedImage, Light, MeshFrame, Model, Ride, Vehicle
 

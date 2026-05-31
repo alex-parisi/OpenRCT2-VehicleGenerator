@@ -27,6 +27,9 @@ import tempfile
 import bpy
 import numpy as np
 from mathutils import Matrix, Vector
+from openrct2_iso_core.image import quantize_to_indexed, read_png
+from openrct2_iso_core.mesh import Material, Mesh, load_texture
+from openrct2_iso_core.types import IndexedImage
 from openrct2_vehicle_generator.constants import (
     MATERIAL_BACKGROUND_AA,
     MATERIAL_BACKGROUND_AA_DARK,
@@ -36,9 +39,6 @@ from openrct2_vehicle_generator.constants import (
     MATERIAL_NO_AO,
     MATERIAL_NO_BLEED,
 )
-from openrct2_vehicle_generator.image import quantize_to_indexed, read_png
-from openrct2_vehicle_generator.mesh import Material, Mesh, load_texture
-from openrct2_vehicle_generator.types import IndexedImage
 
 from . import props
 

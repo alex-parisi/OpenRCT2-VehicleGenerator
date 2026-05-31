@@ -63,7 +63,7 @@ if(BUILD_PYTHON_MODULE)
         $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wall -Wextra -Wno-unused-parameter>
     )
     target_link_libraries(_x7_renderer PRIVATE _x7_renderer_core)
-    install(TARGETS _x7_renderer LIBRARY DESTINATION openrct2_vehicle_generator)
+    install(TARGETS _x7_renderer LIBRARY DESTINATION openrct2_iso_core)
 endif()
 
 # Unit Tests
