@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import math
 import os
+import tempfile
 
 import bpy
 import numpy as np
@@ -63,12 +64,93 @@ class SceneError(Exception):
     """Raised when the scene can't be turned into a valid ride."""
 
 
+def _base_color(bmat) -> tuple[float, float, float]:
+    """The material's flat RGB colour.
+
+    Prefer the Principled BSDF ``Base Color`` (what users actually set in the
+    shader editor) and fall back to ``diffuse_color`` (the viewport display
+    colour). ``diffuse_color`` alone is wrong for almost every authored
+    material: it stays at Blender's default 0.8 grey unless explicitly touched,
+    so reading it made every untextured material render the same grey. If the
+    Base Color input is textured (linked), there's no flat value to read, so we
+    fall back to the viewport colour as well.
+    """
+    if getattr(bmat, "use_nodes", False) and bmat.node_tree is not None:
+        for node in bmat.node_tree.nodes:
+            if node.type != "BSDF_PRINCIPLED":
+                continue
+            base = node.inputs.get("Base Color")
+            if base is not None and not base.is_linked:
+                c = base.default_value
+                return (c[0], c[1], c[2])
+    col = bmat.diffuse_color
+    return (col[0], col[1], col[2])
+
+
+def _base_color_image(bmat):
+    """The image feeding the Principled BSDF ``Base Color``, if that input is
+    directly linked to an Image Texture node; otherwise ``None``.
+
+    Lets users paint a material with a texture node in the shader editor
+    instead of having to also fill in the add-on's explicit Texture pointer.
+    Only a direct ``Base Color <- Image Texture`` link is followed (no chains
+    through colour-mix nodes) to keep the behaviour predictable.
+    """
+    if not (getattr(bmat, "use_nodes", False) and bmat.node_tree is not None):
+        return None
+    for node in bmat.node_tree.nodes:
+        if node.type != "BSDF_PRINCIPLED":
+            continue
+        base = node.inputs.get("Base Color")
+        if base is None or not base.is_linked:
+            return None
+        from_node = base.links[0].from_node
+        if from_node.type == "TEX_IMAGE":
+            return from_node.image
+    return None
+
+
+def _load_packed_image(img):
+    """Materialise a packed or generated image (no usable file on disk) to a
+    temp PNG and load it through the normal texture pipeline, so colour
+    handling matches on-disk images. Returns `None` if it can't be saved."""
+    tmp_dir = tempfile.mkdtemp(prefix="vg_tex_")
+    tmp = os.path.join(tmp_dir, "packed.png")
+    prev_format = img.file_format
+    try:
+        img.file_format = "PNG"
+        img.save(filepath=tmp)
+        return load_texture(tmp)
+    except (RuntimeError, OSError):
+        return None
+    finally:
+        img.file_format = prev_format
+        try:
+            os.remove(tmp)
+            os.rmdir(tmp_dir)
+        except OSError:
+            pass
+
+
+def _load_bpy_image(img):
+    """Load a `bpy.types.Image` into a core `Texture`, or `None` if it has no
+    usable pixels. On-disk files load directly; packed/generated images are
+    materialised to a temp PNG first."""
+    if img is None:
+        return None
+    path = bpy.path.abspath(img.filepath_from_user() or img.filepath)
+    if path and os.path.exists(path):
+        return load_texture(path)
+    if img.packed_file is not None or img.source == "GENERATED" or img.has_data:
+        return _load_packed_image(img)
+    return None
+
+
 def _material_from_bpy(bmat) -> Material:
     m = Material()
     if bmat is None:
         return m
-    col = bmat.diffuse_color
-    m.color = np.array([col[0], col[1], col[2]], dtype=np.float64)
+    m.color = np.array(_base_color(bmat), dtype=np.float64)
 
     s = getattr(bmat, "vg_material", None)
     if s is None:
@@ -93,11 +175,13 @@ def _material_from_bpy(bmat) -> Material:
     if s.flat_shaded:
         m.flags |= MATERIAL_IS_FLAT_SHADED
 
-    if s.texture is not None:
-        path = bpy.path.abspath(s.texture.filepath_from_user() or s.texture.filepath)
-        if path and os.path.exists(path):
-            m.texture = load_texture(path)
-            m.flags |= MATERIAL_HAS_TEXTURE
+    # The explicit Texture pointer wins; otherwise fall back to an image
+    # texture wired into the Principled BSDF's Base Color.
+    tex_image = s.texture if s.texture is not None else _base_color_image(bmat)
+    texture = _load_bpy_image(tex_image)
+    if texture is not None:
+        m.texture = texture
+        m.flags |= MATERIAL_HAS_TEXTURE
     return m
 
 
