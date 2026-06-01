@@ -204,6 +204,13 @@ you are targeting. Settings like "Build Menu Priority", "Draw Order", and "Effec
 are hard to figure out and can lead to glitchy cars if not properly set. Explore the 
 [objects](https://github.com/OpenRCT2/objects) repo for vehicle types.
 
+Under the **Train** section you can set "Min Cars / Train" and "Max Cars / Train", 
+which control how many cars a train can have. The **Zero Cars** field sets how many 
+cars at the *front* of the train carry no riders — engines, decorative locomotives, or 
+leading dummy cars. Those cars are still rendered as part of the train, but the engine 
+won't seat any peeps in them. Leave it at `0` (the default) for a train where every car 
+holds riders.
+
 ### Render Preview
 
 We're now ready to see how it would look in-game!

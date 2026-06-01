@@ -62,6 +62,7 @@ class VG_PT_ride(Panel):
         row = box.row(align=True)
         row.prop(rs, "min_cars")
         row.prop(rs, "max_cars")
+        box.prop(rs, "zero_cars")
         box.prop(rs, "build_menu_priority")
         box.prop(rs, "running_sound")
         box.prop(rs, "secondary_sound")

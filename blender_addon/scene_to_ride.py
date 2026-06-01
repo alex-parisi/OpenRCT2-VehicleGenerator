@@ -425,6 +425,7 @@ def build_config_and_meshes(context):
         "secondary_sound": rs.secondary_sound,
         "min_cars_per_train": int(rs.min_cars),
         "max_cars_per_train": int(rs.max_cars),
+        "zero_cars": int(rs.zero_cars),
         "build_menu_priority": int(rs.build_menu_priority),
         "default_colors": [[p.main, p.secondary, p.tertiary] for p in rs.color_presets]
         or [["bright_red", "black", "grey"]],

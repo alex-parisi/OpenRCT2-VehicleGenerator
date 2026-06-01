@@ -283,6 +283,12 @@ class VGRideSettings(PropertyGroup):
     )
     min_cars: IntProperty(name="Min Cars / Train", default=1, min=1)
     max_cars: IntProperty(name="Max Cars / Train", default=8, min=1)
+    zero_cars: IntProperty(
+        name="Zero Cars",
+        description="Cars at the front that carry no riders (engines, etc.)",
+        default=0,
+        min=0,
+    )
     build_menu_priority: IntProperty(name="Build Menu Priority", default=0, min=0)
 
     # --- Default colours (up to 3 build-menu presets) -----------------------
