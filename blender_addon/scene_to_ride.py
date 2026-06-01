@@ -174,11 +174,6 @@ def _material_from_bpy(bmat) -> Material:
     m.color = np.array(_base_color(bmat), dtype=np.float64)
 
     # Drive the specular highlight from the Principled BSDF's PBR inputs.
-    # Roughness -> Phong exponent: a smooth surface (roughness 0) gets a tight,
-    # bright highlight; a rough one (roughness 1) a broad, soft one. The
-    # exponential mapping spans roughly [2, 256], matching the renderer's tuned
-    # range. Metallic mixes the highlight colour from a neutral grey dielectric
-    # toward the base colour, so a metal reflects a tinted highlight.
     metallic, roughness = _principled_pbr(bmat)
     metallic = min(max(metallic, 0.0), 1.0)
     roughness = min(max(roughness, 0.0), 1.0)
@@ -453,10 +448,7 @@ def _build_vehicle(
     # Auto-assign remap regions by the peep's position within its seat row:
     # the first peep (left) -> remap1, the second (right) -> remap2. This only
     # rewrites materials the user already marked remappable (skin/hair/shoes are
-    # untouched), so authoring one generic remappable peep material is enough --
-    # no need to hand-make near-identical Remap1/Remap2 variants per side.
-    # Materials explicitly set to Remap3 are left alone, so a deliberate
-    # tertiary-colour peep accent survives the auto-pairing.
+    # untouched), so authoring one generic remappable peep material is enough.
     for row in riders:
         for pos, entry in enumerate(row):
             region = 1 if pos == 0 else 2

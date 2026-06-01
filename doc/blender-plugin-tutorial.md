@@ -81,8 +81,8 @@ Feel free to change them how you like.
 ### Material Appearance: Color & Shininess
 
 A material's look comes from its **Principled BSDF** node in the Shading
-workspace (or the Material Properties tab) — the same shader you'd use for any
-Blender render:
+workspace (or the Material Properties tab), which is the same shader you'd use 
+for any Blender render:
 
 - **Base Color** sets the flat surface colour. (For a remappable region the
   colour is ignored in-game and replaced by the player's chosen colour, but it
@@ -100,9 +100,9 @@ Blender render:
 So to make a shiny chrome rail: set Metallic near `1` and Roughness low. For a
 matte wooden body: Metallic `0`, Roughness high.
 
-> The "OpenRCT2 Material" section has no specular slider — shininess is read
-> from the shader's Metallic/Roughness inputs, so you tune the look the same
-> way you would for any Blender material.
+> The "OpenRCT2 Material" section does not have a specular slider anymore. 
+> Shininess is read from the shader's Metallic/Roughness inputs, so you tune 
+> the look the same way you would for any Blender material.
 
 ### Checklist
 
