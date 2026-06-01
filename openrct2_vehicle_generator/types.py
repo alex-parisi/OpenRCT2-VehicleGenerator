@@ -7,6 +7,8 @@ from typing import Any
 
 import numpy as np
 
+from .constants import TILE_SIZE
+
 MAX_FRAMES = 4
 
 
@@ -69,6 +71,12 @@ class Ride:
 
     # default, front, second, rear, third  (0xFF means absent).
     configuration: list[int] = field(default_factory=lambda: [0xFF] * 5)
+
+    # Model units per tile: the scale that maps OBJ-space units onto one
+    # OpenRCT2 tile. Drives both the render projection (sprite size) and the
+    # exporter's model->game-unit conversions (spacing, rider positions), so
+    # they always agree. Default matches the realistic 3.3 m tile.
+    units_per_tile: float = TILE_SIZE
 
     flags: int = 0
     zero_cars: int = 0

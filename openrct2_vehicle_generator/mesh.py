@@ -12,10 +12,8 @@ from .constants import (
     MATERIAL_BACKGROUND_AA,
     MATERIAL_BACKGROUND_AA_DARK,
     MATERIAL_HAS_TEXTURE,
-    MATERIAL_IS_FLAT_SHADED,
     MATERIAL_IS_MASK,
     MATERIAL_IS_REMAPPABLE,
-    MATERIAL_IS_VISIBLE_MASK,
     MATERIAL_NO_AO,
     MATERIAL_NO_BLEED,
 )
@@ -68,12 +66,8 @@ def _classify_material_name(material: Material, name: str) -> None:
         material.region = 4
     elif "Peep" in name:
         material.region = 5
-    elif "Chain" in name:
-        material.region = 6
 
-    if "VisibleMask" in name:
-        material.flags |= MATERIAL_IS_VISIBLE_MASK
-    elif "Mask" in name:
+    if "Mask" in name:
         material.flags |= MATERIAL_IS_MASK
 
     if "NoAO" in name:
@@ -84,8 +78,6 @@ def _classify_material_name(material: Material, name: str) -> None:
         material.flags |= MATERIAL_BACKGROUND_AA_DARK
     if "NoBleed" in name:
         material.flags |= MATERIAL_NO_BLEED
-    if "FlatShaded" in name:
-        material.flags |= MATERIAL_IS_FLAT_SHADED
 
 
 def _parse_mtl(path: Path, base_dir: Path) -> dict[str, Material]:

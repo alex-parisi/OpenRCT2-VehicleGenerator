@@ -48,6 +48,9 @@ class VG_PT_ride(Panel):
         box.prop(rs, "authors")
         box.prop(rs, "version")
         box.prop(rs, "ride_type")
+        box.prop(rs, "scale_preset")
+        if rs.scale_preset == "CUSTOM":
+            box.prop(rs, "units_per_tile")
 
         box = layout.box()
         box.label(text="Sprites", icon="IMAGE_DATA")
@@ -62,6 +65,7 @@ class VG_PT_ride(Panel):
         row = box.row(align=True)
         row.prop(rs, "min_cars")
         row.prop(rs, "max_cars")
+        box.prop(rs, "zero_cars")
         box.prop(rs, "build_menu_priority")
         box.prop(rs, "running_sound")
         box.prop(rs, "secondary_sound")
@@ -156,6 +160,10 @@ class VG_PT_object(Panel):
         if os_.role == "RIDER":
             layout.prop(os_, "rider_number")
             layout.label(text="Peeps pair into seat rows: 0+1, 2+3, ...", icon="INFO")
+            layout.label(
+                text="Remappable materials auto-set: left=Remap1, right=Remap2",
+                icon="INFO",
+            )
         elif os_.role == "RESTRAINT":
             layout.prop(os_, "restraint_swing_deg")
             layout.prop(os_, "anim_start_frame")
@@ -183,14 +191,12 @@ class VG_PT_material(Panel):
         layout.prop(ms, "region")
         col = layout.column(align=True)
         col.prop(ms, "is_mask")
-        col.prop(ms, "is_visible_mask")
         col.prop(ms, "no_ao")
         col.prop(ms, "edge")
         col.prop(ms, "dark_edge")
         col.prop(ms, "no_bleed")
-        col.prop(ms, "flat_shaded")
-        layout.prop(ms, "specular_exponent")
         layout.prop(ms, "texture")
+        layout.label(text="Shininess: set Metallic/Roughness on the shader", icon="INFO")
 
 
 _CLASSES = (

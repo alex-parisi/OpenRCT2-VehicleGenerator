@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import math
 import os
+import tempfile
 
 import bpy
 import numpy as np
@@ -30,10 +31,8 @@ from openrct2_vehicle_generator.constants import (
     MATERIAL_BACKGROUND_AA,
     MATERIAL_BACKGROUND_AA_DARK,
     MATERIAL_HAS_TEXTURE,
-    MATERIAL_IS_FLAT_SHADED,
     MATERIAL_IS_MASK,
     MATERIAL_IS_REMAPPABLE,
-    MATERIAL_IS_VISIBLE_MASK,
     MATERIAL_NO_AO,
     MATERIAL_NO_BLEED,
 )
@@ -53,7 +52,6 @@ _REGION_MAP = {
     "REMAP3": (MATERIAL_IS_REMAPPABLE, 3),
     "GREYSCALE": (0, 4),
     "PEEP": (0, 5),
-    "CHAIN": (0, 6),
 }
 
 _RESTRAINT_FRAMES = 4
@@ -63,12 +61,125 @@ class SceneError(Exception):
     """Raised when the scene can't be turned into a valid ride."""
 
 
+def _base_color(bmat) -> tuple[float, float, float]:
+    """The material's flat RGB colour.
+
+    Prefer the Principled BSDF ``Base Color`` (what users actually set in the
+    shader editor) and fall back to ``diffuse_color`` (the viewport display
+    colour). ``diffuse_color`` alone is wrong for almost every authored
+    material: it stays at Blender's default 0.8 grey unless explicitly touched,
+    so reading it made every untextured material render the same grey. If the
+    Base Color input is textured (linked), there's no flat value to read, so we
+    fall back to the viewport colour as well.
+    """
+    if getattr(bmat, "use_nodes", False) and bmat.node_tree is not None:
+        for node in bmat.node_tree.nodes:
+            if node.type != "BSDF_PRINCIPLED":
+                continue
+            base = node.inputs.get("Base Color")
+            if base is not None and not base.is_linked:
+                c = base.default_value
+                return (c[0], c[1], c[2])
+    col = bmat.diffuse_color
+    return (col[0], col[1], col[2])
+
+
+def _principled_pbr(bmat) -> tuple[float, float]:
+    """The material's ``(metallic, roughness)`` from the Principled BSDF.
+
+    Read from the shader's flat input values; a linked/textured input or no
+    Principled node at all falls back to the dielectric, mid-rough default
+    ``(0.0, 0.5)``. These drive the renderer's specular highlight: roughness
+    sets its tightness (``specular_exponent``) and metallic tints it toward the
+    base colour (coloured metal reflection vs. neutral dielectric highlight).
+    """
+    metallic, roughness = 0.0, 0.5
+    if getattr(bmat, "use_nodes", False) and bmat.node_tree is not None:
+        for node in bmat.node_tree.nodes:
+            if node.type != "BSDF_PRINCIPLED":
+                continue
+            m_in = node.inputs.get("Metallic")
+            if m_in is not None and not m_in.is_linked:
+                metallic = float(m_in.default_value)
+            r_in = node.inputs.get("Roughness")
+            if r_in is not None and not r_in.is_linked:
+                roughness = float(r_in.default_value)
+            break
+    return metallic, roughness
+
+
+def _base_color_image(bmat):
+    """The image feeding the Principled BSDF ``Base Color``, if that input is
+    directly linked to an Image Texture node; otherwise ``None``.
+
+    Lets users paint a material with a texture node in the shader editor
+    instead of having to also fill in the add-on's explicit Texture pointer.
+    Only a direct ``Base Color <- Image Texture`` link is followed (no chains
+    through colour-mix nodes) to keep the behaviour predictable.
+    """
+    if not (getattr(bmat, "use_nodes", False) and bmat.node_tree is not None):
+        return None
+    for node in bmat.node_tree.nodes:
+        if node.type != "BSDF_PRINCIPLED":
+            continue
+        base = node.inputs.get("Base Color")
+        if base is None or not base.is_linked:
+            return None
+        from_node = base.links[0].from_node
+        if from_node.type == "TEX_IMAGE":
+            return from_node.image
+    return None
+
+
+def _load_packed_image(img):
+    """Materialise a packed or generated image (no usable file on disk) to a
+    temp PNG and load it through the normal texture pipeline, so colour
+    handling matches on-disk images. Returns `None` if it can't be saved."""
+    tmp_dir = tempfile.mkdtemp(prefix="vg_tex_")
+    tmp = os.path.join(tmp_dir, "packed.png")
+    prev_format = img.file_format
+    try:
+        img.file_format = "PNG"
+        img.save(filepath=tmp)
+        return load_texture(tmp)
+    except (RuntimeError, OSError):
+        return None
+    finally:
+        img.file_format = prev_format
+        try:
+            os.remove(tmp)
+            os.rmdir(tmp_dir)
+        except OSError:
+            pass
+
+
+def _load_bpy_image(img):
+    """Load a `bpy.types.Image` into a core `Texture`, or `None` if it has no
+    usable pixels. On-disk files load directly; packed/generated images are
+    materialised to a temp PNG first."""
+    if img is None:
+        return None
+    path = bpy.path.abspath(img.filepath_from_user() or img.filepath)
+    if path and os.path.exists(path):
+        return load_texture(path)
+    if img.packed_file is not None or img.source == "GENERATED" or img.has_data:
+        return _load_packed_image(img)
+    return None
+
+
 def _material_from_bpy(bmat) -> Material:
     m = Material()
     if bmat is None:
         return m
-    col = bmat.diffuse_color
-    m.color = np.array([col[0], col[1], col[2]], dtype=np.float64)
+    m.color = np.array(_base_color(bmat), dtype=np.float64)
+
+    # Drive the specular highlight from the Principled BSDF's PBR inputs.
+    metallic, roughness = _principled_pbr(bmat)
+    metallic = min(max(metallic, 0.0), 1.0)
+    roughness = min(max(roughness, 0.0), 1.0)
+    m.specular_exponent = 2.0 ** (1.0 + (1.0 - roughness) * 7.0)
+    dielectric = np.array([0.5, 0.5, 0.5], dtype=np.float64)
+    m.specular_color = dielectric * (1.0 - metallic) + m.color * metallic
 
     s = getattr(bmat, "vg_material", None)
     if s is None:
@@ -77,10 +188,7 @@ def _material_from_bpy(bmat) -> Material:
     flag, region = _REGION_MAP.get(s.region, (0, 0))
     m.flags |= flag
     m.region = region
-    m.specular_exponent = float(s.specular_exponent)
-    if s.is_visible_mask:
-        m.flags |= MATERIAL_IS_VISIBLE_MASK
-    elif s.is_mask:
+    if s.is_mask:
         m.flags |= MATERIAL_IS_MASK
     if s.no_ao:
         m.flags |= MATERIAL_NO_AO
@@ -90,14 +198,14 @@ def _material_from_bpy(bmat) -> Material:
         m.flags |= MATERIAL_BACKGROUND_AA_DARK
     if s.no_bleed:
         m.flags |= MATERIAL_NO_BLEED
-    if s.flat_shaded:
-        m.flags |= MATERIAL_IS_FLAT_SHADED
 
-    if s.texture is not None:
-        path = bpy.path.abspath(s.texture.filepath_from_user() or s.texture.filepath)
-        if path and os.path.exists(path):
-            m.texture = load_texture(path)
-            m.flags |= MATERIAL_HAS_TEXTURE
+    # The explicit Texture pointer wins; otherwise fall back to an image
+    # texture wired into the Principled BSDF's Base Color.
+    tex_image = s.texture if s.texture is not None else _base_color_image(bmat)
+    texture = _load_bpy_image(tex_image)
+    if texture is not None:
+        m.texture = texture
+        m.flags |= MATERIAL_HAS_TEXTURE
     return m
 
 
@@ -336,6 +444,17 @@ def _build_vehicle(
     riders = [
         [e[2] for e in rider_entries[i : i + 2]] for i in range(0, len(rider_entries), 2)
     ]
+
+    # Auto-assign remap regions by the peep's position within its seat row:
+    # the first peep (left) -> remap1, the second (right) -> remap2. This only
+    # rewrites materials the user already marked remappable (skin/hair/shoes are
+    # untouched), so authoring one generic remappable peep material is enough.
+    for row in riders:
+        for pos, entry in enumerate(row):
+            region = 1 if pos == 0 else 2
+            for mat in meshes[entry["mesh_index"]].materials:
+                if mat.flags & MATERIAL_IS_REMAPPABLE and mat.region != 3:
+                    mat.region = region
     vehicle: dict = {
         "flags": flags,
         "mass": mass,
@@ -419,12 +538,14 @@ def build_config_and_meshes(context):
         "authors": authors,
         "version": rs.version,
         "ride_type": rs.ride_type,
+        "units_per_tile": float(rs.units_per_tile),
         "sprites": sprites,
         "flags": [n for attr, n in props.flag_items("rf_") if getattr(rs, attr)],
         "running_sound": rs.running_sound,
         "secondary_sound": rs.secondary_sound,
         "min_cars_per_train": int(rs.min_cars),
         "max_cars_per_train": int(rs.max_cars),
+        "zero_cars": int(rs.zero_cars),
         "build_menu_priority": int(rs.build_menu_priority),
         "default_colors": [[p.main, p.secondary, p.tertiary] for p in rs.color_presets]
         or [["bright_red", "black", "grey"]],

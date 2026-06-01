@@ -32,6 +32,7 @@ from openrct2_vehicle_generator.constants import (
     RUNNING_SOUND_NAMES,
     SECONDARY_SOUND_NAMES,
     SPRITE_GROUP_NAMES,
+    TILE_SIZE,
     VEHICLE_FLAG_NAMES,
 )
 
@@ -47,10 +48,7 @@ def _simple_items(names):
     return [(n, _title(n), "") for n in names]
 
 
-# Each multi-select flag group is exposed as one BoolProperty per flag (prefixed
-# by group), not a single ENUM_FLAG: Blender draws flag-enum buttons with
-# exclusive, radio-like plain-click selection, whereas independent checkboxes are
-# the behaviour we want. Sourced from the constant lists so they can't drift.
+# Each multi-select flag group is exposed as one BoolProperty per flag
 FLAG_GROUPS = {
     "sg_": SPRITE_GROUP_NAMES,
     "rf_": RIDE_FLAG_NAMES,
@@ -93,7 +91,6 @@ MATERIAL_REGION_ITEMS = [
     ("REMAP3", "Remap 3 (tertiary)", "Recoloured by the tertiary colour"),
     ("GREYSCALE", "Greyscale", "Greyscale shading region"),
     ("PEEP", "Peep", "Rider/peep region"),
-    ("CHAIN", "Chain", "Lift-chain region"),
 ]
 
 OBJECT_ROLE_ITEMS = [
@@ -142,13 +139,10 @@ class VGMaterialSettings(PropertyGroup):
         default="NONE",
     )
     is_mask: BoolProperty(name="Mask", default=False)
-    is_visible_mask: BoolProperty(name="Visible Mask", default=False)
     no_ao: BoolProperty(name="No Ambient Occlusion", default=False)
     edge: BoolProperty(name="Edge AA", default=False)
     dark_edge: BoolProperty(name="Dark Edge AA", default=False)
     no_bleed: BoolProperty(name="No Bleed", default=False)
-    flat_shaded: BoolProperty(name="Flat Shaded", default=False)
-    specular_exponent: FloatProperty(name="Specular Exponent", default=50.0, min=1.0)
     texture: PointerProperty(
         name="Texture",
         description="Optional image; must be saved to disk (its file is read at export)",
@@ -223,13 +217,10 @@ class VGCarType(PropertyGroup):
     spacing: FloatProperty(name="Spacing", default=2.0, min=0.0)
     draw_order: IntProperty(name="Draw Order", default=1, min=0)
     effect_visual: IntProperty(name="Effect Visual", default=1, min=0)
-    # Per-flag vehicle-flag bools are injected after this class (see FLAG_GROUPS).
-    # restraint_animation is excluded -- it's added automatically when a
-    # Restraint object exists in this car type's collection.
+    # Per-flag vehicle-flag bools are injected after this class
 
 
-# Light type identifiers must match what loader.load_lights validates against
-# ("diffuse"/"specular"); operators.py maps them onto the LIGHT_* constants.
+# Light type identifiers
 LIGHT_TYPE_ITEMS = [
     ("diffuse", "Diffuse", "Directional diffuse light"),
     ("specular", "Specular", "Specular highlight light"),
@@ -255,6 +246,25 @@ class VGLight(PropertyGroup):
     strength: FloatProperty(name="Strength", description="Light intensity", default=0.5, min=0.0)
 
 
+# Render-scale presets
+SCALE_PRESET_VALUES = {
+    "REALISTIC": TILE_SIZE,
+    "TILE": 1.0,
+}
+SCALE_PRESET_ITEMS = [
+    ("REALISTIC", f"Realistic ({TILE_SIZE:g} m/tile)", "Match RCT2's real-world tile scale"),
+    ("TILE", "1 unit = 1 tile", "Model in tiles: one OBJ unit spans one tile"),
+    ("CUSTOM", "Custom", "Set the units-per-tile value manually"),
+]
+
+
+def _scale_preset_update(self, _context):
+    """Write the preset's units-per-tile into the consumed value (Custom: no-op)."""
+    value = SCALE_PRESET_VALUES.get(self.scale_preset)
+    if value is not None:
+        self.units_per_tile = value
+
+
 class VGRideSettings(PropertyGroup):
     # --- Identity -----------------------------------------------------------
     id: StringProperty(
@@ -270,6 +280,23 @@ class VGRideSettings(PropertyGroup):
 
     # --- Ride ---------------------------------------------------------------
     ride_type: EnumProperty(name="Ride Type", items=_ride_type_items)
+    scale_preset: EnumProperty(
+        name="Scale",
+        description="How many OBJ units map to one OpenRCT2 tile",
+        items=SCALE_PRESET_ITEMS,
+        default="REALISTIC",
+        update=_scale_preset_update,
+    )
+    units_per_tile: FloatProperty(
+        name="Units / Tile",
+        description=(
+            "OBJ units per OpenRCT2 tile. Drives sprite size and the model->game "
+            "conversions for car spacing and rider positions."
+        ),
+        default=TILE_SIZE,
+        min=0.01,
+        soft_max=16.0,
+    )
     sprites_all: BoolProperty(
         name="All Sprite Groups",
         description="Render every sprite group (safe default; larger output)",
@@ -283,6 +310,12 @@ class VGRideSettings(PropertyGroup):
     )
     min_cars: IntProperty(name="Min Cars / Train", default=1, min=1)
     max_cars: IntProperty(name="Max Cars / Train", default=8, min=1)
+    zero_cars: IntProperty(
+        name="Zero Cars",
+        description="Cars at the front that carry no riders (engines, etc.)",
+        default=0,
+        min=0,
+    )
     build_menu_priority: IntProperty(name="Build Menu Priority", default=0, min=0)
 
     # --- Default colours (up to 3 build-menu presets) -----------------------
@@ -316,10 +349,7 @@ class VGRideSettings(PropertyGroup):
     )
 
 
-# Inject one BoolProperty per flag before registration, so register_class
-# picks them up from __annotations__. Vehicle flags belong to a car type
-# (each variant has its own); sprite-group and ride flags are ride-wide.
-# "flat" is on by default to preserve the old sprite-group default.
+# Inject one BoolProperty per flag before registration
 for _prefix, _names in FLAG_GROUPS.items():
     target = VGCarType if _prefix == "vf_" else VGRideSettings
     for _name in _names:
