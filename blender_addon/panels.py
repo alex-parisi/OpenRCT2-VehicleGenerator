@@ -184,12 +184,10 @@ class VG_PT_material(Panel):
         layout.prop(ms, "region")
         col = layout.column(align=True)
         col.prop(ms, "is_mask")
-        col.prop(ms, "is_visible_mask")
         col.prop(ms, "no_ao")
         col.prop(ms, "edge")
         col.prop(ms, "dark_edge")
         col.prop(ms, "no_bleed")
-        col.prop(ms, "flat_shaded")
         layout.prop(ms, "specular_exponent")
         layout.prop(ms, "texture")
 

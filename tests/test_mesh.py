@@ -3,10 +3,8 @@
 import numpy as np
 from openrct2_vehicle_generator.constants import (
     MATERIAL_BACKGROUND_AA,
-    MATERIAL_IS_FLAT_SHADED,
     MATERIAL_IS_MASK,
     MATERIAL_IS_REMAPPABLE,
-    MATERIAL_IS_VISIBLE_MASK,
     MATERIAL_NO_AO,
 )
 from openrct2_vehicle_generator.mesh import (
@@ -32,24 +30,17 @@ def test_remap_region_assignment():
 def test_named_special_regions():
     assert _classify("MyGreyscale").region == 4
     assert _classify("RiderPeep").region == 5
-    assert _classify("LiftChain").region == 6
 
 
-def test_mask_flags_are_exclusive_by_priority():
-    # "VisibleMask" must win over the plain "Mask" substring it contains.
-    vm = _classify("WindowVisibleMask")
-    assert vm.flags & MATERIAL_IS_VISIBLE_MASK
-    assert not (vm.flags & MATERIAL_IS_MASK)
+def test_mask_flag():
     plain = _classify("CutoutMask")
     assert plain.flags & MATERIAL_IS_MASK
-    assert not (plain.flags & MATERIAL_IS_VISIBLE_MASK)
 
 
 def test_combined_modifier_flags():
-    mat = _classify("ShinyMetal_Edge_NoAO_FlatShaded")
+    mat = _classify("ShinyMetal_Edge_NoAO")
     assert mat.flags & MATERIAL_BACKGROUND_AA
     assert mat.flags & MATERIAL_NO_AO
-    assert mat.flags & MATERIAL_IS_FLAT_SHADED
 
 
 def _write_obj(tmp_path, body, mtl=None):

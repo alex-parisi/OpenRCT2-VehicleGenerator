@@ -31,10 +31,8 @@ from openrct2_vehicle_generator.constants import (
     MATERIAL_BACKGROUND_AA,
     MATERIAL_BACKGROUND_AA_DARK,
     MATERIAL_HAS_TEXTURE,
-    MATERIAL_IS_FLAT_SHADED,
     MATERIAL_IS_MASK,
     MATERIAL_IS_REMAPPABLE,
-    MATERIAL_IS_VISIBLE_MASK,
     MATERIAL_NO_AO,
     MATERIAL_NO_BLEED,
 )
@@ -54,7 +52,6 @@ _REGION_MAP = {
     "REMAP3": (MATERIAL_IS_REMAPPABLE, 3),
     "GREYSCALE": (0, 4),
     "PEEP": (0, 5),
-    "CHAIN": (0, 6),
 }
 
 _RESTRAINT_FRAMES = 4
@@ -160,9 +157,7 @@ def _material_from_bpy(bmat) -> Material:
     m.flags |= flag
     m.region = region
     m.specular_exponent = float(s.specular_exponent)
-    if s.is_visible_mask:
-        m.flags |= MATERIAL_IS_VISIBLE_MASK
-    elif s.is_mask:
+    if s.is_mask:
         m.flags |= MATERIAL_IS_MASK
     if s.no_ao:
         m.flags |= MATERIAL_NO_AO
@@ -172,8 +167,6 @@ def _material_from_bpy(bmat) -> Material:
         m.flags |= MATERIAL_BACKGROUND_AA_DARK
     if s.no_bleed:
         m.flags |= MATERIAL_NO_BLEED
-    if s.flat_shaded:
-        m.flags |= MATERIAL_IS_FLAT_SHADED
 
     # The explicit Texture pointer wins; otherwise fall back to an image
     # texture wired into the Principled BSDF's Base Color.

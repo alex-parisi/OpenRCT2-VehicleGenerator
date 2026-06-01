@@ -93,7 +93,6 @@ MATERIAL_REGION_ITEMS = [
     ("REMAP3", "Remap 3 (tertiary)", "Recoloured by the tertiary colour"),
     ("GREYSCALE", "Greyscale", "Greyscale shading region"),
     ("PEEP", "Peep", "Rider/peep region"),
-    ("CHAIN", "Chain", "Lift-chain region"),
 ]
 
 OBJECT_ROLE_ITEMS = [
@@ -142,12 +141,10 @@ class VGMaterialSettings(PropertyGroup):
         default="NONE",
     )
     is_mask: BoolProperty(name="Mask", default=False)
-    is_visible_mask: BoolProperty(name="Visible Mask", default=False)
     no_ao: BoolProperty(name="No Ambient Occlusion", default=False)
     edge: BoolProperty(name="Edge AA", default=False)
     dark_edge: BoolProperty(name="Dark Edge AA", default=False)
     no_bleed: BoolProperty(name="No Bleed", default=False)
-    flat_shaded: BoolProperty(name="Flat Shaded", default=False)
     specular_exponent: FloatProperty(name="Specular Exponent", default=50.0, min=1.0)
     texture: PointerProperty(
         name="Texture",
