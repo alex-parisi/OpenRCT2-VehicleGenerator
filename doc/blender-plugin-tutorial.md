@@ -78,6 +78,32 @@ the same for "_Remap2_" and "_Remap3_".
 
 Feel free to change them how you like.
 
+### Material Appearance: Color & Shininess
+
+A material's look comes from its **Principled BSDF** node in the Shading
+workspace (or the Material Properties tab) — the same shader you'd use for any
+Blender render:
+
+- **Base Color** sets the flat surface colour. (For a remappable region the
+  colour is ignored in-game and replaced by the player's chosen colour, but it
+  still drives the greyscale shading, so a mid-grey reads best.) You can also
+  plug an **Image Texture** node into Base Color instead of using the add-on's
+  explicit Texture field.
+- **Metallic** controls how the highlight is tinted. Leave it at `0` for
+  painted/plastic/wood surfaces (a neutral grey highlight); raise it toward `1`
+  for metal, where the highlight takes on the base colour like real polished
+  metal (chrome rails, brass trim).
+- **Roughness** controls how sharp the highlight is. Low roughness gives a
+  tight, glossy highlight (polished metal, glass); high roughness gives a
+  broad, soft, matte look (wood, fabric).
+
+So to make a shiny chrome rail: set Metallic near `1` and Roughness low. For a
+matte wooden body: Metallic `0`, Roughness high.
+
+> The "OpenRCT2 Material" section has no specular slider — shininess is read
+> from the shader's Metallic/Roughness inputs, so you tune the look the same
+> way you would for any Blender material.
+
 ### Checklist
 
 - All meshes assigned to the "Body" role in the "OpenRCT2 Vehicle" section of the "Objects" tab
