@@ -15,7 +15,7 @@ import bpy
 import numpy as np
 from bpy.props import StringProperty
 from bpy.types import Operator
-from openrct2_vehicle_generator.constants import LIGHT_DIFFUSE, LIGHT_SPECULAR, TILE_SIZE
+from openrct2_vehicle_generator.constants import LIGHT_DIFFUSE, LIGHT_SPECULAR
 from openrct2_vehicle_generator.exporter import export_ride_test, export_ride_to
 from openrct2_vehicle_generator.loader import build_ride
 from openrct2_vehicle_generator.ray_trace import Context
@@ -87,7 +87,9 @@ class VG_OT_test_render(Operator):
             self.report({"ERROR"}, f"Invalid vehicle: {e}")
             return {"CANCELLED"}
 
-        ctx = Context.make(lights=_lights_from_scene(context), dither=True, upt=TILE_SIZE)
+        ctx = Context.make(
+            lights=_lights_from_scene(context), dither=True, upt=ride.units_per_tile
+        )
         tmp = tempfile.mkdtemp(prefix="vg_test_")
         try:
             export_ride_test(ride, ctx, tmp)
@@ -149,7 +151,7 @@ class VG_OT_export_parkobj(Operator):
 
         def worker():
             try:
-                ctx = Context.make(lights=lights, dither=True, upt=TILE_SIZE)
+                ctx = Context.make(lights=lights, dither=True, upt=ride.units_per_tile)
                 export_ride_to(ride, ctx, self._parkobj, self._work)
             except Exception:
                 self._error = traceback.format_exc()

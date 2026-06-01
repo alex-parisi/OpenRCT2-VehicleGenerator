@@ -10,7 +10,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .constants import LIGHT_DIFFUSE, LIGHT_SPECULAR, TILE_SIZE
+from .constants import LIGHT_DIFFUSE, LIGHT_SPECULAR
 from .exporter import export_ride, export_ride_test
 from .loader import LoadError, load_lights, load_ride, parse_config
 from .ray_trace import Context
@@ -77,7 +77,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Error: {e}", file=sys.stderr)
         return 1
 
-    upt = 0.125 * TILE_SIZE if args.test else TILE_SIZE
+    upt = 0.125 * ride.units_per_tile if args.test else ride.units_per_tile
     context = Context.make(lights=lights, dither=True, upt=upt)
 
     try:

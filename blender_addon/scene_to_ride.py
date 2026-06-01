@@ -496,6 +496,7 @@ def build_config_and_meshes(context):
         "authors": authors,
         "version": rs.version,
         "ride_type": rs.ride_type,
+        "units_per_tile": float(rs.units_per_tile),
         "sprites": sprites,
         "flags": [n for attr, n in props.flag_items("rf_") if getattr(rs, attr)],
         "running_sound": rs.running_sound,

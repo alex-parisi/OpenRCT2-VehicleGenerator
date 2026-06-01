@@ -15,7 +15,6 @@ from .constants import (
     CATEGORY_NAMES,
     COLOR_NAMES,
     FRICTION_SOUND_IDS,
-    TILE_SIZE,
     CarIndex,
     RideFlag,
     SpriteFlag,
@@ -187,7 +186,7 @@ def build_ride_json(ride: Ride) -> dict[str, Any]:
     for vehicle in ride.vehicles:
         car: dict[str, Any] = {
             "rotationFrameMask": 31,
-            "spacing": int((vehicle.spacing * 278912) / TILE_SIZE),
+            "spacing": int((vehicle.spacing * 278912) / ride.units_per_tile),
             "mass": vehicle.mass,
             "numSeats": vehicle.num_riders,
             "numSeatRows": len(vehicle.riders),
@@ -216,7 +215,7 @@ def build_ride_json(ride: Ride) -> dict[str, Any]:
         loading: list[int] = []
         for rider in vehicle.riders:
             pos_x = float(rider.meshes[0][0].position[0])
-            position = int(round(32.0 * pos_x / TILE_SIZE))
+            position = int(round(32.0 * pos_x / ride.units_per_tile))
             if vehicle.num_riders > 1:
                 loading.append(position - 1)
                 loading.append(position + 1)

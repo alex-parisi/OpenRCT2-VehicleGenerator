@@ -32,6 +32,7 @@ from openrct2_vehicle_generator.constants import (
     RUNNING_SOUND_NAMES,
     SECONDARY_SOUND_NAMES,
     SPRITE_GROUP_NAMES,
+    TILE_SIZE,
     VEHICLE_FLAG_NAMES,
 )
 
@@ -145,7 +146,7 @@ class VGMaterialSettings(PropertyGroup):
     edge: BoolProperty(name="Edge AA", default=False)
     dark_edge: BoolProperty(name="Dark Edge AA", default=False)
     no_bleed: BoolProperty(name="No Bleed", default=False)
-    specular_exponent: FloatProperty(name="Specular Exponent", default=50.0, min=1.0)
+    specular_exponent: FloatProperty(name="Specular Exponent", default=5.0, min=0.0, soft_min=0.01)
     texture: PointerProperty(
         name="Texture",
         description="Optional image; must be saved to disk (its file is read at export)",
@@ -252,6 +253,28 @@ class VGLight(PropertyGroup):
     strength: FloatProperty(name="Strength", description="Light intensity", default=0.5, min=0.0)
 
 
+# Render-scale presets. The value the renderer/exporter actually consume is
+# `units_per_tile`; this enum is pure UX -- picking a non-Custom preset writes
+# the matching value into `units_per_tile` (see `_scale_preset_update`). "Tile"
+# lets scenery-style authors model with 1 OBJ unit == 1 tile.
+SCALE_PRESET_VALUES = {
+    "REALISTIC": TILE_SIZE,
+    "TILE": 1.0,
+}
+SCALE_PRESET_ITEMS = [
+    ("REALISTIC", f"Realistic ({TILE_SIZE:g} m/tile)", "Match RCT2's real-world tile scale"),
+    ("TILE", "1 unit = 1 tile", "Model in tiles: one OBJ unit spans one tile"),
+    ("CUSTOM", "Custom", "Set the units-per-tile value manually"),
+]
+
+
+def _scale_preset_update(self, _context):
+    """Write the preset's units-per-tile into the consumed value (Custom: no-op)."""
+    value = SCALE_PRESET_VALUES.get(self.scale_preset)
+    if value is not None:
+        self.units_per_tile = value
+
+
 class VGRideSettings(PropertyGroup):
     # --- Identity -----------------------------------------------------------
     id: StringProperty(
@@ -267,6 +290,23 @@ class VGRideSettings(PropertyGroup):
 
     # --- Ride ---------------------------------------------------------------
     ride_type: EnumProperty(name="Ride Type", items=_ride_type_items)
+    scale_preset: EnumProperty(
+        name="Scale",
+        description="How many OBJ units map to one OpenRCT2 tile",
+        items=SCALE_PRESET_ITEMS,
+        default="REALISTIC",
+        update=_scale_preset_update,
+    )
+    units_per_tile: FloatProperty(
+        name="Units / Tile",
+        description=(
+            "OBJ units per OpenRCT2 tile. Drives sprite size and the model->game "
+            "conversions for car spacing and rider positions."
+        ),
+        default=TILE_SIZE,
+        min=0.01,
+        soft_max=16.0,
+    )
     sprites_all: BoolProperty(
         name="All Sprite Groups",
         description="Render every sprite group (safe default; larger output)",

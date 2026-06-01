@@ -16,6 +16,7 @@ from .constants import (
     RUNNING_SOUND_NAMES,
     SECONDARY_SOUND_NAMES,
     SPRITE_GROUP_NAMES,
+    TILE_SIZE,
     VEHICLE_FLAG_NAMES,
     CarIndex,
     Category,
@@ -97,6 +98,15 @@ def _optional_int(obj: dict, key: str, default: int) -> int:
     if not isinstance(v, int) or isinstance(v, bool):
         raise LoadError(f'Property "{key}" is not an integer')
     return v
+
+
+def _optional_float(obj: dict, key: str, default: float) -> float:
+    v = obj.get(key)
+    if v is None:
+        return default
+    if not isinstance(v, (int, float)) or isinstance(v, bool):
+        raise LoadError(f'Property "{key}" is not a number')
+    return float(v)
 
 
 def _require_number(obj: dict, key: str) -> float:
@@ -269,6 +279,10 @@ def build_ride(config: dict, meshes: list, preview: IndexedImage | None = None) 
     ride.preview = preview if preview is not None else IndexedImage.blank(1, 1)
 
     ride.ride_type = _require_string(root, "ride_type")
+
+    ride.units_per_tile = _optional_float(root, "units_per_tile", TILE_SIZE)
+    if ride.units_per_tile <= 0.0:
+        raise LoadError('Property "units_per_tile" must be greater than 0')
 
     ride.flags = (
         _flag_bits(root.get("flags", []), RIDE_FLAG_NAMES, "flags", "flag")

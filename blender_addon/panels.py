@@ -48,6 +48,9 @@ class VG_PT_ride(Panel):
         box.prop(rs, "authors")
         box.prop(rs, "version")
         box.prop(rs, "ride_type")
+        box.prop(rs, "scale_preset")
+        if rs.scale_preset == "CUSTOM":
+            box.prop(rs, "units_per_tile")
 
         box = layout.box()
         box.label(text="Sprites", icon="IMAGE_DATA")
