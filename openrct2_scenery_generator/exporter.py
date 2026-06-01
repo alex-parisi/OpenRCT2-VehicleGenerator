@@ -16,7 +16,7 @@ from openrct2_iso_core.images_dat import write_images_dat
 from openrct2_iso_core.ray_trace import VIEWS, Context, render_view, rotate_x, rotate_y, rotate_z
 
 from .constants import COORDS_PER_TILE, SCROLLING_MODE_NONE
-from .sprite_renderer import render_large_scenery, render_small_scenery, render_wall_flat
+from .sprite_renderer import render_large_scenery, render_small_scenery, render_wall
 from .types import LargeScenery, SmallScenery, WallScenery
 
 
@@ -322,9 +322,9 @@ def build_wall_scenery_json(obj: WallScenery) -> dict[str, Any]:
 
 
 def _render_wall_sprites(obj: WallScenery, context: Context, object_dir: Path) -> list[str]:
-    # Foundation: flat wall (2 sprites). Slopes / glass / doors layer on later.
+    # Flat (2 sprites) + slope (4 more). Glass / doors layer on later.
     combined = combine_model_world(obj.meshes, obj.model)
-    images = render_wall_flat(context, combined)
+    images = render_wall(context, combined, obj.is_allowed_on_slope)
 
     out_path = object_dir / "images.dat"
     write_images_dat(images, out_path)
@@ -378,10 +378,10 @@ def export_wall_scenery(
 def export_wall_scenery_test(
     obj: WallScenery, context: Context, test_dir: Path | str = "test"
 ) -> None:
-    """Render the flat wall sprites for fast iteration."""
+    """Render the wall sprites for fast iteration."""
     test_dir = Path(test_dir)
     test_dir.mkdir(parents=True, exist_ok=True)
     combined = combine_model_world(obj.meshes, obj.model)
-    images = render_wall_flat(context, combined)
+    images = render_wall(context, combined, obj.is_allowed_on_slope)
     for i, img in enumerate(images):
         write_png(img, test_dir / f"wall_{i}.png")

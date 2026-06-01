@@ -16,3 +16,4 @@ price: 3.0
 cursor: CURSOR_FENCE_DOWN
 height: 2
 has_primary_colour: true
+is_allowed_on_slope: true

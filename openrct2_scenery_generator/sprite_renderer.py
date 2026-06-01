@@ -56,19 +56,66 @@ def count_large_scenery_sprites(num_tiles: int) -> int:
 # VIEWS[0] (sprite 1). The author models the panel running along OBJ +Z.
 _WALL_FLAT_VIEWS = (1, 0)
 _WALL_END_SHIFT = (0.0, 0.0, -_HALF_TILE)
+# One land-height step as a vertical shear of the panel end, in OBJ Y. Calibrated
+# to vanilla wall slope sprites (slope-up sprite ~+15px taller than flat); refine
+# against real sloped terrain in-game.
+_WALL_SLOPE_RISE = 1.26
 
 
-def render_wall_flat(context: Context, combined: Mesh) -> list[IndexedImage]:
-    """Render the 2 flat wall sprites (offsets 0 and 1), end-anchored."""
-    if combined.faces.shape[0] == 0:
-        return [IndexedImage.blank(1, 1) for _ in _WALL_FLAT_VIEWS]
+def _shear_wall(combined: Mesh, sign: float, y_raise: float = 0.0) -> Mesh:
+    """Ramp the panel's Y along its length (Z), raising the +Z end by
+    `sign * _WALL_SLOPE_RISE` so it follows a sloped edge. `y_raise` lifts the
+    whole panel (slope-down anchors at the raised corner)."""
+    v = combined.vertices.astype(np.float64).copy()
+    z = v[:, 2]
+    zmin, zmax = float(z.min()), float(z.max())
+    span = (zmax - zmin) or 1.0
+    t = (z - zmin) / span  # 0 at -Z end, 1 at +Z end
+    v[:, 1] += sign * _WALL_SLOPE_RISE * t + y_raise
+    return Mesh(
+        vertices=v.astype(np.float32),
+        normals=combined.normals,
+        uvs=combined.uvs,
+        faces=combined.faces,
+        face_materials=combined.face_materials,
+        materials=combined.materials,
+    )
+
+
+def _render_wall_pair(context: Context, mesh: Mesh) -> list[IndexedImage]:
+    """Render a wall mesh under the two diagonal views (end-anchored)."""
     translation = np.array(_WALL_END_SHIFT, dtype=np.float64)
     context.begin_render()
-    context.add_model(combined, _IDENTITY3, translation, 0)
+    context.add_model(mesh, _IDENTITY3, translation, 0)
     context.finalize_render()
     out = [render_view(context, VIEWS[v]) for v in _WALL_FLAT_VIEWS]
     context.end_render()
     return out
+
+
+def render_wall(context: Context, combined: Mesh, allowed_on_slope: bool) -> list[IndexedImage]:
+    """Render a wall sprite set: 2 flat sprites, plus (if slope-allowed) 4
+    slope-sheared sprites -- offsets 2,3 = slope-up, 4,5 = slope-down, each in
+    the two diagonal orientations."""
+    if combined.faces.shape[0] == 0:
+        n = 6 if allowed_on_slope else 2
+        return [IndexedImage.blank(1, 1) for _ in range(n)]
+    images = _render_wall_pair(context, combined)  # offsets 0,1 (flat)
+    if allowed_on_slope:
+        # slope-up: far end raised. slope-down: far end lowered AND the whole
+        # panel lifted one step (it anchors at the raised/high corner).
+        images += _render_wall_pair(context, _shear_wall(combined, +1.0))  # 2,3 up
+        images += _render_wall_pair(
+            context, _shear_wall(combined, -1.0, y_raise=_WALL_SLOPE_RISE)
+        )  # 4,5 down
+    return images
+
+
+def render_wall_flat(context: Context, combined: Mesh) -> list[IndexedImage]:
+    """Render only the 2 flat wall sprites (kept for callers/tests)."""
+    if combined.faces.shape[0] == 0:
+        return [IndexedImage.blank(1, 1) for _ in _WALL_FLAT_VIEWS]
+    return _render_wall_pair(context, combined)
 
 
 def _render_4_rotations(context: Context, mesh: Mesh, cx: float, cz: float) -> list[IndexedImage]:
