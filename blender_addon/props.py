@@ -143,7 +143,8 @@ class VGMaterialSettings(PropertyGroup):
     edge: BoolProperty(name="Edge AA", default=False)
     dark_edge: BoolProperty(name="Dark Edge AA", default=False)
     no_bleed: BoolProperty(name="No Bleed", default=False)
-    specular_exponent: FloatProperty(name="Specular Exponent", default=5.0, min=0.0, soft_min=0.01)
+    # Specular shading is driven by the Principled BSDF's Metallic/Roughness
+    # inputs (see scene_to_ride._principled_pbr), not an add-on property.
     texture: PointerProperty(
         name="Texture",
         description="Optional image; must be saved to disk (its file is read at export)",

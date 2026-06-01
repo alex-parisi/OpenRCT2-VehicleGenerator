@@ -195,8 +195,8 @@ class VG_PT_material(Panel):
         col.prop(ms, "edge")
         col.prop(ms, "dark_edge")
         col.prop(ms, "no_bleed")
-        layout.prop(ms, "specular_exponent")
         layout.prop(ms, "texture")
+        layout.label(text="Shininess: set Metallic/Roughness on the shader", icon="INFO")
 
 
 _CLASSES = (
