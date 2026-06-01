@@ -160,6 +160,10 @@ class VG_PT_object(Panel):
         if os_.role == "RIDER":
             layout.prop(os_, "rider_number")
             layout.label(text="Peeps pair into seat rows: 0+1, 2+3, ...", icon="INFO")
+            layout.label(
+                text="Remappable materials auto-set: left=Remap1, right=Remap2",
+                icon="INFO",
+            )
         elif os_.role == "RESTRAINT":
             layout.prop(os_, "restraint_swing_deg")
             layout.prop(os_, "anim_start_frame")

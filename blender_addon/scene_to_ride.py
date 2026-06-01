@@ -413,6 +413,20 @@ def _build_vehicle(
     riders = [
         [e[2] for e in rider_entries[i : i + 2]] for i in range(0, len(rider_entries), 2)
     ]
+
+    # Auto-assign remap regions by the peep's position within its seat row:
+    # the first peep (left) -> remap1, the second (right) -> remap2. This only
+    # rewrites materials the user already marked remappable (skin/hair/shoes are
+    # untouched), so authoring one generic remappable peep material is enough --
+    # no need to hand-make near-identical Remap1/Remap2 variants per side.
+    # Materials explicitly set to Remap3 are left alone, so a deliberate
+    # tertiary-colour peep accent survives the auto-pairing.
+    for row in riders:
+        for pos, entry in enumerate(row):
+            region = 1 if pos == 0 else 2
+            for mat in meshes[entry["mesh_index"]].materials:
+                if mat.flags & MATERIAL_IS_REMAPPABLE and mat.region != 3:
+                    mat.region = region
     vehicle: dict = {
         "flags": flags,
         "mass": mass,
