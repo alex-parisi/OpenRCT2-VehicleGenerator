@@ -48,10 +48,7 @@ def _simple_items(names):
     return [(n, _title(n), "") for n in names]
 
 
-# Each multi-select flag group is exposed as one BoolProperty per flag (prefixed
-# by group), not a single ENUM_FLAG: Blender draws flag-enum buttons with
-# exclusive, radio-like plain-click selection, whereas independent checkboxes are
-# the behaviour we want. Sourced from the constant lists so they can't drift.
+# Each multi-select flag group is exposed as one BoolProperty per flag
 FLAG_GROUPS = {
     "sg_": SPRITE_GROUP_NAMES,
     "rf_": RIDE_FLAG_NAMES,
@@ -221,13 +218,10 @@ class VGCarType(PropertyGroup):
     spacing: FloatProperty(name="Spacing", default=2.0, min=0.0)
     draw_order: IntProperty(name="Draw Order", default=1, min=0)
     effect_visual: IntProperty(name="Effect Visual", default=1, min=0)
-    # Per-flag vehicle-flag bools are injected after this class (see FLAG_GROUPS).
-    # restraint_animation is excluded -- it's added automatically when a
-    # Restraint object exists in this car type's collection.
+    # Per-flag vehicle-flag bools are injected after this class
 
 
-# Light type identifiers must match what loader.load_lights validates against
-# ("diffuse"/"specular"); operators.py maps them onto the LIGHT_* constants.
+# Light type identifiers
 LIGHT_TYPE_ITEMS = [
     ("diffuse", "Diffuse", "Directional diffuse light"),
     ("specular", "Specular", "Specular highlight light"),
@@ -253,10 +247,7 @@ class VGLight(PropertyGroup):
     strength: FloatProperty(name="Strength", description="Light intensity", default=0.5, min=0.0)
 
 
-# Render-scale presets. The value the renderer/exporter actually consume is
-# `units_per_tile`; this enum is pure UX -- picking a non-Custom preset writes
-# the matching value into `units_per_tile` (see `_scale_preset_update`). "Tile"
-# lets scenery-style authors model with 1 OBJ unit == 1 tile.
+# Render-scale presets
 SCALE_PRESET_VALUES = {
     "REALISTIC": TILE_SIZE,
     "TILE": 1.0,
@@ -359,10 +350,7 @@ class VGRideSettings(PropertyGroup):
     )
 
 
-# Inject one BoolProperty per flag before registration, so register_class
-# picks them up from __annotations__. Vehicle flags belong to a car type
-# (each variant has its own); sprite-group and ride flags are ride-wide.
-# "flat" is on by default to preserve the old sprite-group default.
+# Inject one BoolProperty per flag before registration
 for _prefix, _names in FLAG_GROUPS.items():
     target = VGCarType if _prefix == "vf_" else VGRideSettings
     for _name in _names:
