@@ -40,9 +40,13 @@ File --> Import --> Wavefront
 
 ### Assign "Body" Role to Car
 
-After importing the object, all the meshes should be still be selected. While they are all 
-selected, go to the "Object Panel" on the right side, and scroll down the "OpenRCT2 Vehicle" 
-section. Select the "Body" role.
+After importing the object, all the meshes should be still be selected. In the 3D viewport, 
+press **N** to open the sidebar and click the **OpenRCT2** tab. The active object's settings 
+live in the **"Selected Object"** section there. Select the "Body" role.
+
+> Everything for the vehicle is authored from this **OpenRCT2** sidebar tab: the
+> ride-wide settings up top ("OpenRCT2 Vehicle") and the active object's role,
+> materials, etc. in "Selected Object" below it. No need to leave the viewport.
 
 <img src="_static/body-role.png" width="300">
 
@@ -55,7 +59,10 @@ All meshes associated with the vehicle car need to get assigned this role.
 
 ### Assign Color Remap Meshes
 
-Open the "Material" tab on the right side.
+Material settings live in the **"Selected Object"** section of the OpenRCT2
+sidebar tab — the same place you set an object's role, so you don't have to
+switch tabs. If an object has more than one material, pick which one to edit
+from the slot list in that section.
 
 In the current example, the vehicle "car" is Remap1, the seat backs are Remap2, and the trucks 
 (underside of the vehicle) are Remap3. The wheels are assigned the "Wheel" material which is not 
@@ -64,7 +71,7 @@ used, and leaves them as the color they're currently rendering at.
 When recoloring a train in OpenRCT2, the first color picker dropdown corresponds to the meshes 
 assigned Remap1, and so on. This allows you to control which surfaces get recolored.
 
-Shift-click the walls and the floor of the car, and in the "OpenRCT2 Material" section, set the 
+Select the car, and in the sidebar's "Selected Object" → "Materials" section, set the 
 "Region" to "Remap 1".
 
 Do the same for the seat backs, and assign them to "Remap 2".
@@ -80,29 +87,30 @@ Feel free to change them how you like.
 
 ### Material Appearance: Color & Shininess
 
-A material's look comes from its **Principled BSDF** node in the Shading
-workspace (or the Material Properties tab), which is the same shader you'd use 
-for any Blender render:
+A material's look is controlled directly in the **OpenRCT2 Vehicle** section of
+the OpenRCT2 sidebar tab's "Selected Object" section, under **Shading**. These map straight onto the
+renderer's settings, so what you set is what you get — you don't have to guess
+how Blender's PBR shader will translate.
 
-- **Base Color** sets the flat surface colour. (For a remappable region the
-  colour is ignored in-game and replaced by the player's chosen colour, but it
-  still drives the greyscale shading, so a mid-grey reads best.) You can also
-  plug an **Image Texture** node into Base Color instead of using the add-on's
-  explicit Texture field.
-- **Metallic** controls how the highlight is tinted. Leave it at `0` for
-  painted/plastic/wood surfaces (a neutral grey highlight); raise it toward `1`
-  for metal, where the highlight takes on the base colour like real polished
-  metal (chrome rails, brass trim).
-- **Roughness** controls how sharp the highlight is. Low roughness gives a
-  tight, glossy highlight (polished metal, glass); high roughness gives a
-  broad, soft, matte look (wood, fabric).
+- **Color** sets the flat surface colour. By default it's read from the
+  shader's **Base Color** (so the Blender viewport still previews it). Tick
+  **Override Color** to set it explicitly here instead. (For a remappable region
+  the colour is ignored in-game and replaced by the player's chosen colour, but
+  it still drives the greyscale shading, so a mid-grey reads best.) You can also
+  plug an **Image Texture** node into Base Color, or use the add-on's explicit
+  Texture field, to paint the surface.
+- **Specular Intensity** controls how bright the highlight is. `0` is fully
+  matte (wood, fabric); raise it for glossier surfaces (plastic, metal, glass).
+- **Specular Exponent** controls how sharp the highlight is (the Phong
+  exponent). Low values give a broad, soft sheen; high values give a tight,
+  glossy hotspot (polished metal).
+- **Tint Highlight** (optional) tints the highlight with a colour instead of
+  white — e.g. a warm tint for brass or gold. Leave it off for normal metals and
+  dielectrics, where the highlight is white.
 
-So to make a shiny chrome rail: set Metallic near `1` and Roughness low. For a
-matte wooden body: Metallic `0`, Roughness high.
-
-> The "OpenRCT2 Material" section does not have a specular slider anymore. 
-> Shininess is read from the shader's Metallic/Roughness inputs, so you tune 
-> the look the same way you would for any Blender material.
+So to make a shiny chrome rail: high Specular Intensity, high Specular Exponent.
+For a matte wooden body: low Specular Intensity. The shader's **Metallic** and
+**Roughness** inputs are no longer read — use the controls above instead.
 
 ### Checklist
 
@@ -145,8 +153,8 @@ in its seat row: the **left** peep (the lower Rider Number in the pair) gets Rem
 just leave the model's existing remappable shirt material as-is) and the sides sort themselves 
 out.
 
-Click a peep, select its shirt material, and in the "OpenRCT2 Material" section set the 
-"Region" to any remappable region ("Remap 1" is fine for all of them).
+Click a peep, and in the sidebar's "Selected Object" → "Materials" section pick its shirt 
+material slot and set the "Region" to any remappable region ("Remap 1" is fine for all of them).
 
 <img src="_static/peep-remap-1.png" width="600">
 
@@ -207,6 +215,73 @@ of the animation.
 - Ensure that the origin for all the restraint meshes is the central pivot point.
 - If you keyframed the restraint, set `Anim Start Frame` / `Anim End Frame`
   to the timeline range that contains your animation.
+
+## Multiple Car Types
+
+Everything so far builds **one** car from the whole scene — the simplest case,
+and all most rides need. But a train can mix several *car-type variants*: a
+distinct **front** (head/engine) car, a **rear** (tail) car, and the **default**
+car used for everything in between. Each variant becomes its own entry in the
+exported object, and OpenRCT2 picks which one to draw at each position in the
+train.
+
+If you only want a single car for the whole train, skip this section: with no
+car types defined the add-on renders the entire scene as the one default car
+(what the tutorial built above).
+
+### Put each variant in its own Collection
+
+A car type's geometry comes from a Blender **Collection**, not the whole scene.
+So to author variants, put each one's objects (body, riders, restraints) in a
+separate collection — e.g. `Default Car`, `Front Car`, `Rear Car`. In the
+Outliner, select a variant's objects and press **M** to move them into a new
+collection.
+
+The roles, rider numbers, materials, and restraint setup are authored exactly
+the same way inside each collection — a collection is just the bag of objects
+that make up one car.
+
+### Add the car types
+
+In the **OpenRCT2 Vehicle** sidebar tab, find the **Car Types** panel. Use the
+**+** button to add one entry per variant, and for each:
+
+- **Collection** — point it at that variant's collection.
+- **Slot** — which position in the train this car fills: **Default**, **Front
+  (head car)**, or **Rear (tail car)**. You need at least one car type in the
+  **Default** slot; Front and Rear are optional. Slots are unique — assigning a
+  slot already held by another car type clears it from the other.
+- **Mass**, **Spacing**, **Draw Order**, **Effect Visual**, and the per-type
+  **Vehicle Flags** — set per variant (a heavy engine vs. light cars, etc.).
+
+### Collection Offset: stage variants without overlap
+
+If you build several collections in the same scene, their geometry will pile up
+on top of each other at the origin, which is awkward to author. To avoid that,
+just **move a collection aside** in the viewport (select its objects, grab, and
+translate) — then record that *same translation* in the car type's **Collection
+Offset** field.
+
+The offset is subtracted back out at export, so the car still renders centred —
+the field exists purely to let you spread the variants out in the viewport. Enter
+the exact X/Y/Z you moved the collection by (in Blender units). For example, if
+you shifted the Front Car collection `+5` along X to get it out of the way, set
+its Collection Offset to `(5, 0, 0)`.
+
+> Collection Offset only undoes a **rigid move** of the whole collection — the
+> translation you applied to slide it aside. Don't *rotate* or *scale* a
+> collection as a whole expecting the offset to cancel it; only the move is
+> compensated. Leave it at `(0, 0, 0)` (the default) when a collection is already
+> modelled at the origin.
+
+### Checklist
+
+- Each car-type variant's objects live in their own Collection.
+- One entry per variant in the **Car Types** panel, each pointing at its
+  Collection.
+- At least one car type assigned to the **Default** slot.
+- If you moved a collection aside in the viewport, its **Collection Offset**
+  matches that translation.
 
 ## Plugin Usage
 

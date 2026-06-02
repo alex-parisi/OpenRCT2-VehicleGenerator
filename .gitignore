@@ -19,3 +19,5 @@ build/
 object/
 test/
 *.parkobj
+examples/giga/
+examples/temp/

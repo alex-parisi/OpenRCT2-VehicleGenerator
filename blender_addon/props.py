@@ -125,6 +125,18 @@ def _slot_update(self, context):
             ct.slot = "NONE"
 
 
+def _preview_tab_update(self, context):
+    """Enforce a single preview-tab car: clear the flag on every other car type."""
+    if not self.preview_tab:
+        return
+    rs = self.id_data.vg_ride
+    me = self.as_pointer()
+    for ct in rs.car_types:
+        if ct.as_pointer() == me:
+            continue
+        ct.preview_tab = False
+
+
 class VGColorPreset(PropertyGroup):
     main: EnumProperty(name="Main", items=_simple_items(COLOR_NAMES), default="bright_red")
     secondary: EnumProperty(name="Secondary", items=_simple_items(COLOR_NAMES), default="black")
@@ -147,6 +159,55 @@ class VGMaterialSettings(PropertyGroup):
         name="Texture",
         description="Optional image; must be saved to disk (its file is read at export)",
         type=bpy.types.Image,
+    )
+    # --- Shading (the renderer's Phong model, set directly) -----------------
+    # These drive the renderer's Material fields without going through Blender's
+    # PBR shader. Specular is always taken from here; diffuse colour falls back
+    # to the shader's Base Color unless overridden below.
+    use_color_override: BoolProperty(
+        name="Override Color",
+        description="Use the color below instead of the shader's Base Color",
+        default=False,
+    )
+    diffuse_color: FloatVectorProperty(
+        name="Color",
+        description="Flat diffuse color (used when Override Color is on)",
+        subtype="COLOR",
+        size=3,
+        min=0.0,
+        max=1.0,
+        default=(0.8, 0.8, 0.8),
+    )
+    specular_intensity: FloatProperty(
+        name="Specular Intensity",
+        description="Brightness of the specular highlight (scales the specular color)",
+        default=0.5,
+        min=0.0,
+        soft_max=1.0,
+    )
+    specular_exponent: FloatProperty(
+        name="Specular Exponent",
+        description=(
+            "Phong specular exponent: tightness of the highlight "
+            "(higher = smaller, sharper)"
+        ),
+        default=50.0,
+        min=1.0,
+        soft_max=256.0,
+    )
+    use_specular_tint: BoolProperty(
+        name="Tint Highlight",
+        description="Tint the specular highlight with the color below (off = white)",
+        default=False,
+    )
+    specular_tint: FloatVectorProperty(
+        name="Specular Tint",
+        description="Specular highlight color (used when Tint Highlight is on)",
+        subtype="COLOR",
+        size=3,
+        min=0.0,
+        max=1.0,
+        default=(1.0, 1.0, 1.0),
     )
 
 
@@ -206,12 +267,33 @@ class VGCarType(PropertyGroup):
         description="Blender Collection containing this car type's objects",
         type=bpy.types.Collection,
     )
+    offset: FloatVectorProperty(
+        name="Collection Offset",
+        description=(
+            "Amount this collection was moved in the scene (Blender X/Y/Z). "
+            "Subtracted back out at export so the car renders centred — set this "
+            "to the same translation you used to shift the collection aside so "
+            "several car types don't overlap in the viewport."
+        ),
+        size=3,
+        default=(0.0, 0.0, 0.0),
+        subtype="TRANSLATION",
+    )
     slot: EnumProperty(
         name="Slot",
         description="Which OpenRCT2 car slot this car type fills",
         items=SLOT_ITEMS,
         default="NONE",
         update=_slot_update,
+    )
+    preview_tab: BoolProperty(
+        name="Preview Tab Car",
+        description=(
+            "Show this car type in the build-menu preview tab. "
+            "Only one car type can be the preview car."
+        ),
+        default=False,
+        update=_preview_tab_update,
     )
     mass: IntProperty(name="Mass", default=100, min=0)
     spacing: FloatProperty(name="Spacing", default=2.0, min=0.0)
@@ -271,6 +353,14 @@ class VGRideSettings(PropertyGroup):
         name="Object ID",
         description="Unique id, e.g. openrct2vg.ride.my_coaster (avoid vanilla ids)",
         default="openrct2vg.ride.my_vehicle",
+    )
+    original_id: StringProperty(
+        name="Original ID",
+        description=(
+            "Vanilla object id this one derives from / overrides "
+            "(e.g. rct2.ride.wooden_rc_trains). Leave blank for a standalone object."
+        ),
+        default="",
     )
     name: StringProperty(name="Name", default="My Vehicle")
     description: StringProperty(name="Description", default="")
