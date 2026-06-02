@@ -1,9 +1,11 @@
 schema_version = "1.0.0"
 
 # Blender 4.2+ extensions import under the bl_ext.<repo>.<id> namespace, so this
-# id is namespaced away from the bundled wheel's top-level package of the same
-# name -- the add-on and the imported renderer do not collide.
-id = "openrct2_vehicle_generator"
+# id never collides with the bundled wheel's top-level package. Keep it as
+# "openrct2vg": it is the stable install identity Blender matches on to upgrade
+# in place, so renaming it would orphan every existing 0.1.0 install (the engine
+# would register the old and new ids side by side instead of upgrading).
+id = "openrct2vg"
 version = "0.1.1"
 name = "OpenRCT2 Vehicle Generator"
 tagline = "Author and export OpenRCT2 ride vehicles from the scene"
