@@ -34,7 +34,7 @@ class VG_PT_ride(Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "OpenRCT2"
-    bl_order = 0  # the ride panel sits above the selected-object panel
+    bl_order = 0
 
     def draw(self, context):
         layout = self.layout
@@ -152,8 +152,7 @@ def _draw_material_settings(layout, ms):
 
     Shared so the per-material controls can live in the Object panel (folded in
     next to the object's role) instead of forcing a trip to the Material
-    Properties tab — shading no longer comes from Blender's material system, so
-    there's no reason to author it from a separate tab.
+    Properties tab
     """
     layout.prop(ms, "region")
     col = layout.column(align=True)
@@ -234,7 +233,7 @@ class VG_PT_object_view3d(Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "OpenRCT2"
-    bl_order = 1  # sits below the ride panel
+    bl_order = 1
 
     def draw(self, context):
         layout = self.layout

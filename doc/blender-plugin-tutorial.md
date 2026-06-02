@@ -60,7 +60,7 @@ All meshes associated with the vehicle car need to get assigned this role.
 ### Assign Color Remap Meshes
 
 Material settings live in the **"Selected Object"** section of the OpenRCT2
-sidebar tab — the same place you set an object's role, so you don't have to
+sidebar tab, the same place you set an object's role, so you don't have to
 switch tabs. If an object has more than one material, pick which one to edit
 from the slot list in that section.
 
@@ -71,7 +71,7 @@ used, and leaves them as the color they're currently rendering at.
 When recoloring a train in OpenRCT2, the first color picker dropdown corresponds to the meshes 
 assigned Remap1, and so on. This allows you to control which surfaces get recolored.
 
-Select the car, and in the sidebar's "Selected Object" → "Materials" section, set the 
+Select the car, and in the sidebar's "Selected Object" --> "Materials" section, set the 
 "Region" to "Remap 1".
 
 Do the same for the seat backs, and assign them to "Remap 2".
@@ -89,10 +89,9 @@ Feel free to change them how you like.
 
 A material's look is controlled directly in the **OpenRCT2 Vehicle** section of
 the OpenRCT2 sidebar tab's "Selected Object" section, under **Shading**. These map straight onto the
-renderer's settings, so what you set is what you get — you don't have to guess
-how Blender's PBR shader will translate.
+renderer's settings, so what you set is what you get.
 
-- **Color** sets the flat surface colour. By default it's read from the
+- **Color** sets the flat surface colour. By default, it's read from the
   shader's **Base Color** (so the Blender viewport still previews it). Tick
   **Override Color** to set it explicitly here instead. (For a remappable region
   the colour is ignored in-game and replaced by the player's chosen colour, but
@@ -109,8 +108,7 @@ how Blender's PBR shader will translate.
   dielectrics, where the highlight is white.
 
 So to make a shiny chrome rail: high Specular Intensity, high Specular Exponent.
-For a matte wooden body: low Specular Intensity. The shader's **Metallic** and
-**Roughness** inputs are no longer read — use the controls above instead.
+For a matte wooden body: low Specular Intensity.
 
 ### Checklist
 
@@ -153,7 +151,7 @@ in its seat row: the **left** peep (the lower Rider Number in the pair) gets Rem
 just leave the model's existing remappable shirt material as-is) and the sides sort themselves 
 out.
 
-Click a peep, and in the sidebar's "Selected Object" → "Materials" section pick its shirt 
+Click a peep, and in the sidebar's "Selected Object" --> "Materials" section pick its shirt 
 material slot and set the "Region" to any remappable region ("Remap 1" is fine for all of them).
 
 <img src="_static/peep-remap-1.png" width="600">
@@ -218,7 +216,7 @@ of the animation.
 
 ## Multiple Car Types
 
-Everything so far builds **one** car from the whole scene — the simplest case,
+Everything so far builds **one** car from the whole scene, or the simplest case,
 and all most rides need. But a train can mix several *car-type variants*: a
 distinct **front** (head/engine) car, a **rear** (tail) car, and the **default**
 car used for everything in between. Each variant becomes its own entry in the
@@ -238,7 +236,7 @@ Outliner, select a variant's objects and press **M** to move them into a new
 collection.
 
 The roles, rider numbers, materials, and restraint setup are authored exactly
-the same way inside each collection — a collection is just the bag of objects
+the same way inside each collection. A collection is just the bag of objects
 that make up one car.
 
 ### Add the car types
@@ -246,20 +244,20 @@ that make up one car.
 In the **OpenRCT2 Vehicle** sidebar tab, find the **Car Types** panel. Use the
 **+** button to add one entry per variant, and for each:
 
-- **Collection** — point it at that variant's collection.
-- **Slot** — which position in the train this car fills: **Default**, **Front
+- **Collection**: point it at that variant's collection.
+- **Slot**: which position in the train this car fills: **Default**, **Front
   (head car)**, or **Rear (tail car)**. You need at least one car type in the
-  **Default** slot; Front and Rear are optional. Slots are unique — assigning a
+  **Default** slot; Front and Rear are optional. Slots are unique. Assigning a
   slot already held by another car type clears it from the other.
 - **Mass**, **Spacing**, **Draw Order**, **Effect Visual**, and the per-type
-  **Vehicle Flags** — set per variant (a heavy engine vs. light cars, etc.).
+  **Vehicle Flags**: set per variant (a heavy engine vs. light cars, etc.).
 
 ### Collection Offset: stage variants without overlap
 
 If you build several collections in the same scene, their geometry will pile up
 on top of each other at the origin, which is awkward to author. To avoid that,
 just **move a collection aside** in the viewport (select its objects, grab, and
-translate) — then record that *same translation* in the car type's **Collection
+translate). Then record that *same translation* in the car type's **Collection
 Offset** field.
 
 The offset is subtracted back out at export, so the car still renders centred —
