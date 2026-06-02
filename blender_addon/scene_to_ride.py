@@ -84,30 +84,6 @@ def _base_color(bmat) -> tuple[float, float, float]:
     return (col[0], col[1], col[2])
 
 
-def _principled_pbr(bmat) -> tuple[float, float]:
-    """The material's ``(metallic, roughness)`` from the Principled BSDF.
-
-    Read from the shader's flat input values; a linked/textured input or no
-    Principled node at all falls back to the dielectric, mid-rough default
-    ``(0.0, 0.5)``. These drive the renderer's specular highlight: roughness
-    sets its tightness (``specular_exponent``) and metallic tints it toward the
-    base colour (coloured metal reflection vs. neutral dielectric highlight).
-    """
-    metallic, roughness = 0.0, 0.5
-    if getattr(bmat, "use_nodes", False) and bmat.node_tree is not None:
-        for node in bmat.node_tree.nodes:
-            if node.type != "BSDF_PRINCIPLED":
-                continue
-            m_in = node.inputs.get("Metallic")
-            if m_in is not None and not m_in.is_linked:
-                metallic = float(m_in.default_value)
-            r_in = node.inputs.get("Roughness")
-            if r_in is not None and not r_in.is_linked:
-                roughness = float(r_in.default_value)
-            break
-    return metallic, roughness
-
-
 def _base_color_image(bmat):
     """The image feeding the Principled BSDF ``Base Color``, if that input is
     directly linked to an Image Texture node; otherwise ``None``.
@@ -171,17 +147,23 @@ def _material_from_bpy(bmat) -> Material:
     m = Material()
     if bmat is None:
         return m
-    m.color = np.array(_base_color(bmat), dtype=np.float64)
-
-    # Drive the specular highlight from the Principled BSDF's PBR inputs.
-    metallic, roughness = _principled_pbr(bmat)
-    metallic = min(max(metallic, 0.0), 1.0)
-    roughness = min(max(roughness, 0.0), 1.0)
-    m.specular_exponent = 2.0 ** (1.0 + (1.0 - roughness) * 7.0)
-    dielectric = np.array([0.5, 0.5, 0.5], dtype=np.float64)
-    m.specular_color = dielectric * (1.0 - metallic) + m.color * metallic
-
     s = getattr(bmat, "vg_material", None)
+
+    # Diffuse colour: the add-on's explicit picker wins; otherwise fall back to
+    # the Principled BSDF Base Color (which still previews in Blender's
+    # viewport). Specular is driven entirely by the add-on's Phong controls
+    # below — the shader's Metallic/Roughness are deliberately ignored, so the
+    # renderer's Phong fields are set directly with no lossy PBR translation.
+    if s is not None and s.use_color_override:
+        m.color = np.array(tuple(s.diffuse_color), dtype=np.float64)
+    else:
+        m.color = np.array(_base_color(bmat), dtype=np.float64)
+
+    intensity = float(s.specular_intensity) if s is not None else 0.5
+    m.specular_exponent = float(s.specular_exponent) if s is not None else 50.0
+    tint = tuple(s.specular_tint) if (s is not None and s.use_specular_tint) else (1.0, 1.0, 1.0)
+    m.specular_color = np.array(tint, dtype=np.float64) * intensity
+
     if s is None:
         return m
 

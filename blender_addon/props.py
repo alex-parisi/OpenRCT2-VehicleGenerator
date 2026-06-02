@@ -148,6 +148,52 @@ class VGMaterialSettings(PropertyGroup):
         description="Optional image; must be saved to disk (its file is read at export)",
         type=bpy.types.Image,
     )
+    # --- Shading (the renderer's Phong model, set directly) -----------------
+    # These drive the renderer's Material fields without going through Blender's
+    # PBR shader. Specular is always taken from here; diffuse colour falls back
+    # to the shader's Base Color unless overridden below.
+    use_color_override: BoolProperty(
+        name="Override Color",
+        description="Use the color below instead of the shader's Base Color",
+        default=False,
+    )
+    diffuse_color: FloatVectorProperty(
+        name="Color",
+        description="Flat diffuse color (used when Override Color is on)",
+        subtype="COLOR",
+        size=3,
+        min=0.0,
+        max=1.0,
+        default=(0.8, 0.8, 0.8),
+    )
+    specular_intensity: FloatProperty(
+        name="Specular Intensity",
+        description="Brightness of the specular highlight (scales the specular color)",
+        default=0.5,
+        min=0.0,
+        soft_max=1.0,
+    )
+    specular_exponent: FloatProperty(
+        name="Specular Hardness",
+        description="Tightness of the specular highlight (higher = smaller, sharper)",
+        default=50.0,
+        min=1.0,
+        soft_max=256.0,
+    )
+    use_specular_tint: BoolProperty(
+        name="Tint Highlight",
+        description="Tint the specular highlight with the color below (off = white)",
+        default=False,
+    )
+    specular_tint: FloatVectorProperty(
+        name="Specular Tint",
+        description="Specular highlight color (used when Tint Highlight is on)",
+        subtype="COLOR",
+        size=3,
+        min=0.0,
+        max=1.0,
+        default=(1.0, 1.0, 1.0),
+    )
 
 
 class VGObjectSettings(PropertyGroup):

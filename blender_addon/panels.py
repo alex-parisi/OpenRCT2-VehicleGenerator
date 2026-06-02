@@ -196,7 +196,21 @@ class VG_PT_material(Panel):
         col.prop(ms, "dark_edge")
         col.prop(ms, "no_bleed")
         layout.prop(ms, "texture")
-        layout.label(text="Shininess: set Metallic/Roughness on the shader", icon="INFO")
+
+        col = layout.column(align=True)
+        col.label(text="Shading")
+        row = col.row(align=True)
+        row.prop(ms, "use_color_override", text="")
+        sub = row.row()
+        sub.enabled = ms.use_color_override
+        sub.prop(ms, "diffuse_color", text="Color")
+        col.prop(ms, "specular_intensity")
+        col.prop(ms, "specular_exponent")
+        row = col.row(align=True)
+        row.prop(ms, "use_specular_tint", text="")
+        sub = row.row()
+        sub.enabled = ms.use_specular_tint
+        sub.prop(ms, "specular_tint", text="Specular Tint")
 
 
 _CLASSES = (
