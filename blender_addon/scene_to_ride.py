@@ -490,6 +490,7 @@ def build_config_and_meshes(context):
     if rs.car_types and not assigned_types:
         raise SceneError("No car type has a slot assigned. Set at least one to 'Default'.")
 
+    preview_tab_car = 0
     if assigned_types:
         for ct in assigned_types:
             if ct.collection is None:
@@ -508,7 +509,10 @@ def build_config_and_meshes(context):
                 label=f"Car type '{ct.name}'",
                 offset=(float(off.x), float(off.y), float(off.z)),
             )
-            configuration[_SLOT_CONFIG_KEY[ct.slot]] = len(vehicles)
+            idx = len(vehicles)
+            configuration[_SLOT_CONFIG_KEY[ct.slot]] = idx
+            if ct.preview_tab:
+                preview_tab_car = idx
             vehicles.append(vehicle)
         if "default" not in configuration:
             raise SceneError("Need a car type assigned to the 'Default' slot.")
@@ -539,6 +543,8 @@ def build_config_and_meshes(context):
 
     config = {
         "id": rs.id,
+        "original_id": rs.original_id,
+        "preview_tab_car": preview_tab_car,
         "name": rs.name,
         "description": rs.description,
         "capacity": rs.capacity,

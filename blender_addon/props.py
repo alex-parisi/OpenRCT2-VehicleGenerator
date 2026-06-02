@@ -125,6 +125,18 @@ def _slot_update(self, context):
             ct.slot = "NONE"
 
 
+def _preview_tab_update(self, context):
+    """Enforce a single preview-tab car: clear the flag on every other car type."""
+    if not self.preview_tab:
+        return
+    rs = self.id_data.vg_ride
+    me = self.as_pointer()
+    for ct in rs.car_types:
+        if ct.as_pointer() == me:
+            continue
+        ct.preview_tab = False
+
+
 class VGColorPreset(PropertyGroup):
     main: EnumProperty(name="Main", items=_simple_items(COLOR_NAMES), default="bright_red")
     secondary: EnumProperty(name="Secondary", items=_simple_items(COLOR_NAMES), default="black")
@@ -274,6 +286,15 @@ class VGCarType(PropertyGroup):
         default="NONE",
         update=_slot_update,
     )
+    preview_tab: BoolProperty(
+        name="Preview Tab Car",
+        description=(
+            "Show this car type in the build-menu preview tab. "
+            "Only one car type can be the preview car."
+        ),
+        default=False,
+        update=_preview_tab_update,
+    )
     mass: IntProperty(name="Mass", default=100, min=0)
     spacing: FloatProperty(name="Spacing", default=2.0, min=0.0)
     draw_order: IntProperty(name="Draw Order", default=1, min=0)
@@ -332,6 +353,14 @@ class VGRideSettings(PropertyGroup):
         name="Object ID",
         description="Unique id, e.g. openrct2vg.ride.my_coaster (avoid vanilla ids)",
         default="openrct2vg.ride.my_vehicle",
+    )
+    original_id: StringProperty(
+        name="Original ID",
+        description=(
+            "Vanilla object id this one derives from / overrides "
+            "(e.g. rct2.ride.wooden_rc_trains). Leave blank for a standalone object."
+        ),
+        default="",
     )
     name: StringProperty(name="Name", default="My Vehicle")
     description: StringProperty(name="Description", default="")
