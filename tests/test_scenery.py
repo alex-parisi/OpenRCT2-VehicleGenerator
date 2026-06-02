@@ -68,6 +68,101 @@ def test_bad_shape_rejected(tmp_path):
         _make_scenery(tmp_path, shape="5/4")
 
 
+# --- small scenery animation (frameOffsets path) ---
+
+
+def _animation_block(poses):
+    """Build an `animation` block with `poses` pose groups, ping-ponging."""
+    offsets = list(range(poses)) + list(range(poses - 2, 0, -1))
+    return {
+        "delay": 1,
+        "mask": 7,
+        "frame_offsets": offsets,
+        "frames": [
+            [{"mesh_index": 0, "position": [0, 0, 0], "orientation": [0, 90 * g, 0]}]
+            for g in range(poses)
+        ],
+    }
+
+
+def _make_animated(tmp_path, poses=3, **overrides):
+    (tmp_path / "m.obj").write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n")
+    from openrct2_iso_core.mesh import load_mesh
+
+    config = {
+        "id": "openrct2vg.scenery_small.anim",
+        "name": "Anim",
+        "shape": "4/4",
+        "animation": _animation_block(poses),
+        **overrides,
+    }
+    mesh = load_mesh(tmp_path / "m.obj")
+    return build_small_scenery(config, [mesh])
+
+
+def test_animated_pose_groups_and_count(tmp_path):
+    obj = _make_animated(tmp_path, poses=3)
+    assert obj.is_animated
+    assert obj.num_pose_groups == 3
+    # Each pose carries one MeshFrame for the single model entry.
+    assert len(obj.model.meshes) == 1
+    assert len(obj.model.meshes[0]) == 3
+    # 4 base sprites + 3 groups * 4 rotations, regardless of is_rotatable.
+    assert count_small_scenery_sprites(obj.num_rotations, obj.num_pose_groups) == 16
+
+
+def test_animated_json_shape(tmp_path):
+    obj = _make_animated(tmp_path, poses=3)
+    props = build_small_scenery_json(obj)["properties"]
+    assert props["isAnimated"] is True
+    assert props["animationDelay"] == 1
+    assert props["animationMask"] == 7
+    assert props["numFrames"] == len(obj.frame_offsets)
+    assert props["frameOffsets"] == obj.frame_offsets
+    assert max(props["frameOffsets"]) + 1 == 3
+    # Required to suppress the engine's static base-parent draw (the frozen
+    # pose-0 ghost) and shift the animation index past the base group.
+    assert props["SMALL_SCENERY_FLAG_VISIBLE_WHEN_ZOOMED"] is True
+
+
+def test_animated_render_order_and_count(stub_render, tmp_path):
+    from openrct2_scenery_generator.sprite_renderer import render_small_scenery_animated
+
+    obj = _make_animated(tmp_path, poses=3)
+    imgs = render_small_scenery_animated(
+        _FakeContext(), obj.meshes, obj.model, obj.num_pose_groups
+    )
+    assert len(imgs) == 16  # 4 base + 3 groups * 4, group-major, direction-minor
+
+
+def test_animated_frame_offset_pose_mismatch_rejected(tmp_path):
+    # frame_offsets references pose 3 but only 2 poses are supplied.
+    with pytest.raises(LoadError):
+        _make_animated(
+            tmp_path,
+            animation={
+                "delay": 0,
+                "mask": 3,
+                "frame_offsets": [0, 1, 2, 3],
+                "frames": [
+                    [{"mesh_index": 0, "position": [0, 0, 0]}],
+                    [{"mesh_index": 0, "position": [0, 0, 0]}],
+                ],
+            },
+        )
+
+
+def test_animated_negative_offset_rejected(tmp_path):
+    with pytest.raises(LoadError):
+        _make_animated(
+            tmp_path,
+            animation={
+                "frame_offsets": [0, -1],
+                "frames": [[{"mesh_index": 0, "position": [0, 0, 0]}]],
+            },
+        )
+
+
 # --- large scenery ---
 
 from openrct2_iso_core.geometry import combine_model_world  # noqa: E402

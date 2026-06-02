@@ -11,10 +11,10 @@ not add sprites here.
 
 import numpy as np
 from openrct2_iso_core.constants import TILE_SIZE
-from openrct2_iso_core.geometry import assign_faces_to_tiles, subset_mesh
+from openrct2_iso_core.geometry import assign_faces_to_tiles, combine_model_world, subset_mesh
 from openrct2_iso_core.mesh import Mesh
 from openrct2_iso_core.ray_trace import VIEWS, Context, render_view
-from openrct2_iso_core.types import IndexedImage
+from openrct2_iso_core.types import IndexedImage, Model
 
 _IDENTITY3 = np.eye(3, dtype=np.float64)
 
@@ -33,13 +33,57 @@ _CORNER_BY_DIR = [(_H, _H), (-_H, _H), (-_H, -_H), (_H, -_H)]
 LARGE_SCENERY_PREVIEW_SLOTS = 4
 
 
-def count_small_scenery_sprites(num_rotations: int) -> int:
+# Animated small scenery reserves a leading group of 4 "base" sprites (the
+# static depiction shown in the scenery picker and when zoomed out). The engine
+# only paints these when SMALL_SCENERY_FLAG_VISIBLE_WHEN_ZOOMED is set, which
+# also shifts the in-world animation index by +4 (Paint.SmallScenery.cpp:294)
+# and suppresses the always-on static base parent draw (line 193) that would
+# otherwise overlay a frozen pose-0 ghost on the animation.
+ANIMATED_BASE_SLOTS = 4
+
+
+def count_small_scenery_sprites(num_rotations: int, num_pose_groups: int = 1) -> int:
+    """Static scenery: `num_rotations` sprites. Animated scenery: a 4-sprite base
+    group, then one group of 4 rotation sprites per pose (the engine's frame
+    index hardcodes * 4 and adds +4 past the base), so
+    `4 + num_pose_groups * 4` regardless of `num_rotations`."""
+    if num_pose_groups > 1:
+        return ANIMATED_BASE_SLOTS + num_pose_groups * 4
     return num_rotations
 
 
 def render_small_scenery(context: Context, num_rotations: int = 4) -> list[IndexedImage]:
     """Render the prepared scene under the first `num_rotations` cardinal views."""
     return [render_view(context, VIEWS[i]) for i in range(num_rotations)]
+
+
+def _render_pose_rotations(
+    context: Context, meshes: list[Mesh], model: Model, frame: int
+) -> list[IndexedImage]:
+    """Bake pose `frame`'s placements and render all 4 cardinal rotations,
+    anchored at the tile centre (model origin)."""
+    combined = combine_model_world(meshes, model, frame=frame)
+    context.begin_render()
+    context.add_model(combined, _IDENTITY3, np.zeros(3, dtype=np.float64), 0)
+    context.finalize_render()
+    out = [render_view(context, VIEWS[d]) for d in range(4)]
+    context.end_render()
+    return out
+
+
+def render_small_scenery_animated(
+    context: Context, meshes: list[Mesh], model: Model, num_pose_groups: int
+) -> list[IndexedImage]:
+    """Render an animated small-scenery sprite set in the engine's image order:
+    a leading 4-sprite base group (rendered from pose 0; the static depiction the
+    engine paints in the picker / when zoomed out), then per pose group its 4
+    cardinal rotations (group-major, direction-minor). Matches vanilla animated
+    scenery, whose in-world animation index is `4 + frame_offsets[frame] * 4 +
+    direction` (Paint.SmallScenery.cpp:293-296)."""
+    images: list[IndexedImage] = _render_pose_rotations(context, meshes, model, 0)
+    for g in range(num_pose_groups):
+        images.extend(_render_pose_rotations(context, meshes, model, g))
+    return images
 
 
 def count_large_scenery_sprites(num_tiles: int) -> int:

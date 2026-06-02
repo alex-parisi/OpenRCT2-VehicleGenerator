@@ -29,9 +29,11 @@ def _rot_z(t: float) -> np.ndarray:
     return np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]], dtype=np.float64)
 
 
-def combine_model_world(meshes: list[Mesh], model: Model) -> Mesh:
-    """Bake a Model's frame-0 placements (rotation + translation) into a single
-    world-space Mesh with concatenated geometry and a merged material list."""
+def combine_model_world(meshes: list[Mesh], model: Model, frame: int = 0) -> Mesh:
+    """Bake a Model's placements (rotation + translation) into a single
+    world-space Mesh with concatenated geometry and a merged material list.
+    `frame` selects which animation pose to bake (default 0); each placement
+    that has fewer frames than `frame` falls back to its last frame."""
     vs: list[np.ndarray] = []
     ns: list[np.ndarray] = []
     uvs: list[np.ndarray] = []
@@ -41,7 +43,7 @@ def combine_model_world(meshes: list[Mesh], model: Model) -> Mesh:
     v_off = 0
     m_off = 0
     for placement in model.meshes:
-        mf = placement[0]
+        mf = placement[min(frame, len(placement) - 1)]
         if mf.mesh_index == -1:
             continue
         mesh = meshes[mf.mesh_index]

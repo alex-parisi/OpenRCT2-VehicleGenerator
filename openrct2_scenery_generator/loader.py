@@ -60,6 +60,46 @@ def _load_model(value: Any, num_meshes: int) -> Model:
     return Model(meshes=meshes_out)
 
 
+def _load_animated_model(frames_value: Any, num_meshes: int) -> Model:
+    """Parse a list of poses into a Model whose mesh entries each carry one
+    MeshFrame per pose. Every pose must list the same model entries in order;
+    they are transposed so `model.meshes[i][g]` is entry i in pose group g."""
+    if not isinstance(frames_value, list) or len(frames_value) == 0:
+        raise LoadError('Property "animation.frames" not found or is not a non-empty array')
+    poses = [_load_model(p, num_meshes) for p in frames_value]
+    n = len(poses[0].meshes)
+    for p in poses:
+        if len(p.meshes) != n:
+            raise LoadError("All animation frames must list the same number of model entries")
+    meshes_out = [[poses[g].meshes[i][0] for g in range(len(poses))] for i in range(n)]
+    return Model(meshes=meshes_out)
+
+
+def _load_animation(obj: SmallScenery, anim: Any) -> None:
+    """Populate the animation fields + the per-pose Model from an `animation`
+    config block."""
+    if not isinstance(anim, dict):
+        raise LoadError('Property "animation" is not an object')
+    obj.is_animated = True
+    obj.animation_delay = optional_int(anim, "delay", 0)
+    obj.animation_mask = optional_int(anim, "mask", 0)
+
+    fo = anim.get("frame_offsets")
+    if not isinstance(fo, list) or len(fo) == 0:
+        raise LoadError('Property "animation.frame_offsets" not found or is not a non-empty array')
+    if any(not isinstance(x, int) or isinstance(x, bool) or x < 0 for x in fo):
+        raise LoadError('Property "animation.frame_offsets" must be non-negative integers')
+    obj.frame_offsets = list(fo)
+    obj.num_frames = optional_int(anim, "num_frames", len(fo))
+
+    obj.model = _load_animated_model(anim.get("frames"), len(obj.meshes))
+    if len(obj.model.meshes) and len(obj.model.meshes[0]) != obj.num_pose_groups:
+        raise LoadError(
+            f"animation.frames lists {len(obj.model.meshes[0])} poses but frame_offsets "
+            f"references {obj.num_pose_groups} (max offset + 1)"
+        )
+
+
 def build_small_scenery(
     config: dict, meshes: list, preview: IndexedImage | None = None
 ) -> SmallScenery:
@@ -98,7 +138,11 @@ def build_small_scenery(
     obj.has_secondary_colour = optional_bool(root, "has_secondary_colour", False)
 
     obj.meshes = list(meshes)
-    obj.model = _load_model(root.get("model"), len(obj.meshes))
+    anim = root.get("animation")
+    if anim is not None:
+        _load_animation(obj, anim)
+    else:
+        obj.model = _load_model(root.get("model"), len(obj.meshes))
     return obj
 
 

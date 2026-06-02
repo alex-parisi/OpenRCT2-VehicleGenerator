@@ -61,6 +61,20 @@ LIGHT_TYPE_ITEMS = [
     ("specular", "Specular", "Specular highlight light"),
 ]
 
+# Animation cycle length = number of ticks the engine steps through before
+# looping. The engine masks the tick counter with `mask = cycle - 1`, so the
+# cycle MUST be a power of two for even playback (Paint.SmallScenery.cpp).
+ANIMATION_CYCLE_ITEMS = [
+    ("4", "4 frames", "Short loop"),
+    ("8", "8 frames", "Medium loop"),
+    ("16", "16 frames", "Long loop"),
+]
+
+ANIMATION_LOOP_ITEMS = [
+    ("LOOP", "Loop", "Play poses 0..N-1 then jump back to 0"),
+    ("PINGPONG", "Ping-Pong", "Play poses forward then back (smooth for swings)"),
+]
+
 
 class VGSMaterialSettings(PropertyGroup):
     region: EnumProperty(
@@ -76,11 +90,58 @@ class VGSMaterialSettings(PropertyGroup):
     dark_edge: BoolProperty(name="Dark Edge AA", default=False)
     no_bleed: BoolProperty(name="No Bleed", default=False)
     flat_shaded: BoolProperty(name="Flat Shaded", default=False)
-    specular_exponent: FloatProperty(name="Specular Exponent", default=50.0, min=1.0)
     texture: PointerProperty(
         name="Texture",
         description="Optional image; must be saved to disk (its file is read at export)",
         type=bpy.types.Image,
+    )
+    # Phong shading controls, mirroring the vehicle add-on's VGMaterialSettings.
+    # Specular is always taken from here; diffuse colour falls back to the
+    # shader's Base Color unless overridden below (see scene_to_scenery).
+    use_color_override: BoolProperty(
+        name="Override Color",
+        description="Use the color below instead of the shader's Base Color",
+        default=False,
+    )
+    diffuse_color: FloatVectorProperty(
+        name="Color",
+        description="Flat diffuse color (used when Override Color is on)",
+        subtype="COLOR",
+        size=3,
+        min=0.0,
+        max=1.0,
+        default=(0.8, 0.8, 0.8),
+    )
+    specular_intensity: FloatProperty(
+        name="Specular Intensity",
+        description="Brightness of the specular highlight (scales the specular color)",
+        default=0.5,
+        min=0.0,
+        soft_max=1.0,
+    )
+    specular_exponent: FloatProperty(
+        name="Specular Exponent",
+        description=(
+            "Phong specular exponent: tightness of the highlight "
+            "(higher = smaller, sharper)"
+        ),
+        default=50.0,
+        min=1.0,
+        soft_max=256.0,
+    )
+    use_specular_tint: BoolProperty(
+        name="Tint Highlight",
+        description="Tint the specular highlight with the color below (off = white)",
+        default=False,
+    )
+    specular_tint: FloatVectorProperty(
+        name="Specular Tint",
+        description="Specular highlight color (used when Tint Highlight is on)",
+        subtype="COLOR",
+        size=3,
+        min=0.0,
+        max=1.0,
+        default=(1.0, 1.0, 1.0),
     )
 
 
@@ -157,6 +218,35 @@ class VGSScenerySettings(PropertyGroup):
     requires_flat_surface: BoolProperty(name="Requires Flat Surface", default=False)
     prohibit_walls: BoolProperty(name="Prohibit Walls", default=False)
     is_tree: BoolProperty(name="Tree", default=False)
+
+    # --- Small-scenery animation (samples Blender keyframes into poses) -----
+    is_animated: BoolProperty(
+        name="Animated",
+        description="Sample the scene's keyframes into animation poses",
+        default=False,
+    )
+    animation_cycle: EnumProperty(
+        name="Cycle",
+        description="Number of animation steps before looping (power of two)",
+        items=ANIMATION_CYCLE_ITEMS,
+        default="8",
+    )
+    animation_loop: EnumProperty(
+        name="Playback", items=ANIMATION_LOOP_ITEMS, default="LOOP"
+    )
+    animation_delay: IntProperty(
+        name="Speed (delay)",
+        description="Tick bit-shift; higher = slower animation",
+        default=1,
+        min=0,
+        max=15,
+    )
+    anim_start_frame: IntProperty(
+        name="Start Frame",
+        description="First scene frame to sample (uses scene range if end <= start)",
+        default=1,
+    )
+    anim_end_frame: IntProperty(name="End Frame", default=24)
 
     # --- Large scenery -----------------------------------------------------
     has_tertiary_colour: BoolProperty(name="Tertiary Colour", default=False)

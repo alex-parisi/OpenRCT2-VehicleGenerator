@@ -62,6 +62,17 @@ class VGS_PT_scenery(Panel):
             col.prop(ss, "requires_flat_surface")
             col.prop(ss, "prohibit_walls")
             col.prop(ss, "is_tree")
+
+            abox = layout.box()
+            abox.prop(ss, "is_animated", icon="ANIM")
+            if ss.is_animated:
+                abox.prop(ss, "animation_cycle")
+                abox.prop(ss, "animation_loop")
+                abox.prop(ss, "animation_delay")
+                row = abox.row(align=True)
+                row.prop(ss, "anim_start_frame")
+                row.prop(ss, "anim_end_frame")
+                abox.label(text="Keyframe the geometry over this range.", icon="INFO")
         else:
             box = layout.box()
             box.label(text="Large Scenery", icon="MESH_GRID")
@@ -118,57 +129,139 @@ class VGS_PT_scenery(Panel):
         col.operator("vgs.export_parkobj", icon="EXPORT")
 
 
-class VGS_PT_object(Panel):
-    bl_label = "OpenRCT2 Scenery"
-    bl_space_type = "PROPERTIES"
-    bl_region_type = "WINDOW"
-    bl_context = "object"
+def _draw_material_settings(layout, ms):
+    """Draw a material's OpenRCT2 region/flags/shading settings.
+
+    Mirrors the vehicle add-on's per-material controls so the settings can live
+    inline in the "Selected Object" panel instead of the Material Properties tab.
+    """
+    layout.prop(ms, "region")
+    col = layout.column(align=True)
+    col.prop(ms, "is_mask")
+    col.prop(ms, "is_visible_mask")
+    col.prop(ms, "no_ao")
+    col.prop(ms, "edge")
+    col.prop(ms, "dark_edge")
+    col.prop(ms, "no_bleed")
+    col.prop(ms, "flat_shaded")
+    layout.prop(ms, "texture")
+
+    col = layout.column(align=True)
+    col.label(text="Shading")
+    row = col.row(align=True)
+    row.prop(ms, "use_color_override", text="")
+    sub = row.row()
+    sub.enabled = ms.use_color_override
+    sub.prop(ms, "diffuse_color", text="Color")
+    col.prop(ms, "specular_exponent")
+    col.prop(ms, "specular_intensity")
+    row = col.row(align=True)
+    row.prop(ms, "use_specular_tint", text="")
+    sub = row.row()
+    sub.enabled = ms.use_specular_tint
+    sub.prop(ms, "specular_tint", text="Specular Tint")
+
+
+def _draw_object_settings(layout, obj):
+    """Draw the active object's role and its materials, folded together so a
+    scenery part is authored from the viewport sidebar without leaving it."""
+    layout.prop(obj.vgs_object, "role")
+    if obj.vgs_object.role == "IGNORE":
+        return
+
+    box = layout.box()
+    box.label(text="Materials", icon="MATERIAL")
+    if not obj.material_slots:
+        box.label(text="No materials on this object.", icon="INFO")
+        return
+    if len(obj.material_slots) > 1:
+        box.template_list(
+            "MATERIAL_UL_matslots", "", obj, "material_slots",
+            obj, "active_material_index", rows=2,
+        )
+    mat = obj.active_material
+    if mat is None:
+        box.label(text="Empty material slot.", icon="INFO")
+    else:
+        _draw_material_settings(box, mat.vgs_material)
+
+
+# --- Shared "Selected Object" container -------------------------------------
+# The vehicle and scenery add-ons each ship an identical copy of this trivial
+# parent panel and register it cooperatively (guarded by idname) so a single
+# "Selected Object" panel hosts whichever add-ons are installed. Each add-on
+# contributes a child sub-panel via ``bl_parent_id``; this parent owns only the
+# header. The two copies MUST keep the same ``bl_idname``.
+_SHARED_PARENT_IDNAME = "OPENRCT2_PT_selected_object"
+
+
+class OPENRCT2_PT_selected_object(Panel):
+    bl_idname = _SHARED_PARENT_IDNAME
+    bl_label = "Selected Object"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "OpenRCT2"
+    bl_order = 1
 
     @classmethod
     def poll(cls, context):
-        return context.object is not None and context.object.type == "MESH"
+        obj = context.object
+        return obj is not None and obj.type == "MESH"
 
     def draw(self, context):
-        layout = self.layout
-        layout.prop(context.object.vgs_object, "role")
+        pass
 
 
-class VGS_PT_material(Panel):
-    bl_label = "OpenRCT2 Scenery Material"
-    bl_space_type = "PROPERTIES"
-    bl_region_type = "WINDOW"
-    bl_context = "material"
+def _register_shared_parent():
+    """Register the shared parent unless another add-on already did."""
+    if not hasattr(bpy.types, _SHARED_PARENT_IDNAME):
+        bpy.utils.register_class(OPENRCT2_PT_selected_object)
+
+
+def _unregister_shared_parent():
+    """Drop the shared parent only once no add-on's child still nests under it.
+
+    Call this *after* unregistering this add-on's own child panels, so the
+    scan below sees only the other add-on's remaining children.
+    """
+    cls = getattr(bpy.types, _SHARED_PARENT_IDNAME, None)
+    if cls is None:
+        return
+    for name in dir(bpy.types):
+        if getattr(getattr(bpy.types, name, None), "bl_parent_id", "") == _SHARED_PARENT_IDNAME:
+            return
+    bpy.utils.unregister_class(cls)
+
+
+class VGS_PT_object_view3d(Panel):
+    """The active object's scenery settings, as a child of "Selected Object"."""
+
+    bl_label = "Scenery"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "OpenRCT2"
+    bl_parent_id = _SHARED_PARENT_IDNAME
+    bl_order = 1
 
     @classmethod
     def poll(cls, context):
-        return context.material is not None
+        obj = context.object
+        return obj is not None and obj.type == "MESH" and hasattr(obj, "vgs_object")
 
     def draw(self, context):
-        layout = self.layout
-        ms = context.material.vgs_material
-        layout.prop(ms, "region")
-        col = layout.column(align=True)
-        col.prop(ms, "is_mask")
-        col.prop(ms, "is_visible_mask")
-        col.prop(ms, "no_ao")
-        col.prop(ms, "edge")
-        col.prop(ms, "dark_edge")
-        col.prop(ms, "no_bleed")
-        col.prop(ms, "flat_shaded")
-        layout.prop(ms, "specular_exponent")
-        layout.prop(ms, "texture")
+        _draw_object_settings(self.layout, context.object)
 
 
 _CLASSES = (
     VGS_UL_tiles,
     VGS_UL_lights,
     VGS_PT_scenery,
-    VGS_PT_object,
-    VGS_PT_material,
+    VGS_PT_object_view3d,
 )
 
 
 def register():
+    _register_shared_parent()
     for cls in _CLASSES:
         bpy.utils.register_class(cls)
 
@@ -176,3 +269,4 @@ def register():
 def unregister():
     for cls in reversed(_CLASSES):
         bpy.utils.unregister_class(cls)
+    _unregister_shared_parent()

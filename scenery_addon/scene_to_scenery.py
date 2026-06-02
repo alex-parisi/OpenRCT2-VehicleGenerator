@@ -12,6 +12,7 @@ Coordinate convention matches the renderer / vehicle add-on: OBJ space is
 
 from __future__ import annotations
 
+import math
 import os
 
 import bpy
@@ -50,21 +51,52 @@ class SceneError(Exception):
     """Raised when the scene can't be turned into a valid scenery object."""
 
 
+def _base_color(bmat) -> tuple[float, float, float]:
+    """The material's flat RGB colour.
+
+    Prefer the Principled BSDF ``Base Color`` (what users set in the shader
+    editor) and fall back to ``diffuse_color`` (the viewport colour).
+    ``diffuse_color`` alone stays at Blender's default 0.8 grey unless touched,
+    so reading it would make every untextured material render the same grey.
+    Mirrors the vehicle add-on's ``_base_color``.
+    """
+    if getattr(bmat, "use_nodes", False) and bmat.node_tree is not None:
+        for node in bmat.node_tree.nodes:
+            if node.type != "BSDF_PRINCIPLED":
+                continue
+            base = node.inputs.get("Base Color")
+            if base is not None and not base.is_linked:
+                c = base.default_value
+                return (c[0], c[1], c[2])
+    col = bmat.diffuse_color
+    return (col[0], col[1], col[2])
+
+
 def _material_from_bpy(bmat) -> Material:
     m = Material()
     if bmat is None:
         return m
-    col = bmat.diffuse_color
-    m.color = np.array([col[0], col[1], col[2]], dtype=np.float64)
 
     s = getattr(bmat, "vgs_material", None)
+
+    # Diffuse: the add-on's explicit picker wins; otherwise fall back to the
+    # Principled BSDF Base Color. Specular is driven entirely by the controls.
+    if s is not None and s.use_color_override:
+        m.color = np.array(tuple(s.diffuse_color), dtype=np.float64)
+    else:
+        m.color = np.array(_base_color(bmat), dtype=np.float64)
+
+    intensity = float(s.specular_intensity) if s is not None else 0.5
+    m.specular_exponent = float(s.specular_exponent) if s is not None else 50.0
+    tint = tuple(s.specular_tint) if (s is not None and s.use_specular_tint) else (1.0, 1.0, 1.0)
+    m.specular_color = np.array(tint, dtype=np.float64) * intensity
+
     if s is None:
         return m
 
     flag, region = _REGION_MAP.get(s.region, (0, 0))
     m.flags |= flag
     m.region = region
-    m.specular_exponent = float(s.specular_exponent)
     if s.is_visible_mask:
         m.flags |= MATERIAL_IS_VISIBLE_MASK
     elif s.is_mask:
@@ -145,6 +177,93 @@ def _object_position(obj) -> list[float]:
     return [float(p.x), float(p.y), float(p.z)]
 
 
+def _geometry_objects(scene) -> list:
+    """Scene mesh objects that are part of the model (role != IGNORE)."""
+    return [
+        obj
+        for obj in scene.objects
+        if obj.type == "MESH" and obj.vgs_object.role != "IGNORE"
+    ]
+
+
+def _frame_offsets(cycle: int, loop: str) -> tuple[list[int], int]:
+    """Build the engine's `frameOffsets` table and the number of distinct poses
+    to sample. The table length equals `cycle` (a power of two) so the engine's
+    `(tick >> delay) & (cycle - 1)` index stays contiguous.
+
+    LOOP: poses 0..cycle-1, table = identity.
+    PINGPONG: poses 0..P-1 then back down, with P = cycle/2 + 1 so the forward+
+    backward sweep is exactly `cycle` entries long."""
+    if loop == "PINGPONG":
+        p = cycle // 2 + 1
+        offsets = list(range(p)) + list(range(p - 2, 0, -1))
+        return offsets, p
+    return list(range(cycle)), cycle
+
+
+def _sample_animation_poses(geo_objs, scene, num_poses: int, f_start: int, f_end: int):
+    """Sample every geometry object's transform across `num_poses` evenly-spaced
+    scene frames. Returns ``(meshes, poses)`` where each pose is a list of model
+    entries (one per kept object) carrying that frame's position and the
+    rotation delta from the rest (first-sampled) frame.
+
+    Mirrors the vehicle add-on's restraint sampler: the mesh is extracted once
+    at the rest frame (baking the rest world rotation), so pose 0 emits
+    orientation ``[0, 0, 0]`` and later poses are deltas mapped into the
+    renderer's OBJ-space YZX convention. `scene.frame_current` is restored."""
+    if f_end <= f_start:
+        f_start, f_end = scene.frame_start, scene.frame_end
+    if num_poses <= 1 or f_end <= f_start:
+        frames = [f_start] * max(num_poses, 1)
+    else:
+        frames = [
+            f_start + round(i * (f_end - f_start) / (num_poses - 1))
+            for i in range(num_poses)
+        ]
+
+    orig_frame = scene.frame_current
+    meshes: list[Mesh] = []
+    kept: list = []  # (obj, R_rest_inv) for objects that yielded geometry
+    poses: list[list[dict]] = []
+    try:
+        scene.frame_set(frames[0])
+        dg = bpy.context.evaluated_depsgraph_get()
+        for obj in geo_objs:
+            mesh = _extract_mesh(obj, dg)
+            if mesh is None:
+                continue
+            meshes.append(mesh)
+            r_rest_inv = obj.evaluated_get(dg).matrix_world.to_3x3().inverted_safe()
+            kept.append((obj, r_rest_inv))
+
+        for f in frames:
+            scene.frame_set(f)
+            dg = bpy.context.evaluated_depsgraph_get()
+            entries: list[dict] = []
+            for idx, (obj, r_rest_inv) in enumerate(kept):
+                m_f = obj.evaluated_get(dg).matrix_world
+                p = _BASIS @ m_f.to_translation()
+                r_rel = m_f.to_3x3() @ r_rest_inv
+                r_obj = _BASIS @ r_rel @ _BASIS.transposed()
+                # Renderer applies rotate_y(a) @ rotate_z(b) @ rotate_x(c), which
+                # Blender's "YZX" Euler reconstructs as Ry(e.y) @ Rz(e.z) @ Rx(e.x).
+                e = r_obj.to_euler("YZX")
+                entries.append({
+                    "mesh_index": idx,
+                    "position": [float(p.x), float(p.y), float(p.z)],
+                    "orientation": [
+                        float(math.degrees(e.y)),
+                        float(math.degrees(e.z)),
+                        float(math.degrees(e.x)),
+                    ],
+                })
+            poses.append(entries)
+    finally:
+        scene.frame_set(orig_frame)
+
+    return meshes, poses
+
+
 def _load_preview(filepath) -> IndexedImage | None:
     if not filepath:
         return None
@@ -170,25 +289,39 @@ def build_config_and_meshes(context):
     ss = scene.vgs_scenery
     depsgraph = context.evaluated_depsgraph_get()
 
+    geo_objs = _geometry_objects(scene)
+    animated = ss.object_type == "scenery_small" and ss.is_animated
+
     meshes: list[Mesh] = []
     model: list[dict] = []
-    for obj in scene.objects:
-        if obj.type != "MESH":
-            continue
-        if obj.vgs_object.role == "IGNORE":
-            continue
-        mesh = _extract_mesh(obj, depsgraph)
-        if mesh is None:
-            continue
-        idx = len(meshes)
-        meshes.append(mesh)
-        model.append({
-            "mesh_index": idx,
-            "position": _object_position(obj),
-            "orientation": [0, 0, 0],
-        })
+    animation: dict | None = None
 
-    if not model:
+    if animated:
+        offsets, num_poses = _frame_offsets(int(ss.animation_cycle), ss.animation_loop)
+        meshes, poses = _sample_animation_poses(
+            geo_objs, scene, num_poses, int(ss.anim_start_frame), int(ss.anim_end_frame)
+        )
+        animation = {
+            "delay": int(ss.animation_delay),
+            "mask": int(ss.animation_cycle) - 1,
+            "num_frames": int(ss.animation_cycle),
+            "frame_offsets": offsets,
+            "frames": poses,
+        }
+    else:
+        for obj in geo_objs:
+            mesh = _extract_mesh(obj, depsgraph)
+            if mesh is None:
+                continue
+            idx = len(meshes)
+            meshes.append(mesh)
+            model.append({
+                "mesh_index": idx,
+                "position": _object_position(obj),
+                "orientation": [0, 0, 0],
+            })
+
+    if not meshes:
         raise SceneError(
             "No geometry found. Add a mesh and set its role to 'Geometry' "
             "in the OpenRCT2 Scenery panel."
@@ -208,8 +341,11 @@ def build_config_and_meshes(context):
         "scenery_group": ss.scenery_group,
         "has_primary_colour": ss.has_primary_colour,
         "has_secondary_colour": ss.has_secondary_colour,
-        "model": model,
     }
+    if animation is not None:
+        config["animation"] = animation
+    else:
+        config["model"] = model
 
     if ss.object_type == "scenery_small":
         config.update({

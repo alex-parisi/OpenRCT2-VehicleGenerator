@@ -44,7 +44,19 @@ class SmallScenery:
     has_primary_colour: bool = False
     has_secondary_colour: bool = False
 
-    # Geometry: meshes + a single Model placing them on the tile.
+    # Frame animation (generic frameOffsets path; SmallSceneryObject.cpp:252).
+    # When is_animated, `model` holds one pose per group; `frame_offsets` maps a
+    # logical frame number to a pose group, and the engine cycles frames as
+    # `(tick >> delay) & mask`. See `num_pose_groups`.
+    is_animated: bool = False
+    animation_delay: int = 0
+    animation_mask: int = 0
+    num_frames: int = 0
+    frame_offsets: list[int] = field(default_factory=list)
+
+    # Geometry: meshes + a Model placing them on the tile. For static scenery
+    # each mesh entry has a single MeshFrame; for animated scenery each entry
+    # has `num_pose_groups` frames (one per pose).
     meshes: list[Any] = field(default_factory=list)  # list[Mesh]
     model: Model = field(default_factory=Model)
 
@@ -53,6 +65,15 @@ class SmallScenery:
     @property
     def num_rotations(self) -> int:
         return 4 if self.is_rotatable else 1
+
+    @property
+    def num_pose_groups(self) -> int:
+        """Distinct sprite groups an animated object needs: one per referenced
+        pose. Each group is rendered as 4 rotation sprites (the engine's
+        `frame_offsets[frame] * 4 + direction` index hardcodes the * 4)."""
+        if not self.is_animated or not self.frame_offsets:
+            return 1
+        return max(self.frame_offsets) + 1
 
 
 @dataclass

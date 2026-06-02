@@ -98,7 +98,9 @@ class VGS_OT_test_render(Operator):
                 png = os.path.join(tmp, "preview_0.png")
             else:
                 export_small_scenery_test(obj, ctx, tmp)
-                png = os.path.join(tmp, "scenery_0.png")
+                # Animated objects emit pose{g}_{d}.png; the static path emits
+                # scenery_{i}.png. Preview whichever the first frame produced.
+                png = os.path.join(tmp, "pose0_0.png" if obj.is_animated else "scenery_0.png")
         except Exception as e:
             self.report({"ERROR"}, f"Render failed: {e}")
             return {"CANCELLED"}

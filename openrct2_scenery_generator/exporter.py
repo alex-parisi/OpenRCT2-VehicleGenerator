@@ -16,14 +16,22 @@ from openrct2_iso_core.images_dat import write_images_dat
 from openrct2_iso_core.ray_trace import VIEWS, Context, render_view, rotate_x, rotate_y, rotate_z
 
 from .constants import COORDS_PER_TILE, SCROLLING_MODE_NONE
-from .sprite_renderer import render_large_scenery, render_small_scenery, render_wall
+from .sprite_renderer import (
+    render_large_scenery,
+    render_small_scenery,
+    render_small_scenery_animated,
+    render_wall,
+)
 from .types import LargeScenery, SmallScenery, WallScenery
 
 
-def _add_model_to_context(obj: SmallScenery | WallScenery, context: Context) -> None:
-    """Add the scenery's placed meshes to the open scene (single frame)."""
+def _add_model_to_context(
+    obj: SmallScenery | WallScenery, context: Context, frame: int = 0
+) -> None:
+    """Add the scenery's placed meshes to the open scene at the given pose
+    frame (default 0 = the static/first pose)."""
     for mesh_frames in obj.model.meshes:
-        mf = mesh_frames[0]
+        mf = mesh_frames[min(frame, len(mesh_frames) - 1)]
         if mf.mesh_index == -1:
             continue
         rx, ry, rz = mf.orientation * math.pi / 180.0
@@ -54,6 +62,18 @@ def build_small_scenery_json(obj: SmallScenery) -> dict[str, Any]:
         "hasPrimaryColour": obj.has_primary_colour,
         "hasSecondaryColour": obj.has_secondary_colour,
     }
+    if obj.is_animated:
+        properties["isAnimated"] = True
+        properties["animationDelay"] = obj.animation_delay
+        properties["animationMask"] = obj.animation_mask
+        properties["numFrames"] = obj.num_frames
+        properties["frameOffsets"] = list(obj.frame_offsets)
+        # Required so the engine skips the always-on static base-parent draw
+        # (Paint.SmallScenery.cpp:193) that would otherwise overlay a frozen
+        # pose-0 ghost on the animation; it also shifts the animation image
+        # index +4 past the base group we emit (line 294). Vanilla animated
+        # scenery (e.g. rct2tt.scenery_small.gangster) sets the same flag.
+        properties["SMALL_SCENERY_FLAG_VISIBLE_WHEN_ZOOMED"] = True
     if obj.scenery_group:
         properties["sceneryGroup"] = obj.scenery_group
     out["properties"] = properties
@@ -63,11 +83,16 @@ def build_small_scenery_json(obj: SmallScenery) -> dict[str, Any]:
 
 
 def _render_sprites(obj: SmallScenery, context: Context, object_dir: Path) -> list[str]:
-    context.begin_render()
-    _add_model_to_context(obj, context)
-    context.finalize_render()
-    images = render_small_scenery(context, num_rotations=obj.num_rotations)
-    context.end_render()
+    if obj.is_animated:
+        images = render_small_scenery_animated(
+            context, obj.meshes, obj.model, obj.num_pose_groups
+        )
+    else:
+        context.begin_render()
+        _add_model_to_context(obj, context)
+        context.finalize_render()
+        images = render_small_scenery(context, num_rotations=obj.num_rotations)
+        context.end_render()
 
     out_path = object_dir / "images.dat"
     write_images_dat(images, out_path)
@@ -127,9 +152,20 @@ def export_small_scenery(
 def export_small_scenery_test(
     obj: SmallScenery, context: Context, test_dir: Path | str = "test"
 ) -> None:
-    """Single-viewpoint render per rotation for fast iteration."""
+    """Single-viewpoint render per rotation (per pose group) for fast
+    iteration."""
     test_dir = Path(test_dir)
     test_dir.mkdir(parents=True, exist_ok=True)
+    if obj.is_animated:
+        images = render_small_scenery_animated(
+            context, obj.meshes, obj.model, obj.num_pose_groups
+        )
+        for d in range(4):
+            write_png(images[d], test_dir / f"base_{d}.png")
+        for g in range(obj.num_pose_groups):
+            for d in range(4):
+                write_png(images[4 + g * 4 + d], test_dir / f"pose{g}_{d}.png")
+        return
     context.begin_render()
     _add_model_to_context(obj, context)
     context.finalize_render()
