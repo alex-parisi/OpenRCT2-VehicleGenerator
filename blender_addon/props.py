@@ -160,7 +160,6 @@ class VGMaterialSettings(PropertyGroup):
         description="Optional image; must be saved to disk (its file is read at export)",
         type=bpy.types.Image,
     )
-    # --- Shading (the renderer's Phong model, set directly) -----------------
     # These drive the renderer's Material fields without going through Blender's
     # PBR shader. Specular is always taken from here; diffuse colour falls back
     # to the shader's Base Color unless overridden below.
@@ -271,7 +270,7 @@ class VGCarType(PropertyGroup):
         name="Collection Offset",
         description=(
             "Amount this collection was moved in the scene (Blender X/Y/Z). "
-            "Subtracted back out at export so the car renders centred — set this "
+            "Subtracted back out at export so the car renders centred. Set this "
             "to the same translation you used to shift the collection aside so "
             "several car types don't overlap in the viewport."
         ),

@@ -150,10 +150,8 @@ def _material_from_bpy(bmat) -> Material:
     s = getattr(bmat, "vg_material", None)
 
     # Diffuse colour: the add-on's explicit picker wins; otherwise fall back to
-    # the Principled BSDF Base Color (which still previews in Blender's
-    # viewport). Specular is driven entirely by the add-on's Phong controls
-    # below — the shader's Metallic/Roughness are deliberately ignored, so the
-    # renderer's Phong fields are set directly with no lossy PBR translation.
+    # the Principled BSDF Base Color
+    # Specular is driven entirely by the add-on's controls
     if s is not None and s.use_color_override:
         m.color = np.array(tuple(s.diffuse_color), dtype=np.float64)
     else:
