@@ -40,9 +40,13 @@ File --> Import --> Wavefront
 
 ### Assign "Body" Role to Car
 
-After importing the object, all the meshes should be still be selected. While they are all 
-selected, go to the "Object Panel" on the right side, and scroll down the "OpenRCT2 Vehicle" 
-section. Select the "Body" role.
+After importing the object, all the meshes should be still be selected. In the 3D viewport, 
+press **N** to open the sidebar and click the **OpenRCT2** tab. The active object's settings 
+live in the **"Selected Object"** section there. Select the "Body" role.
+
+> Everything for the vehicle is authored from this **OpenRCT2** sidebar tab: the
+> ride-wide settings up top ("OpenRCT2 Vehicle") and the active object's role,
+> materials, etc. in "Selected Object" below it. No need to leave the viewport.
 
 <img src="_static/body-role.png" width="300">
 
@@ -55,7 +59,10 @@ All meshes associated with the vehicle car need to get assigned this role.
 
 ### Assign Color Remap Meshes
 
-Open the "Material" tab on the right side.
+Material settings live in the **"Selected Object"** section of the OpenRCT2
+sidebar tab — the same place you set an object's role, so you don't have to
+switch tabs. If an object has more than one material, pick which one to edit
+from the slot list in that section.
 
 In the current example, the vehicle "car" is Remap1, the seat backs are Remap2, and the trucks 
 (underside of the vehicle) are Remap3. The wheels are assigned the "Wheel" material which is not 
@@ -64,7 +71,7 @@ used, and leaves them as the color they're currently rendering at.
 When recoloring a train in OpenRCT2, the first color picker dropdown corresponds to the meshes 
 assigned Remap1, and so on. This allows you to control which surfaces get recolored.
 
-Shift-click the walls and the floor of the car, and in the "OpenRCT2 Material" section, set the 
+Select the car, and in the sidebar's "Selected Object" → "Materials" section, set the 
 "Region" to "Remap 1".
 
 Do the same for the seat backs, and assign them to "Remap 2".
@@ -80,8 +87,8 @@ Feel free to change them how you like.
 
 ### Material Appearance: Color & Shininess
 
-A material's look is controlled directly in the **OpenRCT2 Material** section of
-the Material Properties tab, under **Shading**. These map straight onto the
+A material's look is controlled directly in the **OpenRCT2 Vehicle** section of
+the OpenRCT2 sidebar tab's "Selected Object" section, under **Shading**. These map straight onto the
 renderer's settings, so what you set is what you get — you don't have to guess
 how Blender's PBR shader will translate.
 
@@ -145,8 +152,8 @@ in its seat row: the **left** peep (the lower Rider Number in the pair) gets Rem
 just leave the model's existing remappable shirt material as-is) and the sides sort themselves 
 out.
 
-Click a peep, select its shirt material, and in the "OpenRCT2 Material" section set the 
-"Region" to any remappable region ("Remap 1" is fine for all of them).
+Click a peep, and in the sidebar's "Selected Object" → "Materials" section pick its shirt 
+material slot and set the "Region" to any remappable region ("Remap 1" is fine for all of them).
 
 <img src="_static/peep-remap-1.png" width="600">
 
