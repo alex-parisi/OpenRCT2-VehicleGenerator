@@ -96,6 +96,7 @@ class VG_PT_ride(Panel):
             ct = rs.car_types[rs.car_type_index]
             sub = box.column()
             sub.prop(ct, "collection")
+            sub.prop(ct, "offset")
             sub.prop(ct, "slot")
             row = sub.row(align=True)
             row.prop(ct, "mass")
@@ -168,8 +169,8 @@ def _draw_material_settings(layout, ms):
     sub = row.row()
     sub.enabled = ms.use_color_override
     sub.prop(ms, "diffuse_color", text="Color")
-    col.prop(ms, "specular_intensity")
     col.prop(ms, "specular_exponent")
+    col.prop(ms, "specular_intensity")
     row = col.row(align=True)
     row.prop(ms, "use_specular_tint", text="")
     sub = row.row()

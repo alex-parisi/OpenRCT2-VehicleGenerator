@@ -101,13 +101,14 @@ how Blender's PBR shader will translate.
   Texture field, to paint the surface.
 - **Specular Intensity** controls how bright the highlight is. `0` is fully
   matte (wood, fabric); raise it for glossier surfaces (plastic, metal, glass).
-- **Specular Hardness** controls how sharp the highlight is. Low values give a
-  broad, soft sheen; high values give a tight, glossy hotspot (polished metal).
+- **Specular Exponent** controls how sharp the highlight is (the Phong
+  exponent). Low values give a broad, soft sheen; high values give a tight,
+  glossy hotspot (polished metal).
 - **Tint Highlight** (optional) tints the highlight with a colour instead of
   white — e.g. a warm tint for brass or gold. Leave it off for normal metals and
   dielectrics, where the highlight is white.
 
-So to make a shiny chrome rail: high Specular Intensity, high Specular Hardness.
+So to make a shiny chrome rail: high Specular Intensity, high Specular Exponent.
 For a matte wooden body: low Specular Intensity. The shader's **Metallic** and
 **Roughness** inputs are no longer read — use the controls above instead.
 
@@ -214,6 +215,73 @@ of the animation.
 - Ensure that the origin for all the restraint meshes is the central pivot point.
 - If you keyframed the restraint, set `Anim Start Frame` / `Anim End Frame`
   to the timeline range that contains your animation.
+
+## Multiple Car Types
+
+Everything so far builds **one** car from the whole scene — the simplest case,
+and all most rides need. But a train can mix several *car-type variants*: a
+distinct **front** (head/engine) car, a **rear** (tail) car, and the **default**
+car used for everything in between. Each variant becomes its own entry in the
+exported object, and OpenRCT2 picks which one to draw at each position in the
+train.
+
+If you only want a single car for the whole train, skip this section: with no
+car types defined the add-on renders the entire scene as the one default car
+(what the tutorial built above).
+
+### Put each variant in its own Collection
+
+A car type's geometry comes from a Blender **Collection**, not the whole scene.
+So to author variants, put each one's objects (body, riders, restraints) in a
+separate collection — e.g. `Default Car`, `Front Car`, `Rear Car`. In the
+Outliner, select a variant's objects and press **M** to move them into a new
+collection.
+
+The roles, rider numbers, materials, and restraint setup are authored exactly
+the same way inside each collection — a collection is just the bag of objects
+that make up one car.
+
+### Add the car types
+
+In the **OpenRCT2 Vehicle** sidebar tab, find the **Car Types** panel. Use the
+**+** button to add one entry per variant, and for each:
+
+- **Collection** — point it at that variant's collection.
+- **Slot** — which position in the train this car fills: **Default**, **Front
+  (head car)**, or **Rear (tail car)**. You need at least one car type in the
+  **Default** slot; Front and Rear are optional. Slots are unique — assigning a
+  slot already held by another car type clears it from the other.
+- **Mass**, **Spacing**, **Draw Order**, **Effect Visual**, and the per-type
+  **Vehicle Flags** — set per variant (a heavy engine vs. light cars, etc.).
+
+### Collection Offset: stage variants without overlap
+
+If you build several collections in the same scene, their geometry will pile up
+on top of each other at the origin, which is awkward to author. To avoid that,
+just **move a collection aside** in the viewport (select its objects, grab, and
+translate) — then record that *same translation* in the car type's **Collection
+Offset** field.
+
+The offset is subtracted back out at export, so the car still renders centred —
+the field exists purely to let you spread the variants out in the viewport. Enter
+the exact X/Y/Z you moved the collection by (in Blender units). For example, if
+you shifted the Front Car collection `+5` along X to get it out of the way, set
+its Collection Offset to `(5, 0, 0)`.
+
+> Collection Offset only undoes a **rigid move** of the whole collection — the
+> translation you applied to slide it aside. Don't *rotate* or *scale* a
+> collection as a whole expecting the offset to cancel it; only the move is
+> compensated. Leave it at `(0, 0, 0)` (the default) when a collection is already
+> modelled at the origin.
+
+### Checklist
+
+- Each car-type variant's objects live in their own Collection.
+- One entry per variant in the **Car Types** panel, each pointing at its
+  Collection.
+- At least one car type assigned to the **Default** slot.
+- If you moved a collection aside in the viewport, its **Collection Offset**
+  matches that translation.
 
 ## Plugin Usage
 

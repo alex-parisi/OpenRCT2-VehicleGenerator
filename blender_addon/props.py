@@ -174,8 +174,11 @@ class VGMaterialSettings(PropertyGroup):
         soft_max=1.0,
     )
     specular_exponent: FloatProperty(
-        name="Specular Hardness",
-        description="Tightness of the specular highlight (higher = smaller, sharper)",
+        name="Specular Exponent",
+        description=(
+            "Phong specular exponent: tightness of the highlight "
+            "(higher = smaller, sharper)"
+        ),
         default=50.0,
         min=1.0,
         soft_max=256.0,
@@ -251,6 +254,18 @@ class VGCarType(PropertyGroup):
         name="Collection",
         description="Blender Collection containing this car type's objects",
         type=bpy.types.Collection,
+    )
+    offset: FloatVectorProperty(
+        name="Collection Offset",
+        description=(
+            "Amount this collection was moved in the scene (Blender X/Y/Z). "
+            "Subtracted back out at export so the car renders centred — set this "
+            "to the same translation you used to shift the collection aside so "
+            "several car types don't overlap in the viewport."
+        ),
+        size=3,
+        default=(0.0, 0.0, 0.0),
+        subtype="TRANSLATION",
     )
     slot: EnumProperty(
         name="Slot",

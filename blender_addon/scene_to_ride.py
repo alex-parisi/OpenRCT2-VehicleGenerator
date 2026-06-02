@@ -248,6 +248,19 @@ def _object_position(obj) -> list[float]:
     return [float(p.x), float(p.y), float(p.z)]
 
 
+def _apply_offset(position, offset):
+    """Subtract an OBJ-space ``offset`` from a model entry's ``position``.
+
+    ``position`` is either a single ``[x, y, z]`` (static parts, riders) or a
+    per-frame list of them (animated restraints); both shapes are handled so a
+    collection moved aside in the viewport renders as if it sat at the origin.
+    """
+    ox, oy, oz = offset
+    if position and isinstance(position[0], (list, tuple)):
+        return [[p[0] - ox, p[1] - oy, p[2] - oz] for p in position]
+    return [position[0] - ox, position[1] - oy, position[2] - oz]
+
+
 def _sample_keyframed_transform(
     obj, scene, num_frames: int
 ) -> tuple[Mesh | None, list[list[float]], list[list[float]]]:
@@ -347,11 +360,15 @@ def _build_vehicle(
     scene,
     depsgraph,
     label: str,
+    offset: tuple[float, float, float] = (0.0, 0.0, 0.0),
 ) -> dict:
     """Build one ``vehicles[]`` entry from the given Blender objects.
 
     Appends extracted ``Mesh`` entries to ``meshes`` and returns the vehicle
-    dict. Raises ``SceneError`` if no body/restraint objects are found.
+    dict. ``offset`` is an OBJ-space translation subtracted from every model
+    position, compensating for a collection moved aside in the viewport so its
+    car still renders centred. Raises ``SceneError`` if no body/restraint
+    objects are found.
     """
     body_entries: list[dict] = []
     rider_entries: list[tuple[int, str, dict]] = []
@@ -414,6 +431,12 @@ def _build_vehicle(
             "Set object roles in the OpenRCT2 Vehicle panel."
         )
 
+    if offset != (0.0, 0.0, 0.0):
+        for entry in body_entries:
+            entry["position"] = _apply_offset(entry["position"], offset)
+        for _, _, entry in rider_entries:
+            entry["position"] = _apply_offset(entry["position"], offset)
+
     flags = list(vf_flags)
     if has_restraint and "restraint_animation" not in flags:
         flags.append("restraint_animation")
@@ -471,6 +494,7 @@ def build_config_and_meshes(context):
         for ct in assigned_types:
             if ct.collection is None:
                 raise SceneError(f"Car type '{ct.name}' has no Collection assigned.")
+            off = _BASIS @ Vector(tuple(ct.offset))
             vehicle = _build_vehicle(
                 ct.collection.all_objects,
                 mass=int(ct.mass),
@@ -482,6 +506,7 @@ def build_config_and_meshes(context):
                 scene=scene,
                 depsgraph=depsgraph,
                 label=f"Car type '{ct.name}'",
+                offset=(float(off.x), float(off.y), float(off.z)),
             )
             configuration[_SLOT_CONFIG_KEY[ct.slot]] = len(vehicles)
             vehicles.append(vehicle)
