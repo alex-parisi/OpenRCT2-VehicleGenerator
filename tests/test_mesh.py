@@ -3,9 +3,11 @@
 import numpy as np
 from openrct2_iso_core.constants import (
     MATERIAL_BACKGROUND_AA,
+    MATERIAL_BACKGROUND_AA_DARK,
     MATERIAL_IS_MASK,
     MATERIAL_IS_REMAPPABLE,
     MATERIAL_NO_AO,
+    MATERIAL_NO_BLEED,
 )
 from openrct2_iso_core.mesh import (
     Material,
@@ -41,6 +43,37 @@ def test_combined_modifier_flags():
     mat = _classify("ShinyMetal_Edge_NoAO")
     assert mat.flags & MATERIAL_BACKGROUND_AA
     assert mat.flags & MATERIAL_NO_AO
+
+
+def test_dark_edge_and_no_bleed_flags():
+    mat = _classify("Trim_DarkEdge_NoBleed")
+    assert mat.flags & MATERIAL_BACKGROUND_AA_DARK
+    assert mat.flags & MATERIAL_NO_BLEED
+
+
+def test_glass_material_sets_is_glass():
+    assert _classify("WindowGlass").is_glass
+    assert not _classify("Frame").is_glass
+
+
+def test_front_and_back_wall_side_classification():
+    assert _classify("FrontPanel").is_front
+    assert not _classify("FrontPanel").is_back
+    assert _classify("BackPanel").is_back
+    assert not _classify("BackPanel").is_front
+    # Untagged faces are shared (neither side) and appear in both wall blocks.
+    plain = _classify("Frame")
+    assert not plain.is_front
+    assert not plain.is_back
+
+
+def test_back_takes_precedence_over_front_substring():
+    # The classifier checks "Back" before "Front" (elif), so a name containing
+    # both is treated as a back face -- a behaviour the rear-block split relies
+    # on not silently flipping.
+    mat = _classify("BackFront")
+    assert mat.is_back
+    assert not mat.is_front
 
 
 def _write_obj(tmp_path, body, mtl=None):
