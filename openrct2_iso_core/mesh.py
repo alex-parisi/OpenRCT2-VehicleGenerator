@@ -49,6 +49,9 @@ class Material:
     # One of (color, texture) is meaningful, depending on flags.
     color: np.ndarray = field(default_factory=lambda: np.array([0.5, 0.5, 0.5], dtype=np.float64))
     texture: Texture | None = None
+    # Python-only classification (not a renderer flag): faces with a glass
+    # material are split into the translucent overlay block for wall scenery.
+    is_glass: bool = False
 
 
 def _classify_material_name(material: Material, name: str) -> None:
@@ -66,6 +69,9 @@ def _classify_material_name(material: Material, name: str) -> None:
         material.region = 4
     elif "Peep" in name:
         material.region = 5
+
+    if "Glass" in name:
+        material.is_glass = True
 
     if "Mask" in name:
         material.flags |= MATERIAL_IS_MASK

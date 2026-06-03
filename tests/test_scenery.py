@@ -194,6 +194,65 @@ def test_large_count(tiles, expected):
     assert count_large_scenery_sprites(tiles) == expected
 
 
+# --- walls ---
+
+from openrct2_scenery_generator.exporter import build_wall_scenery_json  # noqa: E402
+from openrct2_scenery_generator.loader import build_wall_scenery  # noqa: E402
+from openrct2_scenery_generator.sprite_renderer import render_wall  # noqa: E402
+
+
+def _make_wall(tmp_path, *, glass=False, **overrides):
+    """A two-face wall mesh: one Frame face, one Glass face."""
+    (tmp_path / "wall.mtl").write_text(
+        "newmtl Frame\nKd 0.5 0.5 0.5\nnewmtl Glass\nKd 0.2 0.2 0.8\n"
+    )
+    (tmp_path / "w.obj").write_text(
+        "mtllib wall.mtl\n"
+        "v 0 0 0\nv 0 0 1\nv 0 1 0\nv 0 1 1\n"
+        "usemtl Frame\nf 1 2 3\n"
+        "usemtl Glass\nf 2 4 3\n"
+    )
+    from openrct2_iso_core.mesh import load_mesh
+
+    config = {
+        "id": "openrct2vg.scenery_wall.test",
+        "name": "Test Wall",
+        "model": [{"mesh_index": 0, "position": [0, 0, 0]}],
+        "has_glass": glass,
+        **overrides,
+    }
+    mesh = load_mesh(tmp_path / "w.obj")
+    return build_wall_scenery(config, [mesh])
+
+
+def test_glass_material_classified(tmp_path):
+    obj = _make_wall(tmp_path, glass=True)
+    names = {m.is_glass for m in obj.meshes[0].materials}
+    assert names == {True, False}  # one glass, one non-glass material
+
+
+@pytest.mark.parametrize(
+    "glass,slope,expected",
+    [(False, False, 2), (False, True, 6), (True, False, 12), (True, True, 12)],
+)
+def test_wall_count_matches_render(stub_render, tmp_path, glass, slope, expected):
+    from openrct2_iso_core.geometry import combine_model_world
+
+    obj = _make_wall(tmp_path, glass=glass, is_allowed_on_slope=slope)
+    assert obj.num_sprites == expected
+    combined = combine_model_world(obj.meshes, obj.model)
+    imgs = render_wall(_FakeContext(), combined, obj.is_allowed_on_slope, obj.has_glass)
+    assert len(imgs) == expected
+
+
+def test_double_sided_flag_refused(tmp_path, capsys):
+    # Unsupported: emitting the flag without back sprites would desync the table.
+    obj = _make_wall(tmp_path, is_double_sided=True)
+    props = build_wall_scenery_json(obj)["properties"]
+    assert "isDoubleSided" not in props
+    assert "isDoubleSided is not yet supported" in capsys.readouterr().out
+
+
 def _make_large(tmp_path, ntiles=2, **overrides):
     from openrct2_iso_core.mesh import load_mesh
 

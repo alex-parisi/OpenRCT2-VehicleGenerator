@@ -95,11 +95,22 @@ def count_large_scenery_sprites(num_tiles: int) -> int:
 # tile corner) -- the engine places it on the correct edge via its paint offset,
 # so the sprite itself need not be on an edge. The two flat sprites are mirrored
 # (origin at opposite ends) and a half-tile-tall vertical drop below origin.
-# Calibrated to vanilla wall offsets (x_off -31/-1, base ~half-tile below): the
-# panel is shifted to its -Z end and rendered under VIEWS[1] (sprite 0) and
-# VIEWS[0] (sprite 1). The author models the panel running along OBJ +Z.
+# Calibrated to vanilla wall offsets: the panel is shifted to its -Z end (plus the
+# half-pixel nudge below) and rendered under VIEWS[1] (sprite 0) and VIEWS[0]
+# (sprite 1). The author models the panel running along OBJ +Z. Sprite 1 matches
+# vanilla exactly (w33, x_off -1); sprite 0 lands within 1px (x_off -32 vs -31,
+# base 16 vs 15) -- the inherent iso half-pixel asymmetry vanilla bakes into its
+# hand-drawn art -- but at the same 33px footprint, so seams overlap like vanilla.
 _WALL_FLAT_VIEWS = (1, 0)
-_WALL_END_SHIFT = (0.0, 0.0, -_HALF_TILE)
+# Half-pixel grid alignment. A panel spanning the full tile edge projects to 34px
+# when its end sits exactly on the world origin -- straddling the pixel grid so AA
+# spills an extra column on each outer end, overlapping the neighbouring tile's
+# wall by 2px (the visible "bleed"). Nudging the anchor by half a screen pixel
+# lands the projection cleanly on 33px, matching vanilla wall sprites and their
+# intended 1px overlap at edge seams. One tile edge projects to 32px
+# (UNITS_PER_TILE / UNITS_PER_PIXEL), so half a pixel is TILE_SIZE / 64.
+_HALF_PIXEL = TILE_SIZE / 64.0
+_WALL_END_SHIFT = (0.0, 0.0, -_HALF_TILE + _HALF_PIXEL)
 # One land-height step as a vertical shear of the panel end, in OBJ Y. Calibrated
 # to vanilla wall slope sprites (slope-up sprite ~+15px taller than flat); refine
 # against real sloped terrain in-game.
@@ -137,22 +148,60 @@ def _render_wall_pair(context: Context, mesh: Mesh) -> list[IndexedImage]:
     return out
 
 
-def render_wall(context: Context, combined: Mesh, allowed_on_slope: bool) -> list[IndexedImage]:
-    """Render a wall sprite set: 2 flat sprites, plus (if slope-allowed) 4
-    slope-sheared sprites -- offsets 2,3 = slope-up, 4,5 = slope-down, each in
-    the two diagonal orientations."""
-    if combined.faces.shape[0] == 0:
-        n = 6 if allowed_on_slope else 2
+def _filter_glass(mesh: Mesh, want_glass: bool) -> Mesh:
+    """Sub-mesh of the faces whose material's `is_glass` matches `want_glass`."""
+    keep = np.array(
+        [mesh.materials[m].is_glass == want_glass for m in mesh.face_materials],
+        dtype=bool,
+    )
+    return Mesh(
+        vertices=mesh.vertices,
+        normals=mesh.normals,
+        uvs=mesh.uvs,
+        faces=mesh.faces[keep],
+        face_materials=mesh.face_materials[keep],
+        materials=mesh.materials,
+    )
+
+
+def _render_wall_block(context: Context, mesh: Mesh, slope: bool) -> list[IndexedImage]:
+    """One wall image block: 2 flat sprites, plus (if `slope`) 4 slope-sheared
+    sprites -- offsets 2,3 = slope-up, 4,5 = slope-down, each in the two diagonal
+    orientations. Empty meshes yield blank placeholders so the block stays the
+    right length."""
+    n = 6 if slope else 2
+    if mesh.faces.shape[0] == 0:
         return [IndexedImage.blank(1, 1) for _ in range(n)]
-    images = _render_wall_pair(context, combined)  # offsets 0,1 (flat)
-    if allowed_on_slope:
+    images = _render_wall_pair(context, mesh)  # offsets 0,1 (flat)
+    if slope:
         # slope-up: far end raised. slope-down: far end lowered AND the whole
         # panel lifted one step (it anchors at the raised/high corner).
-        images += _render_wall_pair(context, _shear_wall(combined, +1.0))  # 2,3 up
+        images += _render_wall_pair(context, _shear_wall(mesh, +1.0))  # 2,3 up
         images += _render_wall_pair(
-            context, _shear_wall(combined, -1.0, y_raise=_WALL_SLOPE_RISE)
+            context, _shear_wall(mesh, -1.0, y_raise=_WALL_SLOPE_RISE)
         )  # 4,5 down
     return images
+
+
+def render_wall(
+    context: Context, combined: Mesh, allowed_on_slope: bool, has_glass: bool = False
+) -> list[IndexedImage]:
+    """Render a wall sprite set.
+
+    Without glass: a single block of 2 (flat) or 6 (slope-allowed) sprites.
+
+    With glass: the engine always layers a translucent overlay sprite at
+    `imageIndex + 6` (Paint.Wall.cpp:148), so glass implies the full 6-slot
+    block layout -- 6 opaque body sprites (non-glass faces) at offsets 0..5,
+    then 6 glass-only overlay sprites at offsets 6..11, for 12 total. Matches
+    every vanilla glass wall (all are slope-allowed, 12 images)."""
+    if has_glass:
+        body = _filter_glass(combined, want_glass=False)
+        glass = _filter_glass(combined, want_glass=True)
+        return _render_wall_block(context, body, slope=True) + _render_wall_block(
+            context, glass, slope=True
+        )
+    return _render_wall_block(context, combined, slope=allowed_on_slope)
 
 
 def render_wall_flat(context: Context, combined: Mesh) -> list[IndexedImage]:
