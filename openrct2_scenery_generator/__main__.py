@@ -6,11 +6,12 @@ Usage:
 
 import argparse
 import sys
+from collections.abc import Callable
 from pathlib import Path
+from typing import Protocol
 
-from openrct2_iso_core.config import LoadError, parse_config
-from openrct2_iso_core.lights import default_lights, load_lights
-from openrct2_iso_core.ray_trace import Context
+from openrct2_iso_core.cli import make_context, output_directory_of, run_cli
+from openrct2_iso_core.types import Light
 
 from .exporter import (
     export_large_scenery,
@@ -28,82 +29,37 @@ from .loader import (
 )
 
 
+class _SceneryObject(Protocol):
+    """The common surface the CLI needs from a loaded scenery object."""
+
+    units_per_tile: float
+
+
+_Loader = Callable[[Path], _SceneryObject]
+_Exporter = Callable[..., None]
+
+# object_type -> (load, export, export_test). Every loader returns an object
+# with a `.units_per_tile`, and every exporter shares the same signature, so
+# the three scenery kinds dispatch uniformly.
+_DISPATCH: dict[str, tuple[_Loader, _Exporter, _Exporter]] = {
+    "scenery_large": (load_large_scenery, export_large_scenery, export_large_scenery_test),
+    "scenery_wall": (load_wall_scenery, export_wall_scenery, export_wall_scenery_test),
+    "scenery_small": (load_small_scenery, export_small_scenery, export_small_scenery_test),
+}
+
+
+def _render(args: argparse.Namespace, root: dict, lights: list[Light]) -> None:
+    load, export, export_test = _DISPATCH[object_type_of(root)]
+    obj = load(args.input)
+    context = make_context(lights, obj.units_per_tile, args.test)
+    if args.test:
+        export_test(obj, context)
+    else:
+        export(obj, context, output_directory_of(root), skip_render=args.skip_render)
+
+
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="openrct2-scenery-generator")
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument("--test", action="store_true", help="single-viewpoint render to test/")
-    group.add_argument(
-        "--skip-render", action="store_true", help="reuse previously rendered sprites"
-    )
-    parser.add_argument("input", type=Path)
-    args = parser.parse_args(argv)
-
-    try:
-        root = parse_config(args.input)
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        return 1
-
-    output_directory = Path(".")
-    if isinstance(root.get("output_directory"), str):
-        output_directory = Path(root["output_directory"])
-
-    lights = default_lights()
-    if "lights" in root:
-        try:
-            lights = load_lights(root["lights"])
-        except LoadError as e:
-            print(f"Error: {e}", file=sys.stderr)
-            return 1
-
-    try:
-        obj_type = object_type_of(root)
-    except LoadError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        return 1
-
-    def _context_for(units_per_tile: float) -> Context:
-        # Load first so the object's configured render scale (units_per_tile)
-        # drives the camera. Test mode renders 8x zoomed for fast eyeballing.
-        upt = 0.125 * units_per_tile if args.test else units_per_tile
-        return Context.make(lights=lights, dither=True, upt=upt)
-
-    try:
-        if obj_type == "scenery_large":
-            large = load_large_scenery(args.input)
-            context = _context_for(large.units_per_tile)
-            if args.test:
-                export_large_scenery_test(large, context)
-            else:
-                export_large_scenery(
-                    large, context, output_directory, skip_render=args.skip_render
-                )
-        elif obj_type == "scenery_wall":
-            wall = load_wall_scenery(args.input)
-            context = _context_for(wall.units_per_tile)
-            if args.test:
-                export_wall_scenery_test(wall, context)
-            else:
-                export_wall_scenery(
-                    wall, context, output_directory, skip_render=args.skip_render
-                )
-        else:
-            small = load_small_scenery(args.input)
-            context = _context_for(small.units_per_tile)
-            if args.test:
-                export_small_scenery_test(small, context)
-            else:
-                export_small_scenery(
-                    small, context, output_directory, skip_render=args.skip_render
-                )
-    except LoadError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        return 1
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        return 1
-
-    return 0
+    return run_cli("openrct2-scenery-generator", argv, _render)
 
 
 if __name__ == "__main__":

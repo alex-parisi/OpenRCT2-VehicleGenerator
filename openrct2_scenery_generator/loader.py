@@ -8,6 +8,8 @@ from typing import Any
 from openrct2_iso_core.config import (
     LoadError,
     as_array_or_wrap,
+    load_meshes,
+    load_preview,
     optional_bool,
     optional_int,
     optional_number,
@@ -18,8 +20,6 @@ from openrct2_iso_core.config import (
     require_string,
 )
 from openrct2_iso_core.constants import TILE_SIZE
-from openrct2_iso_core.image import read_png
-from openrct2_iso_core.mesh import load_mesh
 from openrct2_iso_core.types import IndexedImage, MeshFrame, Model
 
 from .constants import (
@@ -159,42 +159,7 @@ def build_small_scenery(
 def load_small_scenery(json_path: Path | str) -> SmallScenery:
     """Parse a config file, load its meshes + preview, build a SmallScenery."""
     root = parse_config(json_path)
-
-    preview: IndexedImage | None = None
-    preview_path = root.get("preview")
-    if preview_path is not None:
-        if not isinstance(preview_path, str):
-            raise LoadError('Property "preview" is not a string')
-        try:
-            preview = read_png(preview_path)
-        except Exception as e:
-            raise LoadError(f"Unable to open image file {preview_path}: {e}") from e
-
-    return build_small_scenery(root, _load_meshes(root), preview)
-
-
-def _load_meshes(root: dict) -> list:
-    mesh_paths = root.get("meshes")
-    if not isinstance(mesh_paths, list):
-        raise LoadError('Property "meshes" does not exist or is not an array')
-    meshes = []
-    for mp in mesh_paths:
-        if not isinstance(mp, str):
-            raise LoadError("Mesh path is not a string")
-        meshes.append(load_mesh(mp))
-    return meshes
-
-
-def _load_preview(root: dict) -> IndexedImage | None:
-    preview_path = root.get("preview")
-    if preview_path is None:
-        return None
-    if not isinstance(preview_path, str):
-        raise LoadError('Property "preview" is not a string')
-    try:
-        return read_png(preview_path)
-    except Exception as e:
-        raise LoadError(f"Unable to open image file {preview_path}: {e}") from e
+    return build_small_scenery(root, load_meshes(root), load_preview(root))
 
 
 def _load_tiles(value: Any) -> list[LargeSceneryTile]:
@@ -257,7 +222,7 @@ def build_large_scenery(
 
 def load_large_scenery(json_path: Path | str) -> LargeScenery:
     root = parse_config(json_path)
-    return build_large_scenery(root, _load_meshes(root), _load_preview(root))
+    return build_large_scenery(root, load_meshes(root), load_preview(root))
 
 
 def build_wall_scenery(
@@ -304,7 +269,7 @@ def build_wall_scenery(
 
 def load_wall_scenery(json_path: Path | str) -> WallScenery:
     root = parse_config(json_path)
-    return build_wall_scenery(root, _load_meshes(root), _load_preview(root))
+    return build_wall_scenery(root, load_meshes(root), load_preview(root))
 
 
 def object_type_of(config: dict) -> str:

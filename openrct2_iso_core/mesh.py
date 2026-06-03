@@ -166,6 +166,18 @@ class Mesh:
     face_materials: np.ndarray
     materials: list[Material]
 
+    @classmethod
+    def empty(cls, materials: list[Material] | None = None) -> "Mesh":
+        """A valid mesh with no geometry (used for degenerate/empty cases)."""
+        return cls(
+            vertices=np.zeros((0, 3), dtype=np.float32),
+            normals=np.zeros((0, 3), dtype=np.float32),
+            uvs=np.zeros((0, 2), dtype=np.float32),
+            faces=np.zeros((0, 3), dtype=np.uint32),
+            face_materials=np.zeros((0,), dtype=np.uint32),
+            materials=materials if materials is not None else [],
+        )
+
 
 def _generate_normals(vertices: np.ndarray, faces: np.ndarray) -> np.ndarray:
     """
@@ -257,14 +269,7 @@ def load_mesh(filename: str | Path, transform: np.ndarray | None = None) -> Mesh
 
     if not has_any_face:
         # Empty mesh — still produce a valid (degenerate) Mesh.
-        return Mesh(
-            vertices=np.zeros((0, 3), dtype=np.float32),
-            normals=np.zeros((0, 3), dtype=np.float32),
-            uvs=np.zeros((0, 2), dtype=np.float32),
-            faces=np.zeros((0, 3), dtype=np.uint32),
-            face_materials=np.zeros((0,), dtype=np.uint32),
-            materials=[],
-        )
+        return Mesh.empty()
 
     # Resolve obj indices (1-based, negative = relative).
     nv = len(raw_verts)

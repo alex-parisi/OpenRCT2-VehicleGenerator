@@ -69,14 +69,7 @@ def combine_model_world(meshes: list[Mesh], model: Model, frame: int = 0) -> Mes
         m_off += len(mesh.materials)
 
     if not vs:
-        return Mesh(
-            vertices=np.zeros((0, 3), dtype=np.float32),
-            normals=np.zeros((0, 3), dtype=np.float32),
-            uvs=np.zeros((0, 2), dtype=np.float32),
-            faces=np.zeros((0, 3), dtype=np.uint32),
-            face_materials=np.zeros((0,), dtype=np.uint32),
-            materials=[],
-        )
+        return Mesh.empty()
 
     return Mesh(
         vertices=np.concatenate(vs, axis=0),
@@ -113,14 +106,7 @@ def subset_mesh(mesh: Mesh, face_mask: np.ndarray) -> Mesh:
     vertices so scene bounds stay tight per tile."""
     faces = mesh.faces[face_mask]
     if faces.shape[0] == 0:
-        return Mesh(
-            vertices=np.zeros((0, 3), dtype=np.float32),
-            normals=np.zeros((0, 3), dtype=np.float32),
-            uvs=np.zeros((0, 2), dtype=np.float32),
-            faces=np.zeros((0, 3), dtype=np.uint32),
-            face_materials=np.zeros((0,), dtype=np.uint32),
-            materials=mesh.materials,
-        )
+        return Mesh.empty(mesh.materials)
     used = np.unique(faces.reshape(-1))
     remap = np.full(mesh.vertices.shape[0], -1, dtype=np.int64)
     remap[used] = np.arange(used.shape[0])

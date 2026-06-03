@@ -11,9 +11,13 @@ from typing import Any
 
 import numpy as np
 
+from .image import read_png
+from .mesh import Mesh, load_mesh
+from .types import IndexedImage
+
 
 class LoadError(Exception):
-    pass
+    """Raised when a config file is malformed or fails validation."""
 
 
 def parse_config(path: Path | str) -> dict:
@@ -117,3 +121,29 @@ def as_array_or_wrap(value: Any) -> list:
             raise LoadError("Empty array")
         return value
     return [value]
+
+
+def load_meshes(root: dict) -> list[Mesh]:
+    """Load every OBJ listed under the config's `meshes` array."""
+    mesh_paths = root.get("meshes")
+    if not isinstance(mesh_paths, list):
+        raise LoadError('Property "meshes" does not exist or is not an array')
+    meshes: list[Mesh] = []
+    for path in mesh_paths:
+        if not isinstance(path, str):
+            raise LoadError("Mesh path is not a string")
+        meshes.append(load_mesh(path))
+    return meshes
+
+
+def load_preview(root: dict) -> IndexedImage | None:
+    """Load the optional `preview` PNG referenced by the config, if any."""
+    preview_path = root.get("preview")
+    if preview_path is None:
+        return None
+    if not isinstance(preview_path, str):
+        raise LoadError('Property "preview" is not a string')
+    try:
+        return read_png(preview_path)
+    except Exception as e:
+        raise LoadError(f"Unable to open image file {preview_path}: {e}") from e
