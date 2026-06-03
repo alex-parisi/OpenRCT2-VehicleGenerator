@@ -52,6 +52,11 @@ class Material:
     # Python-only classification (not a renderer flag): faces with a glass
     # material are split into the translucent overlay block for wall scenery.
     is_glass: bool = False
+    # Double-sided wall face sides: a *Back* face appears only in the rear
+    # sprite block, a *Front* face only in the front block; untagged faces (both
+    # False) are shared and appear in both. See render_wall.
+    is_back: bool = False
+    is_front: bool = False
 
 
 def _classify_material_name(material: Material, name: str) -> None:
@@ -72,6 +77,11 @@ def _classify_material_name(material: Material, name: str) -> None:
 
     if "Glass" in name:
         material.is_glass = True
+
+    if "Back" in name:
+        material.is_back = True
+    elif "Front" in name:
+        material.is_front = True
 
     if "Mask" in name:
         material.flags |= MATERIAL_IS_MASK

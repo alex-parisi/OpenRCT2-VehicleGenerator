@@ -160,13 +160,12 @@ class WallScenery:
         """Sprite count by capability. Doors use their own animation layout
         (handled separately).
 
-        Glass forces the full 6-slot block layout because the engine reads the
-        translucent overlay at a hardcoded `imageIndex + 6` (Paint.Wall.cpp:148):
-        6 body sprites + 6 glass overlay sprites = 12. Otherwise it's the plain
-        flat (2) or slope (6) block.
-
-        Double-sided back sprites are not yet rendered (see render_wall), so the
-        flag does not add to the count."""
-        if self.has_glass:
+        Glass and double-sided both force the full 6-slot block layout because
+        the engine reads their second block at a hardcoded `imageIndex + 6`
+        (Paint.Wall.cpp:148 glass overlay, :236-262 rear directions): 6 base
+        sprites + 6 second-block sprites = 12. Otherwise it's the plain flat (2)
+        or slope (6) block. The glass x double-sided `+12` combo is unsupported
+        (the exporter refuses it), so the two never stack."""
+        if self.has_glass or self.is_double_sided:
             return 12
         return 6 if self.is_allowed_on_slope else 2

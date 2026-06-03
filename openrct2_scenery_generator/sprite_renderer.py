@@ -93,28 +93,36 @@ def count_large_scenery_sprites(num_tiles: int) -> int:
 
 # Walls: a wall sprite is the panel along one diagonal, anchored at ONE END (a
 # tile corner) -- the engine places it on the correct edge via its paint offset,
-# so the sprite itself need not be on an edge. The two flat sprites are mirrored
-# (origin at opposite ends) and a half-tile-tall vertical drop below origin.
-# Calibrated to vanilla wall offsets: the panel is shifted to its -Z end (plus the
-# half-pixel nudge below) and rendered under VIEWS[1] (sprite 0) and VIEWS[0]
-# (sprite 1). The author models the panel running along OBJ +Z. Sprite 1 matches
-# vanilla exactly (w33, x_off -1); sprite 0 lands within 1px (x_off -32 vs -31,
-# base 16 vs 15) -- the inherent iso half-pixel asymmetry vanilla bakes into its
-# hand-drawn art -- but at the same 33px footprint, so seams overlap like vanilla.
+# so the sprite itself need not be on an edge. The panel is shifted to its -Z end
+# and rendered under VIEWS[1] (sprite 0) and VIEWS[0] (sprite 1). The author
+# models the panel running along OBJ +Z.
 _WALL_FLAT_VIEWS = (1, 0)
-# Half-pixel grid alignment. A panel spanning the full tile edge projects to 34px
-# when its end sits exactly on the world origin -- straddling the pixel grid so AA
-# spills an extra column on each outer end, overlapping the neighbouring tile's
-# wall by 2px (the visible "bleed"). Nudging the anchor by half a screen pixel
-# lands the projection cleanly on 33px, matching vanilla wall sprites and their
-# intended 1px overlap at edge seams. One tile edge projects to 32px
-# (UNITS_PER_TILE / UNITS_PER_PIXEL), so half a pixel is TILE_SIZE / 64.
+# Per-view half-pixel grid alignment. A panel spanning the full tile edge projects
+# to 34px when its end sits exactly on the world origin -- straddling the pixel
+# grid so AA spills an extra column on each outer end, overlapping the neighbour by
+# 2px (the visible "bleed"). Nudging the anchor in Z lands it cleanly on 33px. The
+# two diagonal views fall on the grid at DIFFERENT sub-pixel phases (the iso
+# half-pixel asymmetry vanilla bakes into its hand-drawn art), so each needs its
+# own nudge: a single shared shift can match only one. With these, both flat
+# sprites hit vanilla exactly -- VIEWS[1] -> x_off -31 base 15, VIEWS[0] -> x_off
+# -1 base 16. One tile edge projects to 32px (UNITS_PER_TILE / UNITS_PER_PIXEL),
+# so a half pixel is TILE_SIZE / 64.
 _HALF_PIXEL = TILE_SIZE / 64.0
-_WALL_END_SHIFT = (0.0, 0.0, -_HALF_TILE + _HALF_PIXEL)
+_WALL_VIEW_SHIFT = {
+    1: -_HALF_TILE + 3.0 * _HALF_PIXEL,
+    0: -_HALF_TILE + 1.0 * _HALF_PIXEL,
+}
 # One land-height step as a vertical shear of the panel end, in OBJ Y. Calibrated
-# to vanilla wall slope sprites (slope-up sprite ~+15px taller than flat); refine
-# against real sloped terrain in-game.
-_WALL_SLOPE_RISE = 1.26
+# so the slope RISE matches vanilla exactly: a slope-up sprite is +16px taller
+# than flat in BOTH diagonal views (the terrain's one-step rise). 1.34 is the
+# centre of the stable 1.32-1.36 window; below it (e.g. the old 1.26) the rise
+# rounds to +15px and the wall sits 1px low against sloped terrain.
+_WALL_SLOPE_RISE = 1.34
+# Slope-DOWN lifts the whole panel by ~one slope step so it anchors at the raised
+# (high) corner. Tuned (with RISE=1.34) to vanilla's slope-down profile: base 0/1
+# and rise -15px in both views. 1.2975 is the centre of the stable 1.290-1.305
+# window; it sets the base/lift without disturbing the matched x-offsets.
+_WALL_SLOPE_DOWN_RAISE = 1.2975
 
 
 def _shear_wall(combined: Mesh, sign: float, y_raise: float = 0.0) -> Mesh:
@@ -138,14 +146,32 @@ def _shear_wall(combined: Mesh, sign: float, y_raise: float = 0.0) -> Mesh:
 
 
 def _render_wall_pair(context: Context, mesh: Mesh) -> list[IndexedImage]:
-    """Render a wall mesh under the two diagonal views (end-anchored)."""
-    translation = np.array(_WALL_END_SHIFT, dtype=np.float64)
-    context.begin_render()
-    context.add_model(mesh, _IDENTITY3, translation, 0)
-    context.finalize_render()
-    out = [render_view(context, VIEWS[v]) for v in _WALL_FLAT_VIEWS]
-    context.end_render()
+    """Render a wall mesh under the two diagonal views, each end-anchored with its
+    own per-view shift (the two views need different sub-pixel nudges to land on
+    the grid -- see _WALL_VIEW_SHIFT)."""
+    out: list[IndexedImage] = []
+    for v in _WALL_FLAT_VIEWS:
+        translation = np.array((0.0, 0.0, _WALL_VIEW_SHIFT[v]), dtype=np.float64)
+        context.begin_render()
+        context.add_model(mesh, _IDENTITY3, translation, 0)
+        context.finalize_render()
+        out.append(render_view(context, VIEWS[v]))
+        context.end_render()
     return out
+
+
+def _submesh(mesh: Mesh, keep: np.ndarray) -> Mesh:
+    """A mesh with only the faces selected by the boolean `keep` mask (vertices,
+    normals and materials are shared by reference -- the renderer only touches
+    referenced ones)."""
+    return Mesh(
+        vertices=mesh.vertices,
+        normals=mesh.normals,
+        uvs=mesh.uvs,
+        faces=mesh.faces[keep],
+        face_materials=mesh.face_materials[keep],
+        materials=mesh.materials,
+    )
 
 
 def _filter_glass(mesh: Mesh, want_glass: bool) -> Mesh:
@@ -154,12 +180,38 @@ def _filter_glass(mesh: Mesh, want_glass: bool) -> Mesh:
         [mesh.materials[m].is_glass == want_glass for m in mesh.face_materials],
         dtype=bool,
     )
+    return _submesh(mesh, keep)
+
+
+def _filter_side(mesh: Mesh, *, drop_attr: str) -> Mesh:
+    """Sub-mesh excluding faces whose material has `drop_attr` set. Used to peel
+    the front block (drop `is_back`) and back block (drop `is_front`) for
+    double-sided walls; untagged faces have neither set so survive both."""
+    keep = np.array(
+        [not getattr(mesh.materials[m], drop_attr) for m in mesh.face_materials],
+        dtype=bool,
+    )
+    return _submesh(mesh, keep)
+
+
+def _rotate_y180(mesh: Mesh) -> Mesh:
+    """Rotate a mesh 180 deg about the vertical (Y) axis: negate X and Z on
+    vertices and normals. A proper rotation (winding/handedness preserved), so
+    the rear faces turn to face the camera. The panel's Z-range is symmetric so
+    it is unchanged -- the same end-anchor and slope shear apply -- while the
+    content mirrors left-right, as a wall does when viewed from behind."""
+    v = mesh.vertices.copy()
+    v[:, 0] *= -1.0
+    v[:, 2] *= -1.0
+    n = mesh.normals.copy()
+    n[:, 0] *= -1.0
+    n[:, 2] *= -1.0
     return Mesh(
-        vertices=mesh.vertices,
-        normals=mesh.normals,
+        vertices=v,
+        normals=n,
         uvs=mesh.uvs,
-        faces=mesh.faces[keep],
-        face_materials=mesh.face_materials[keep],
+        faces=mesh.faces,
+        face_materials=mesh.face_materials,
         materials=mesh.materials,
     )
 
@@ -178,28 +230,45 @@ def _render_wall_block(context: Context, mesh: Mesh, slope: bool) -> list[Indexe
         # panel lifted one step (it anchors at the raised/high corner).
         images += _render_wall_pair(context, _shear_wall(mesh, +1.0))  # 2,3 up
         images += _render_wall_pair(
-            context, _shear_wall(mesh, -1.0, y_raise=_WALL_SLOPE_RISE)
+            context, _shear_wall(mesh, -1.0, y_raise=_WALL_SLOPE_DOWN_RAISE)
         )  # 4,5 down
     return images
 
 
 def render_wall(
-    context: Context, combined: Mesh, allowed_on_slope: bool, has_glass: bool = False
+    context: Context,
+    combined: Mesh,
+    allowed_on_slope: bool,
+    has_glass: bool = False,
+    is_double_sided: bool = False,
 ) -> list[IndexedImage]:
     """Render a wall sprite set.
 
-    Without glass: a single block of 2 (flat) or 6 (slope-allowed) sprites.
+    Plain: a single block of 2 (flat) or 6 (slope-allowed) sprites.
 
-    With glass: the engine always layers a translucent overlay sprite at
+    Glass: the engine always layers a translucent overlay sprite at
     `imageIndex + 6` (Paint.Wall.cpp:148), so glass implies the full 6-slot
     block layout -- 6 opaque body sprites (non-glass faces) at offsets 0..5,
     then 6 glass-only overlay sprites at offsets 6..11, for 12 total. Matches
-    every vanilla glass wall (all are slope-allowed, 12 images)."""
+    every vanilla glass wall (all are slope-allowed, 12 images).
+
+    Double-sided: the rear-facing paint directions (1,2) read sprites at
+    `imageOffset + 6` (Paint.Wall.cpp:236-262), so the back block occupies the
+    same screen footprint as the front. Front block (0..5) = faces not tagged
+    *Back*; back block (6..11) = faces not tagged *Front*, rotated 180 deg so the
+    rear faces the camera. 12 total. (The glass x double `+12` combo is not
+    generated -- callers must not set both.)"""
     if has_glass:
         body = _filter_glass(combined, want_glass=False)
         glass = _filter_glass(combined, want_glass=True)
         return _render_wall_block(context, body, slope=True) + _render_wall_block(
             context, glass, slope=True
+        )
+    if is_double_sided:
+        front = _filter_side(combined, drop_attr="is_back")
+        back = _rotate_y180(_filter_side(combined, drop_attr="is_front"))
+        return _render_wall_block(context, front, slope=True) + _render_wall_block(
+            context, back, slope=True
         )
     return _render_wall_block(context, combined, slope=allowed_on_slope)
 

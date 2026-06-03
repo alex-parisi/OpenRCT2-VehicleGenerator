@@ -329,12 +329,15 @@ def build_wall_scenery_json(obj: WallScenery) -> dict[str, Any]:
         "cursor": obj.cursor,
         "height": obj.height,
     }
-    # Double-sided back sprites aren't generated yet; emitting the flag without
-    # the +6 back block makes the engine index past our images into nothing
-    # (silent glitch, same failure class as the vehicle-animation gotcha). Refuse
-    # the flag rather than ship a broken object.
-    if obj.is_double_sided:
-        print("warning: isDoubleSided is not yet supported by the renderer; ignoring flag")
+    # The glass x double-sided `+12` combo uses a separate, asymmetric layout we
+    # don't generate (Paint.Wall.cpp:229-231). Emitting both flags would make the
+    # engine index past our 12 images into nothing (silent glitch, same failure
+    # class as the vehicle-animation gotcha). Keep glass (vanilla-common), drop
+    # double-sided.
+    double_sided = obj.is_double_sided
+    if double_sided and obj.has_glass:
+        print("warning: glass + isDoubleSided combo is unsupported; ignoring isDoubleSided")
+        double_sided = False
 
     # Emit only the flags that are set (OpenRCT2 treats absent as false; for the
     # inverted isAllowedOnSlope, absent => can't build on slope).
@@ -344,6 +347,7 @@ def build_wall_scenery_json(obj: WallScenery) -> dict[str, Any]:
         ("hasTertiaryColour", obj.has_tertiary_colour),
         ("isAllowedOnSlope", obj.is_allowed_on_slope),
         ("hasGlass", obj.has_glass),
+        ("isDoubleSided", double_sided),
         ("isDoor", obj.is_door),
         ("isLongDoorAnimation", obj.is_long_door_animation),
         ("isAnimated", obj.is_animated),
@@ -364,9 +368,12 @@ def build_wall_scenery_json(obj: WallScenery) -> dict[str, Any]:
 
 
 def _render_wall_sprites(obj: WallScenery, context: Context, object_dir: Path) -> list[str]:
-    # Flat (2 sprites) + slope (4 more), + 6 glass overlay sprites if glass.
+    # Flat (2) + slope (4 more); +6 for the glass overlay or the double-sided
+    # back block.
     combined = combine_model_world(obj.meshes, obj.model)
-    images = render_wall(context, combined, obj.is_allowed_on_slope, obj.has_glass)
+    images = render_wall(
+        context, combined, obj.is_allowed_on_slope, obj.has_glass, obj.is_double_sided
+    )
 
     out_path = object_dir / "images.dat"
     write_images_dat(images, out_path)
@@ -424,6 +431,8 @@ def export_wall_scenery_test(
     test_dir = Path(test_dir)
     test_dir.mkdir(parents=True, exist_ok=True)
     combined = combine_model_world(obj.meshes, obj.model)
-    images = render_wall(context, combined, obj.is_allowed_on_slope, obj.has_glass)
+    images = render_wall(
+        context, combined, obj.is_allowed_on_slope, obj.has_glass, obj.is_double_sided
+    )
     for i, img in enumerate(images):
         write_png(img, test_dir / f"wall_{i}.png")

@@ -232,25 +232,87 @@ def test_glass_material_classified(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "glass,slope,expected",
-    [(False, False, 2), (False, True, 6), (True, False, 12), (True, True, 12)],
+    "glass,double,slope,expected",
+    [
+        (False, False, False, 2),
+        (False, False, True, 6),
+        (True, False, False, 12),
+        (True, False, True, 12),
+        (False, True, False, 12),  # double-sided forces the 6+6 block layout
+        (False, True, True, 12),
+    ],
 )
-def test_wall_count_matches_render(stub_render, tmp_path, glass, slope, expected):
+def test_wall_count_matches_render(stub_render, tmp_path, glass, double, slope, expected):
     from openrct2_iso_core.geometry import combine_model_world
 
-    obj = _make_wall(tmp_path, glass=glass, is_allowed_on_slope=slope)
+    obj = _make_wall(tmp_path, glass=glass, is_double_sided=double, is_allowed_on_slope=slope)
     assert obj.num_sprites == expected
     combined = combine_model_world(obj.meshes, obj.model)
-    imgs = render_wall(_FakeContext(), combined, obj.is_allowed_on_slope, obj.has_glass)
+    imgs = render_wall(
+        _FakeContext(), combined, obj.is_allowed_on_slope, obj.has_glass, obj.is_double_sided
+    )
     assert len(imgs) == expected
 
 
-def test_double_sided_flag_refused(tmp_path, capsys):
-    # Unsupported: emitting the flag without back sprites would desync the table.
-    obj = _make_wall(tmp_path, is_double_sided=True)
+def _make_double_wall(tmp_path):
+    """A wall with a shared Frame face, a Front-only face, and a Back-only face."""
+    (tmp_path / "d.mtl").write_text(
+        "newmtl Frame\nKd 0.5 0.5 0.5\n"
+        "newmtl FrontPanel\nKd 0.8 0.2 0.2\n"
+        "newmtl BackPanel\nKd 0.2 0.2 0.8\n"
+    )
+    (tmp_path / "d.obj").write_text(
+        "mtllib d.mtl\n"
+        "v 0 0 0\nv 0 0 1\nv 0 1 0\nv 0 1 1\n"
+        "usemtl Frame\nf 1 2 3\n"
+        "usemtl FrontPanel\nf 2 4 3\n"
+        "usemtl BackPanel\nf 1 4 2\n"
+    )
+    from openrct2_iso_core.mesh import load_mesh
+
+    config = {
+        "id": "openrct2vg.scenery_wall.dbl",
+        "name": "Double Wall",
+        "model": [{"mesh_index": 0, "position": [0, 0, 0]}],
+        "is_double_sided": True,
+    }
+    return build_wall_scenery(config, [load_mesh(tmp_path / "d.obj")])
+
+
+def test_front_back_material_classified(tmp_path):
+    obj = _make_double_wall(tmp_path)
+    by_side = {(m.is_front, m.is_back) for m in obj.meshes[0].materials}
+    # Frame=(F,F) shared, FrontPanel=(T,F), BackPanel=(F,T).
+    assert by_side == {(False, False), (True, False), (False, True)}
+
+
+def test_double_sided_blocks_exclude_opposite_side(stub_render, tmp_path, monkeypatch):
+    # The front block must drop Back faces and the back block must drop Front
+    # faces (shared Frame survives both). Capture each block's face count.
+    from openrct2_iso_core.geometry import combine_model_world
+    from openrct2_scenery_generator import sprite_renderer as sr
+
+    seen = []
+
+    def fake_block(_ctx, mesh, slope):
+        seen.append(int(mesh.faces.shape[0]))
+        return [IndexedImage(1, 1, 0, 0, np.zeros((1, 1), dtype=np.uint8))]
+
+    monkeypatch.setattr(sr, "_render_wall_block", fake_block)
+    obj = _make_double_wall(tmp_path)
+    combined = combine_model_world(obj.meshes, obj.model)
+    sr.render_wall(_FakeContext(), combined, True, has_glass=False, is_double_sided=True)
+    # Front block = Frame + FrontPanel = 2; back block = Frame + BackPanel = 2.
+    assert seen == [2, 2]
+
+
+def test_glass_double_combo_refused(tmp_path, capsys):
+    # The +12 glass x double layout is unsupported: keep glass, drop double-sided.
+    obj = _make_wall(tmp_path, glass=True, is_double_sided=True)
     props = build_wall_scenery_json(obj)["properties"]
+    assert props.get("hasGlass") is True
     assert "isDoubleSided" not in props
-    assert "isDoubleSided is not yet supported" in capsys.readouterr().out
+    assert "combo is unsupported" in capsys.readouterr().out
 
 
 def _make_large(tmp_path, ntiles=2, **overrides):
