@@ -112,6 +112,15 @@ def _material_from_bpy(bmat) -> Material:
     if s.flat_shaded:
         m.flags |= MATERIAL_IS_FLAT_SHADED
 
+    # Wall-only classification (ignored by every other path): the glass overlay
+    # split and the double-sided front/back split. Mirrors the MTL *Glass* /
+    # *Front* / *Back* name rules.
+    m.is_glass = bool(s.is_glass)
+    if s.wall_side == "FRONT":
+        m.is_front = True
+    elif s.wall_side == "BACK":
+        m.is_back = True
+
     if s.texture is not None:
         path = bpy.path.abspath(s.texture.filepath_from_user() or s.texture.filepath)
         if path and os.path.exists(path):
@@ -356,6 +365,14 @@ def build_config_and_meshes(context):
             "requires_flat_surface": ss.requires_flat_surface,
             "prohibit_walls": ss.prohibit_walls,
             "is_tree": ss.is_tree,
+        })
+    elif ss.object_type == "scenery_wall":
+        config.update({
+            "height": int(ss.wall_height),
+            "has_tertiary_colour": ss.has_tertiary_colour,
+            "is_allowed_on_slope": ss.is_allowed_on_slope,
+            "has_glass": ss.has_glass,
+            "is_double_sided": ss.is_double_sided,
         })
     else:  # scenery_large
         if not ss.tiles:

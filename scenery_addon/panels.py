@@ -73,6 +73,21 @@ class VGS_PT_scenery(Panel):
                 row.prop(ss, "anim_start_frame")
                 row.prop(ss, "anim_end_frame")
                 abox.label(text="Keyframe the geometry over this range.", icon="INFO")
+        elif ss.object_type == "scenery_wall":
+            box = layout.box()
+            box.label(text="Wall", icon="MOD_BUILD")
+            box.prop(ss, "wall_height")
+            col = box.column(align=True)
+            col.prop(ss, "is_allowed_on_slope")
+            col.prop(ss, "has_glass")
+            col.prop(ss, "is_double_sided")
+            col.prop(ss, "has_tertiary_colour")
+            if ss.has_glass and ss.is_double_sided:
+                box.label(
+                    text="Glass + double-sided isn't supported; double-sided is dropped.",
+                    icon="ERROR",
+                )
+            box.label(text="Model the panel running along OBJ +Z.", icon="INFO")
         else:
             box = layout.box()
             box.label(text="Large Scenery", icon="MESH_GRID")
@@ -129,12 +144,17 @@ class VGS_PT_scenery(Panel):
         col.operator("vgs.export_parkobj", icon="EXPORT")
 
 
-def _draw_material_settings(layout, ms):
+def _draw_material_settings(layout, ms, object_type):
     """Draw a material's OpenRCT2 region/flags/shading settings.
 
     Mirrors the vehicle add-on's per-material controls so the settings can live
     inline in the "Selected Object" panel instead of the Material Properties tab.
+    The wall-only glass/side classification shows only for wall objects.
     """
+    if object_type == "scenery_wall":
+        col = layout.column(align=True)
+        col.prop(ms, "is_glass")
+        col.prop(ms, "wall_side")
     layout.prop(ms, "region")
     col = layout.column(align=True)
     col.prop(ms, "is_mask")
@@ -162,7 +182,7 @@ def _draw_material_settings(layout, ms):
     sub.prop(ms, "specular_tint", text="Specular Tint")
 
 
-def _draw_object_settings(layout, obj):
+def _draw_object_settings(layout, obj, object_type):
     """Draw the active object's role and its materials, folded together so a
     scenery part is authored from the viewport sidebar without leaving it."""
     layout.prop(obj.vgs_object, "role")
@@ -183,7 +203,7 @@ def _draw_object_settings(layout, obj):
     if mat is None:
         box.label(text="Empty material slot.", icon="INFO")
     else:
-        _draw_material_settings(box, mat.vgs_material)
+        _draw_material_settings(box, mat.vgs_material, object_type)
 
 
 # --- Shared "Selected Object" container -------------------------------------
@@ -249,7 +269,9 @@ class VGS_PT_object_view3d(Panel):
         return obj is not None and obj.type == "MESH" and hasattr(obj, "vgs_object")
 
     def draw(self, context):
-        _draw_object_settings(self.layout, context.object)
+        _draw_object_settings(
+            self.layout, context.object, context.scene.vgs_scenery.object_type
+        )
 
 
 _CLASSES = (

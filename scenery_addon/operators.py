@@ -23,8 +23,14 @@ from openrct2_scenery_generator.exporter import (
     export_large_scenery_to,
     export_small_scenery_test,
     export_small_scenery_to,
+    export_wall_scenery_test,
+    export_wall_scenery_to,
 )
-from openrct2_scenery_generator.loader import build_large_scenery, build_small_scenery
+from openrct2_scenery_generator.loader import (
+    build_large_scenery,
+    build_small_scenery,
+    build_wall_scenery,
+)
 
 from . import scene_to_scenery
 
@@ -70,8 +76,11 @@ def _lights_from_scene(context) -> list[Light]:
 def _build_scenery_from_scene(context):
     """Main-thread step: read bpy data into a scenery object + its kind."""
     config, meshes, preview = scene_to_scenery.build_config_and_meshes(context)
-    if config["object_type"] == "scenery_large":
+    obj_type = config["object_type"]
+    if obj_type == "scenery_large":
         return "large", build_large_scenery(config, meshes, preview)
+    if obj_type == "scenery_wall":
+        return "wall", build_wall_scenery(config, meshes, preview)
     return "small", build_small_scenery(config, meshes, preview)
 
 
@@ -96,6 +105,9 @@ class VGS_OT_test_render(Operator):
             if kind == "large":
                 export_large_scenery_test(obj, ctx, tmp)
                 png = os.path.join(tmp, "preview_0.png")
+            elif kind == "wall":
+                export_wall_scenery_test(obj, ctx, tmp)
+                png = os.path.join(tmp, "wall_0.png")
             else:
                 export_small_scenery_test(obj, ctx, tmp)
                 # Animated objects emit pose{g}_{d}.png; the static path emits
@@ -158,6 +170,8 @@ class VGS_OT_export_parkobj(Operator):
                 ctx = Context.make(lights=lights, dither=True, upt=TILE_SIZE)
                 if kind == "large":
                     export_large_scenery_to(obj, ctx, self._parkobj, self._work)
+                elif kind == "wall":
+                    export_wall_scenery_to(obj, ctx, self._parkobj, self._work)
                 else:
                     export_small_scenery_to(obj, ctx, self._parkobj, self._work)
             except Exception:

@@ -35,6 +35,16 @@ def _simple_items(names):
 OBJECT_TYPE_ITEMS = [
     ("scenery_small", "Small Scenery", "Single-tile scenery (1 or 4 rotations)"),
     ("scenery_large", "Large Scenery", "Multi-tile scenery built from a tiles list"),
+    ("scenery_wall", "Wall", "Single tile-edge wall panel (modelled along OBJ +Z)"),
+]
+
+# Per-material role on a double-sided wall. Mirrors the MTL name classification
+# (*Front* / *Back*) the CLI path uses, exposed as an explicit picker. Untagged
+# ("BOTH") faces are shared and appear on both sides.
+WALL_SIDE_ITEMS = [
+    ("BOTH", "Both Sides", "Shared face; appears on both sides of a double-sided wall"),
+    ("FRONT", "Front Only", "Only on the front block of a double-sided wall"),
+    ("BACK", "Back Only", "Only on the rear block of a double-sided wall"),
 ]
 
 OBJECT_ROLE_ITEMS = [
@@ -43,6 +53,40 @@ OBJECT_ROLE_ITEMS = [
 ]
 
 SHAPE_ITEMS = [(s, s, "") for s in SMALL_SCENERY_SHAPES]
+
+# The cursor identifiers OpenRCT2 accepts in an object.json `cursor` field
+# (ObjectJsonHelpers cursor lookup table / CursorID enum). Anything outside this
+# set is rejected by the engine, so a closed dropdown is safer than free text.
+_CURSOR_NAMES = [
+    "CURSOR_ARROW",
+    "CURSOR_BLANK",
+    "CURSOR_UP_ARROW",
+    "CURSOR_UP_DOWN_ARROW",
+    "CURSOR_HAND_POINT",
+    "CURSOR_ZZZ",
+    "CURSOR_DIAGONAL_ARROWS",
+    "CURSOR_PICKER",
+    "CURSOR_TREE_DOWN",
+    "CURSOR_FOUNTAIN_DOWN",
+    "CURSOR_STATUE_DOWN",
+    "CURSOR_BENCH_DOWN",
+    "CURSOR_CROSS_HAIR",
+    "CURSOR_BIN_DOWN",
+    "CURSOR_LAMPPOST_DOWN",
+    "CURSOR_FENCE_DOWN",
+    "CURSOR_FLOWER_DOWN",
+    "CURSOR_PATH_DOWN",
+    "CURSOR_DIG_DOWN",
+    "CURSOR_WATER_DOWN",
+    "CURSOR_HOUSE_DOWN",
+    "CURSOR_VOLCANO_DOWN",
+    "CURSOR_WALK_DOWN",
+    "CURSOR_PAINT_DOWN",
+    "CURSOR_ENTRANCE_DOWN",
+    "CURSOR_HAND_OPEN",
+    "CURSOR_HAND_CLOSED",
+]
+CURSOR_ITEMS = [(n, _title(n.removeprefix("CURSOR_")), "") for n in _CURSOR_NAMES]
 
 # Same material-region scheme as the vehicle add-on; "NONE" is a plain colour,
 # the REMAP* regions are recoloured by the placement colours.
@@ -143,6 +187,20 @@ class VGSMaterialSettings(PropertyGroup):
         max=1.0,
         default=(1.0, 1.0, 1.0),
     )
+    # Wall-only classification. These replace the MTL *Glass* / *Front* / *Back*
+    # name rules for the add-on path; they only matter when the object type is a
+    # wall (see scene_to_scenery._material_from_bpy).
+    is_glass: BoolProperty(
+        name="Glass",
+        description="Translucent glass pane; split into the wall's glass overlay block",
+        default=False,
+    )
+    wall_side: EnumProperty(
+        name="Wall Side",
+        description="Which side of a double-sided wall this face belongs to",
+        items=WALL_SIDE_ITEMS,
+        default="BOTH",
+    )
 
 
 class VGSObjectSettings(PropertyGroup):
@@ -197,7 +255,12 @@ class VGSScenerySettings(PropertyGroup):
     # --- Common placement --------------------------------------------------
     price: FloatProperty(name="Price", default=2.0)
     removal_price: FloatProperty(name="Removal Price", default=1.0)
-    cursor: StringProperty(name="Cursor", default=DEFAULT_CURSOR)
+    cursor: EnumProperty(
+        name="Cursor",
+        description="Mouse cursor shown while placing the object",
+        items=CURSOR_ITEMS,
+        default=DEFAULT_CURSOR,
+    )
     scenery_group: StringProperty(
         name="Scenery Group", description="Optional scenery-group object id", default=""
     )
@@ -260,6 +323,31 @@ class VGSScenerySettings(PropertyGroup):
     )
     tiles: CollectionProperty(type=VGSTile)
     tile_index: IntProperty(default=0)
+
+    # --- Wall --------------------------------------------------------------
+    # `wall_height` is in wall height units; the engine renders it `* 8`
+    # coordinate units tall (separate from small scenery's `height` clearance).
+    wall_height: IntProperty(
+        name="Height",
+        description="Wall height in wall units (rendered height * 8 coordinate units)",
+        default=2,
+        min=1,
+    )
+    is_allowed_on_slope: BoolProperty(
+        name="Allowed on Slope",
+        description="Can be placed on sloped terrain (adds the 4 slope sprites)",
+        default=True,
+    )
+    has_glass: BoolProperty(
+        name="Has Glass",
+        description="Wall has translucent glass panes (materials marked Glass)",
+        default=False,
+    )
+    is_double_sided: BoolProperty(
+        name="Double-Sided",
+        description="Distinct front/back faces (materials marked Front/Back); rear block at +6",
+        default=False,
+    )
 
     # --- Custom lighting ---------------------------------------------------
     lights: CollectionProperty(type=VGSLight)
