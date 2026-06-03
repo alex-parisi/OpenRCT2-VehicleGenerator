@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from openrct2_iso_core.constants import TILE_SIZE
 from openrct2_iso_core.geometry import combine_model_world
 from openrct2_iso_core.image import write_png
 from openrct2_iso_core.images_dat import write_images_dat
@@ -181,11 +180,12 @@ def export_small_scenery_test(
 
 
 def _tile_centers_xz(obj: LargeScenery) -> np.ndarray:
-    """Tile centres in OBJ horizontal (X, Z) units (1 tile = TILE_SIZE units).
-    OpenRCT2 tile x -> OBJ X, tile y -> OBJ Z."""
+    """Tile centres in OBJ horizontal (X, Z) units (1 tile = units_per_tile
+    units). OpenRCT2 tile x -> OBJ X, tile y -> OBJ Z."""
     if not obj.tiles:
         return np.zeros((0, 2), dtype=np.float64)
-    return np.array([[t.x * TILE_SIZE, t.y * TILE_SIZE] for t in obj.tiles], dtype=np.float64)
+    upt = obj.units_per_tile
+    return np.array([[t.x * upt, t.y * upt] for t in obj.tiles], dtype=np.float64)
 
 
 def build_large_scenery_json(obj: LargeScenery) -> dict[str, Any]:
@@ -241,7 +241,7 @@ def build_large_scenery_json(obj: LargeScenery) -> dict[str, Any]:
 def _render_large_sprites(obj: LargeScenery, context: Context, object_dir: Path) -> list[str]:
     combined = combine_model_world(obj.meshes, obj.model)
     centers = _tile_centers_xz(obj)
-    images = render_large_scenery(context, combined, centers)
+    images = render_large_scenery(context, combined, centers, obj.units_per_tile)
     out_path = object_dir / "images.dat"
     write_images_dat(images, out_path)
     print(
@@ -302,7 +302,7 @@ def export_large_scenery_test(
     test_dir.mkdir(parents=True, exist_ok=True)
     combined = combine_model_world(obj.meshes, obj.model)
     centers = _tile_centers_xz(obj)
-    images = render_large_scenery(context, combined, centers)
+    images = render_large_scenery(context, combined, centers, obj.units_per_tile)
     # images[0..3] preview, then 4 per tile.
     for d in range(4):
         write_png(images[d], test_dir / f"preview_{d}.png")
@@ -372,7 +372,12 @@ def _render_wall_sprites(obj: WallScenery, context: Context, object_dir: Path) -
     # back block.
     combined = combine_model_world(obj.meshes, obj.model)
     images = render_wall(
-        context, combined, obj.is_allowed_on_slope, obj.has_glass, obj.is_double_sided
+        context,
+        combined,
+        obj.is_allowed_on_slope,
+        obj.has_glass,
+        obj.is_double_sided,
+        obj.units_per_tile,
     )
 
     out_path = object_dir / "images.dat"
@@ -432,7 +437,12 @@ def export_wall_scenery_test(
     test_dir.mkdir(parents=True, exist_ok=True)
     combined = combine_model_world(obj.meshes, obj.model)
     images = render_wall(
-        context, combined, obj.is_allowed_on_slope, obj.has_glass, obj.is_double_sided
+        context,
+        combined,
+        obj.is_allowed_on_slope,
+        obj.has_glass,
+        obj.is_double_sided,
+        obj.units_per_tile,
     )
     for i, img in enumerate(images):
         write_png(img, test_dir / f"wall_{i}.png")

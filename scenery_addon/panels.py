@@ -33,6 +33,9 @@ class VGS_PT_scenery(Panel):
         ss = context.scene.vgs_scenery
 
         layout.prop(ss, "object_type")
+        layout.prop(ss, "scale_preset")
+        if ss.scale_preset == "CUSTOM":
+            layout.prop(ss, "units_per_tile")
 
         box = layout.box()
         box.label(text="Identity", icon="INFO")

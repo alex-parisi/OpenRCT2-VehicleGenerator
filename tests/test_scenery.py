@@ -294,7 +294,7 @@ def test_double_sided_blocks_exclude_opposite_side(stub_render, tmp_path, monkey
 
     seen = []
 
-    def fake_block(_ctx, mesh, slope):
+    def fake_block(_ctx, mesh, slope, **_anchors):
         seen.append(int(mesh.faces.shape[0]))
         return [IndexedImage(1, 1, 0, 0, np.zeros((1, 1), dtype=np.uint8))]
 

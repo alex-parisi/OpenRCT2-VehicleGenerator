@@ -6,6 +6,7 @@ Light) come from openrct2_iso_core.types.
 from dataclasses import dataclass, field
 from typing import Any
 
+from openrct2_iso_core.constants import TILE_SIZE
 from openrct2_iso_core.types import IndexedImage, Model
 
 from .constants import (
@@ -23,6 +24,10 @@ class SmallScenery:
     name: str = ""
     authors: list[str] = field(default_factory=list)
     version: str = "1.0"
+
+    # Render scale: OBJ units per OpenRCT2 tile (drives sprite size + the OBJ-space
+    # tile-anchor maths). TILE_SIZE matches RCT2's real-world tile.
+    units_per_tile: float = TILE_SIZE
 
     # Gameplay / placement.
     price: float = 1.0
@@ -97,6 +102,9 @@ class LargeScenery:
     authors: list[str] = field(default_factory=list)
     version: str = "1.0"
 
+    # Render scale: OBJ units per OpenRCT2 tile (see SmallScenery).
+    units_per_tile: float = TILE_SIZE
+
     price: float = 1.0
     removal_price: float = 1.0
     cursor: str = DEFAULT_CURSOR
@@ -128,6 +136,9 @@ class WallScenery:
     name: str = ""
     authors: list[str] = field(default_factory=list)
     version: str = "1.0"
+
+    # Render scale: OBJ units per OpenRCT2 tile (see SmallScenery).
+    units_per_tile: float = TILE_SIZE
 
     price: float = 1.0
     cursor: str = WALL_DEFAULT_CURSOR

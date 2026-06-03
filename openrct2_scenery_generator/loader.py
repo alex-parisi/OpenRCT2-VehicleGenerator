@@ -17,6 +17,7 @@ from openrct2_iso_core.config import (
     read_vector3,
     require_string,
 )
+from openrct2_iso_core.constants import TILE_SIZE
 from openrct2_iso_core.image import read_png
 from openrct2_iso_core.mesh import load_mesh
 from openrct2_iso_core.types import IndexedImage, MeshFrame, Model
@@ -29,6 +30,14 @@ from .constants import (
     WALL_DEFAULT_CURSOR,
 )
 from .types import LargeScenery, LargeSceneryTile, SmallScenery, WallScenery
+
+
+def _load_units_per_tile(root: dict) -> float:
+    """Render scale: OBJ units per tile. Defaults to RCT2's real-world tile."""
+    upt = optional_number(root, "units_per_tile", TILE_SIZE)
+    if upt <= 0.0:
+        raise LoadError('Property "units_per_tile" must be greater than 0')
+    return upt
 
 
 def _load_model(value: Any, num_meshes: int) -> Model:
@@ -117,6 +126,7 @@ def build_small_scenery(
 
     obj.preview = preview if preview is not None else IndexedImage.blank(1, 1)
 
+    obj.units_per_tile = _load_units_per_tile(root)
     obj.price = optional_number(root, "price", 1.0)
     obj.removal_price = optional_number(root, "removal_price", obj.price)
     obj.cursor = optional_string(root, "cursor", DEFAULT_CURSOR)
@@ -225,6 +235,7 @@ def build_large_scenery(
         obj.version = v_str
     obj.preview = preview if preview is not None else IndexedImage.blank(1, 1)
 
+    obj.units_per_tile = _load_units_per_tile(root)
     obj.price = optional_number(root, "price", 1.0)
     obj.removal_price = optional_number(root, "removal_price", obj.price)
     obj.cursor = optional_string(root, "cursor", DEFAULT_CURSOR)
@@ -265,6 +276,7 @@ def build_wall_scenery(
         obj.version = v_str
     obj.preview = preview if preview is not None else IndexedImage.blank(1, 1)
 
+    obj.units_per_tile = _load_units_per_tile(root)
     obj.price = optional_number(root, "price", 1.0)
     obj.cursor = optional_string(root, "cursor", WALL_DEFAULT_CURSOR)
     obj.height = optional_int(root, "height", 1)

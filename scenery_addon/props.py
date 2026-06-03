@@ -21,6 +21,7 @@ from bpy.props import (
     StringProperty,
 )
 from bpy.types import Material, Object, PropertyGroup, Scene
+from openrct2_iso_core.constants import TILE_SIZE
 from openrct2_scenery_generator.constants import DEFAULT_CURSOR, SMALL_SCENERY_SHAPES
 
 
@@ -37,6 +38,25 @@ OBJECT_TYPE_ITEMS = [
     ("scenery_large", "Large Scenery", "Multi-tile scenery built from a tiles list"),
     ("scenery_wall", "Wall", "Single tile-edge wall panel (modelled along OBJ +Z)"),
 ]
+
+# Render-scale presets (mirrors the vehicle add-on): how many OBJ units span one
+# OpenRCT2 tile. Drives sprite size and the tile-anchor maths.
+SCALE_PRESET_VALUES = {
+    "REALISTIC": TILE_SIZE,
+    "TILE": 1.0,
+}
+SCALE_PRESET_ITEMS = [
+    ("REALISTIC", f"Realistic ({TILE_SIZE:g} m/tile)", "Match RCT2's real-world tile scale"),
+    ("TILE", "1 unit = 1 tile", "Model in tiles: one OBJ unit spans one tile"),
+    ("CUSTOM", "Custom", "Set the units-per-tile value manually"),
+]
+
+
+def _scale_preset_update(self, _context):
+    """Write the preset's units-per-tile into the consumed value (Custom: no-op)."""
+    value = SCALE_PRESET_VALUES.get(self.scale_preset)
+    if value is not None:
+        self.units_per_tile = value
 
 # Per-material role on a double-sided wall. Mirrors the MTL name classification
 # (*Front* / *Back*) the CLI path uses, exposed as an explicit picker. Untagged
@@ -240,6 +260,23 @@ class VGSLight(PropertyGroup):
 class VGSScenerySettings(PropertyGroup):
     # --- Type & identity ---------------------------------------------------
     object_type: EnumProperty(name="Type", items=OBJECT_TYPE_ITEMS, default="scenery_small")
+    scale_preset: EnumProperty(
+        name="Scale",
+        description="How many OBJ units map to one OpenRCT2 tile",
+        items=SCALE_PRESET_ITEMS,
+        default="REALISTIC",
+        update=_scale_preset_update,
+    )
+    units_per_tile: FloatProperty(
+        name="Units / Tile",
+        description=(
+            "OBJ units per OpenRCT2 tile. Drives sprite size and the tile-anchor "
+            "maths for large scenery and walls."
+        ),
+        default=TILE_SIZE,
+        min=0.01,
+        soft_max=16.0,
+    )
     id: StringProperty(
         name="Object ID",
         description="Unique id, e.g. openrct2vg.scenery_small.my_obj (avoid vanilla ids)",

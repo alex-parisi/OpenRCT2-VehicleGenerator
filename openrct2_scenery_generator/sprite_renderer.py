@@ -9,6 +9,8 @@ the palette region of remappable materials, exactly as for vehicles — it does
 not add sprites here.
 """
 
+from typing import Any
+
 import numpy as np
 from openrct2_iso_core.constants import TILE_SIZE
 from openrct2_iso_core.geometry import assign_faces_to_tiles, combine_model_world, subset_mesh
@@ -125,16 +127,19 @@ _WALL_SLOPE_RISE = 1.34
 _WALL_SLOPE_DOWN_RAISE = 1.2975
 
 
-def _shear_wall(combined: Mesh, sign: float, y_raise: float = 0.0) -> Mesh:
+def _shear_wall(
+    combined: Mesh, sign: float, rise: float = _WALL_SLOPE_RISE, y_raise: float = 0.0
+) -> Mesh:
     """Ramp the panel's Y along its length (Z), raising the +Z end by
-    `sign * _WALL_SLOPE_RISE` so it follows a sloped edge. `y_raise` lifts the
-    whole panel (slope-down anchors at the raised corner)."""
+    `sign * rise` so it follows a sloped edge. `y_raise` lifts the whole panel
+    (slope-down anchors at the raised corner). Both `rise` and `y_raise` are in
+    OBJ units, so callers scale them with the authored render scale."""
     v = combined.vertices.astype(np.float64).copy()
     z = v[:, 2]
     zmin, zmax = float(z.min()), float(z.max())
     span = (zmax - zmin) or 1.0
     t = (z - zmin) / span  # 0 at -Z end, 1 at +Z end
-    v[:, 1] += sign * _WALL_SLOPE_RISE * t + y_raise
+    v[:, 1] += sign * rise * t + y_raise
     return Mesh(
         vertices=v.astype(np.float32),
         normals=combined.normals,
@@ -145,13 +150,16 @@ def _shear_wall(combined: Mesh, sign: float, y_raise: float = 0.0) -> Mesh:
     )
 
 
-def _render_wall_pair(context: Context, mesh: Mesh) -> list[IndexedImage]:
+def _render_wall_pair(
+    context: Context, mesh: Mesh, view_shift: dict[int, float] = _WALL_VIEW_SHIFT
+) -> list[IndexedImage]:
     """Render a wall mesh under the two diagonal views, each end-anchored with its
     own per-view shift (the two views need different sub-pixel nudges to land on
-    the grid -- see _WALL_VIEW_SHIFT)."""
+    the grid -- see _WALL_VIEW_SHIFT). `view_shift` is in OBJ units, so callers
+    scale it with the authored render scale."""
     out: list[IndexedImage] = []
     for v in _WALL_FLAT_VIEWS:
-        translation = np.array((0.0, 0.0, _WALL_VIEW_SHIFT[v]), dtype=np.float64)
+        translation = np.array((0.0, 0.0, view_shift[v]), dtype=np.float64)
         context.begin_render()
         context.add_model(mesh, _IDENTITY3, translation, 0)
         context.finalize_render()
@@ -216,21 +224,30 @@ def _rotate_y180(mesh: Mesh) -> Mesh:
     )
 
 
-def _render_wall_block(context: Context, mesh: Mesh, slope: bool) -> list[IndexedImage]:
+def _render_wall_block(
+    context: Context,
+    mesh: Mesh,
+    slope: bool,
+    *,
+    rise: float = _WALL_SLOPE_RISE,
+    down_raise: float = _WALL_SLOPE_DOWN_RAISE,
+    view_shift: dict[int, float] = _WALL_VIEW_SHIFT,
+) -> list[IndexedImage]:
     """One wall image block: 2 flat sprites, plus (if `slope`) 4 slope-sheared
     sprites -- offsets 2,3 = slope-up, 4,5 = slope-down, each in the two diagonal
     orientations. Empty meshes yield blank placeholders so the block stays the
-    right length."""
+    right length. The OBJ-unit anchors (`rise`, `down_raise`, `view_shift`) are
+    passed in pre-scaled to the authored render scale."""
     n = 6 if slope else 2
     if mesh.faces.shape[0] == 0:
         return [IndexedImage.blank(1, 1) for _ in range(n)]
-    images = _render_wall_pair(context, mesh)  # offsets 0,1 (flat)
+    images = _render_wall_pair(context, mesh, view_shift)  # offsets 0,1 (flat)
     if slope:
         # slope-up: far end raised. slope-down: far end lowered AND the whole
         # panel lifted one step (it anchors at the raised/high corner).
-        images += _render_wall_pair(context, _shear_wall(mesh, +1.0))  # 2,3 up
+        images += _render_wall_pair(context, _shear_wall(mesh, +1.0, rise), view_shift)  # 2,3 up
         images += _render_wall_pair(
-            context, _shear_wall(mesh, -1.0, y_raise=_WALL_SLOPE_DOWN_RAISE)
+            context, _shear_wall(mesh, -1.0, rise, y_raise=down_raise), view_shift
         )  # 4,5 down
     return images
 
@@ -241,6 +258,7 @@ def render_wall(
     allowed_on_slope: bool,
     has_glass: bool = False,
     is_double_sided: bool = False,
+    units_per_tile: float = TILE_SIZE,
 ) -> list[IndexedImage]:
     """Render a wall sprite set.
 
@@ -257,20 +275,29 @@ def render_wall(
     same screen footprint as the front. Front block (0..5) = faces not tagged
     *Back*; back block (6..11) = faces not tagged *Front*, rotated 180 deg so the
     rear faces the camera. 12 total. (The glass x double `+12` combo is not
-    generated -- callers must not set both.)"""
+    generated -- callers must not set both.)
+
+    `units_per_tile` is the authored render scale; the OBJ-unit slope shear and
+    per-view grid nudges are calibrated at TILE_SIZE, so they scale with it."""
+    s = units_per_tile / TILE_SIZE
+    anchors: dict[str, Any] = {
+        "rise": _WALL_SLOPE_RISE * s,
+        "down_raise": _WALL_SLOPE_DOWN_RAISE * s,
+        "view_shift": {v: sh * s for v, sh in _WALL_VIEW_SHIFT.items()},
+    }
     if has_glass:
         body = _filter_glass(combined, want_glass=False)
         glass = _filter_glass(combined, want_glass=True)
-        return _render_wall_block(context, body, slope=True) + _render_wall_block(
-            context, glass, slope=True
+        return _render_wall_block(context, body, slope=True, **anchors) + _render_wall_block(
+            context, glass, slope=True, **anchors
         )
     if is_double_sided:
         front = _filter_side(combined, drop_attr="is_back")
         back = _rotate_y180(_filter_side(combined, drop_attr="is_front"))
-        return _render_wall_block(context, front, slope=True) + _render_wall_block(
-            context, back, slope=True
+        return _render_wall_block(context, front, slope=True, **anchors) + _render_wall_block(
+            context, back, slope=True, **anchors
         )
-    return _render_wall_block(context, combined, slope=allowed_on_slope)
+    return _render_wall_block(context, combined, slope=allowed_on_slope, **anchors)
 
 
 def render_wall_flat(context: Context, combined: Mesh) -> list[IndexedImage]:
@@ -280,7 +307,20 @@ def render_wall_flat(context: Context, combined: Mesh) -> list[IndexedImage]:
     return _render_wall_pair(context, combined)
 
 
-def _render_4_rotations(context: Context, mesh: Mesh, cx: float, cz: float) -> list[IndexedImage]:
+def _corners_by_dir(units_per_tile: float) -> list[tuple[float, float]]:
+    """Per-direction half-tile corner offsets in OBJ units, scaled to the
+    authored render scale (1 tile = `units_per_tile` OBJ units)."""
+    h = units_per_tile / 2.0
+    return [(h, h), (-h, h), (-h, -h), (h, -h)]
+
+
+def _render_4_rotations(
+    context: Context,
+    mesh: Mesh,
+    cx: float,
+    cz: float,
+    corners: list[tuple[float, float]] = _CORNER_BY_DIR,
+) -> list[IndexedImage]:
     """Render the 4 cardinal rotations of `mesh`, anchoring each direction's
     world origin at the tile's per-direction corner (centre + corner offset).
     Returns 4 blank sprites if the mesh has no faces."""
@@ -288,7 +328,7 @@ def _render_4_rotations(context: Context, mesh: Mesh, cx: float, cz: float) -> l
         return [IndexedImage.blank(1, 1) for _ in range(4)]
     out: list[IndexedImage] = []
     for d in range(4):
-        ox, oz = _CORNER_BY_DIR[d]
+        ox, oz = corners[d]
         translation = np.array([-(cx + ox), 0.0, -(cz + oz)], dtype=np.float64)
         context.begin_render()
         context.add_model(mesh, _IDENTITY3, translation, 0)
@@ -299,25 +339,34 @@ def _render_4_rotations(context: Context, mesh: Mesh, cx: float, cz: float) -> l
 
 
 def render_large_scenery(
-    context: Context, combined: Mesh, tile_centers_xz: np.ndarray
+    context: Context,
+    combined: Mesh,
+    tile_centers_xz: np.ndarray,
+    units_per_tile: float = TILE_SIZE,
 ) -> list[IndexedImage]:
     """Render a large-scenery sprite set in OpenRCT2 image order:
     4 preview sprites (whole structure, centred), then per tile (in `tiles`
     order) its 4 rotations. Each tile's geometry is the faces nearest that
     tile's centre, re-anchored so the tile origin maps to the sprite origin.
+
+    `units_per_tile` is the authored render scale; the per-direction corner
+    anchors are half a tile in OBJ units, so they scale with it.
     """
     images: list[IndexedImage] = []
+    corners = _corners_by_dir(units_per_tile)
 
     # Preview slots 0-3: the whole structure, anchored at the footprint centre.
     anchor = (
         tile_centers_xz.mean(axis=0) if tile_centers_xz.shape[0] else np.zeros(2, dtype=np.float64)
     )
-    images.extend(_render_4_rotations(context, combined, float(anchor[0]), float(anchor[1])))
+    images.extend(
+        _render_4_rotations(context, combined, float(anchor[0]), float(anchor[1]), corners)
+    )
 
     # Per-tile sprites, anchored at each tile's per-direction corner.
     assign = assign_faces_to_tiles(combined, tile_centers_xz)
     for seq in range(tile_centers_xz.shape[0]):
         sub = subset_mesh(combined, assign == seq)
         cx, cz = tile_centers_xz[seq]
-        images.extend(_render_4_rotations(context, sub, float(cx), float(cz)))
+        images.extend(_render_4_rotations(context, sub, float(cx), float(cz), corners))
     return images

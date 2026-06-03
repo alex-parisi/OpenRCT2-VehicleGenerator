@@ -9,7 +9,6 @@ import sys
 from pathlib import Path
 
 from openrct2_iso_core.config import LoadError, parse_config
-from openrct2_iso_core.constants import TILE_SIZE
 from openrct2_iso_core.lights import default_lights, load_lights
 from openrct2_iso_core.ray_trace import Context
 
@@ -63,12 +62,16 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Error: {e}", file=sys.stderr)
         return 1
 
-    upt = 0.125 * TILE_SIZE if args.test else TILE_SIZE
-    context = Context.make(lights=lights, dither=True, upt=upt)
+    def _context_for(units_per_tile: float) -> Context:
+        # Load first so the object's configured render scale (units_per_tile)
+        # drives the camera. Test mode renders 8x zoomed for fast eyeballing.
+        upt = 0.125 * units_per_tile if args.test else units_per_tile
+        return Context.make(lights=lights, dither=True, upt=upt)
 
     try:
         if obj_type == "scenery_large":
             large = load_large_scenery(args.input)
+            context = _context_for(large.units_per_tile)
             if args.test:
                 export_large_scenery_test(large, context)
             else:
@@ -77,6 +80,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
         elif obj_type == "scenery_wall":
             wall = load_wall_scenery(args.input)
+            context = _context_for(wall.units_per_tile)
             if args.test:
                 export_wall_scenery_test(wall, context)
             else:
@@ -85,6 +89,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
         else:
             small = load_small_scenery(args.input)
+            context = _context_for(small.units_per_tile)
             if args.test:
                 export_small_scenery_test(small, context)
             else:

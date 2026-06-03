@@ -344,6 +344,7 @@ def build_config_and_meshes(context):
         "name": ss.name,
         "authors": authors,
         "version": ss.version,
+        "units_per_tile": float(ss.units_per_tile),
         "price": ss.price,
         "removal_price": ss.removal_price,
         "cursor": ss.cursor,
