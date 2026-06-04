@@ -33,7 +33,7 @@ import tempfile
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-ADDONS = {"vehicle": "vehicle_renderer_addon", "scenery": "scenery_addon"}
+ADDONS = {"vehicle": "vehicle_renderer_addon"}
 
 # External renderer: PyPI dist name, wheel-filename prefix, pinned version.
 RENDERER_DIST = "openrct2-x7-renderer"

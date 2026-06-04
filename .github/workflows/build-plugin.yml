@@ -1,11 +1,10 @@
 name: build-plugin
 
-# Package BOTH Blender add-ons (vehicle_renderer_addon and scenery_addon) into
-# per-platform extension zips. The renderer is now the external PyPI package
-# openrct2-x7-renderer (prebuilt Embree-vendored wheels), so there's no native
-# build here: we build this repo's pure-Python front-end wheel, fetch the
-# renderer + numpy/pillow/pyyaml from PyPI, bundle them, and let Blender zip it.
-# Triggered manually or on a tag.
+# Package the vehicle_renderer_addon Blender add-on into per-platform extension
+# zips. The renderer is now the external PyPI package openrct2-x7-renderer
+# (prebuilt Embree-vendored wheels), so there's no native build here: we build
+# this repo's pure-Python front-end wheel, fetch the renderer + numpy/pillow/pyyaml
+# from PyPI, bundle them, and let Blender zip it. Triggered manually or on a tag.
 on:
   workflow_dispatch:
   push:
@@ -32,7 +31,7 @@ jobs:
           python-version: "3.11"
 
       # Pin the project version from the tag (or 0.0.0 for manual runs) so the
-      # front-end wheel + manifests carry the release version.
+      # front-end wheel + manifest carry the release version.
       - name: Pin version from tag
         shell: bash
         run: |
@@ -54,18 +53,14 @@ jobs:
       - name: Build front-end wheel
         run: python -m build --wheel --outdir dist
 
-      # Stage each add-on's wheels/: drop in the front-end wheel, then let
+      # Stage the add-on's wheels/: drop in the front-end wheel, then let
       # collect_wheels.py download the renderer + deps from PyPI for every target
       # and regenerate the manifest's wheel list.
-      - name: Bundle wheels + regenerate manifests
+      - name: Bundle wheels + regenerate manifest
         run: |
-          for entry in "vehicle:vehicle_renderer_addon" "scenery:scenery_addon"; do
-            addon="${entry%%:*}"
-            dir="${entry##*:}"
-            mkdir -p "$dir/wheels"
-            cp dist/openrct2_vehiclegenerator-*.whl "$dir/wheels/"
-            python scripts/collect_wheels.py --addon "$addon"
-          done
+          mkdir -p vehicle_renderer_addon/wheels
+          cp dist/openrct2_vehiclegenerator-*.whl vehicle_renderer_addon/wheels/
+          python scripts/collect_wheels.py --addon vehicle
 
       - name: Install Blender runtime libs
         run: |
@@ -86,10 +81,8 @@ jobs:
         run: |
           xvfb-run -a blender --version
           mkdir -p out
-          for dir in vehicle_renderer_addon scenery_addon; do
-            xvfb-run -a blender --command extension build \
-              --source-dir "$dir" --split-platforms --output-dir out
-          done
+          xvfb-run -a blender --command extension build \
+            --source-dir vehicle_renderer_addon --split-platforms --output-dir out
           ls -lh out
 
       - uses: actions/upload-artifact@v4

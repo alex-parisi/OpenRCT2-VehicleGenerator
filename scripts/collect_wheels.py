@@ -37,8 +37,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-# Both add-ons bundle the identical wheel set; pick one per invocation.
-ADDONS = {"vehicle": "vehicle_renderer_addon", "scenery": "scenery_addon"}
+ADDONS = {"vehicle": "vehicle_renderer_addon"}
 ADDON = REPO / ADDONS["vehicle"]
 WHEELS = ADDON / "wheels"
 MANIFEST = ADDON / "blender_manifest.toml"

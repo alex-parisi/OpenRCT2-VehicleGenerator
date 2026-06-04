@@ -52,10 +52,9 @@ plus the shared OBJ/MTL parser, RCT2 palette, and `images.dat` packing.
 
 #### Python Package
 
-All vehicle/scenery-specific operations — JSON/YAML configuration, the rotation
+All vehicle-specific operations — JSON/YAML configuration, the rotation
 tables, and the `.parkobj` assembly — are handled by the `openrct2_vehicle_generator`
-and `openrct2_scenery_generator` packages in this repo, which call into
-`openrct2_x7_renderer` for rendering.
+package in this repo, which calls into `openrct2_x7_renderer` for rendering.
 
 #### Blender Add-On
 
