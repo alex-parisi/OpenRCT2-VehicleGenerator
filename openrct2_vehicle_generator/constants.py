@@ -197,16 +197,22 @@ VEHICLE_FLAG_NAMES = [
     "restraint_animation",
 ]
 
+# Must stay index-aligned with FRICTION_SOUND_IDS below: the loader maps a
+# config name to its index here and the exporter looks that index up in
+# FRICTION_SOUND_IDS. (kRunningSoundValues order, incl. waterslide.)
 RUNNING_SOUND_NAMES = [
     "wooden_old",
     "wooden",
     "steel",
     "steel_smooth",
+    "waterslide",
     "train",
     "engine",
 ]
 
-SECONDARY_SOUND_NAMES = ["scream1", "scream2", "scream3", "bell"]
+# Index-aligned with the SecondarySound enum values (the index is written
+# directly as object.json `soundRange`), so "whistle" (3) must precede "bell" (4).
+SECONDARY_SOUND_NAMES = ["scream1", "scream2", "scream3", "whistle", "bell"]
 
 COLOR_NAMES = [
     "black",

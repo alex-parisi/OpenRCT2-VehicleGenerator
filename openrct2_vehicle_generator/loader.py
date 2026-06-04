@@ -204,9 +204,9 @@ def build_ride(config: dict, meshes: list, preview: IndexedImage | None = None) 
 
     # Configuration: optional object with `default` (defaults to 0), plus
     # optional front/second/third/rear. Single-car-type rides can omit it.
-    config = root.get("configuration", {"default": 0})
+    car_config = root.get("configuration", {"default": 0})
     ride.configuration = [0xFF] * 5
-    default = config.get("default")
+    default = car_config.get("default")
     if not isinstance(default, int) or isinstance(default, bool):
         raise LoadError('Property "default" not found or is not an integer')
     ride.configuration[CarIndex.DEFAULT] = int(default)
@@ -216,7 +216,7 @@ def build_ride(config: dict, meshes: list, preview: IndexedImage | None = None) 
         ("third", CarIndex.THIRD),
         ("rear", CarIndex.REAR),
     ]:
-        v = config.get(key)
+        v = car_config.get(key)
         if v is None:
             continue
         if not isinstance(v, int) or isinstance(v, bool):

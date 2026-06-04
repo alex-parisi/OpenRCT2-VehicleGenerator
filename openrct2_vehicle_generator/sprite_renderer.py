@@ -4,6 +4,7 @@ Ported from X7's rendering engine
 https://github.com/X123M3-256/RCTGen
 """
 
+import logging
 import math
 from dataclasses import dataclass
 
@@ -12,6 +13,8 @@ from openrct2_x7_renderer.ray_trace import Context, render_view, rotate_x, rotat
 from openrct2_x7_renderer.types import IndexedImage
 
 from .constants import SpriteFlag, VehicleFlag
+
+log = logging.getLogger(__name__)
 
 _TILE_SLOPE = 1.0 / math.sqrt(6.0)
 
@@ -262,43 +265,85 @@ _RESTRAINT_FRAMES = 12
 _RESTRAINT_PER_FRAME = 4
 
 
-def count_sprites(sprite_flags: int, vehicle_flags: int) -> int:
-    n = 0
+# Sprite groups that map one flag -> one rotation table, in the exact order
+# they're emitted into images.dat. Order is significant: it fixes the sprite
+# image indices. ZERO_G_ROLL / DIVE_LOOP / CORKSCREW are resolved separately by
+# _base_render_plan because zero-g and dive loops share the sb22 rotations.
+_BASE_GROUPS: list[tuple[SpriteFlag, str, list[_Rot]]] = [
+    (SpriteFlag.FLAT_SLOPE, "Rendering flat sprites", _FLAT_SLOPE_ROT),
+    (SpriteFlag.GENTLE_SLOPE, "Rendering gentle sprites", _GENTLE_SLOPE_ROT),
+    (SpriteFlag.STEEP_SLOPE, "Rendering steep sprites", _STEEP_SLOPE_ROT),
+    (SpriteFlag.VERTICAL_SLOPE, "Rendering vertical sprites", _VERTICAL_SLOPE_ROT),
+    (SpriteFlag.DIAGONAL_SLOPE, "Rendering diagonal sprites", _DIAGONAL_SLOPE_ROT),
+    (SpriteFlag.BANKING, "Rendering banked sprites", _BANKING_ROT),
+    (SpriteFlag.INLINE_TWIST, "Rendering inline twist sprites", _INLINE_TWIST_ROT),
+    (
+        SpriteFlag.SLOPE_BANK_TRANSITION,
+        "Rendering slope-bank transition sprites",
+        _SLOPE_BANK_T_ROT,
+    ),
+    (
+        SpriteFlag.DIAGONAL_BANK_TRANSITION,
+        "Rendering diagonal slope-bank transition sprites",
+        _DIAG_BANK_T_ROT,
+    ),
+    (
+        SpriteFlag.SLOPED_BANK_TRANSITION,
+        "Rendering sloped bank transition sprites",
+        _SLOPED_BANK_T_ROT,
+    ),
+    (
+        SpriteFlag.DIAGONAL_SLOPED_BANK_TRANSITION,
+        "Rendering diagonal sloped bank transition sprites",
+        _DIAG_SLOPED_BANK_T_ROT,
+    ),
+    (SpriteFlag.SLOPED_BANKED_TURN, "Rendering sloped banked sprites", _SLOPED_BANKED_TURN_ROT),
+    (
+        SpriteFlag.BANKED_SLOPE_TRANSITION,
+        "Rendering banked slope transition sprites",
+        _BANKED_SLOPE_T_ROT,
+    ),
+]
+
+
+def _frames(rots: list[_Rot]) -> int:
+    """Total rendered sprites a rotation table produces (sum of yaw steps)."""
+    return sum(r.num_frames for r in rots)
+
+
+def _base_render_plan(sprite_flags: int) -> list[tuple[str, list[_Rot]]]:
+    """The ordered (log message, rotation table) groups rendered for frame 0.
+
+    Single source of truth for both rendering and counting: `render_vehicle_frame`
+    renders each table and `count_sprites` sums their frames, so the declared
+    sprite count can't drift from the rendered set.
+    """
     sf = sprite_flags
-    vf = vehicle_flags
-    if sf & SpriteFlag.FLAT_SLOPE:
-        n += 32
-    if sf & SpriteFlag.GENTLE_SLOPE:
-        n += 72
-    if sf & SpriteFlag.STEEP_SLOPE:
-        n += 80
-    if sf & SpriteFlag.VERTICAL_SLOPE:
-        n += 116
-    if sf & SpriteFlag.DIAGONAL_SLOPE:
-        n += 24
-    if sf & SpriteFlag.BANKING:
-        n += 80
-    if sf & SpriteFlag.INLINE_TWIST:
-        n += 40
-    if sf & SpriteFlag.SLOPE_BANK_TRANSITION:
-        n += 128
-    if sf & SpriteFlag.DIAGONAL_BANK_TRANSITION:
-        n += 16
-    if sf & SpriteFlag.SLOPED_BANK_TRANSITION:
-        n += 16
-    if sf & SpriteFlag.DIAGONAL_SLOPED_BANK_TRANSITION:
-        n += 48
-    if sf & SpriteFlag.SLOPED_BANKED_TURN:
-        n += 128
-    if sf & SpriteFlag.BANKED_SLOPE_TRANSITION:
-        n += 16
-    if sf & SpriteFlag.CORKSCREW:
-        n += 80
+    plan: list[tuple[str, list[_Rot]]] = []
+    for flag, msg, rots in _BASE_GROUPS:
+        if sf & flag:
+            plan.append((msg, rots))
     if sf & SpriteFlag.ZERO_G_ROLL:
-        n += 160
+        # Dive loops upgrade the shared sb22 rotations from 4 to 8 frames.
+        sb22 = _ZERO_G_SB22_8 if (sf & SpriteFlag.DIVE_LOOP) else _ZERO_G_SB22_4
+        plan.append(("Rendering zero G roll sprites", _ZERO_G_BASE_ROT))
+        plan.append(("Rendering zero G roll sb22 sprites", sb22))
     if sf & SpriteFlag.DIVE_LOOP:
-        n += 112
-    if vf & VehicleFlag.RESTRAINT_ANIMATION:
+        plan.append(("Rendering dive loop sprites", _DIVE_LOOP_ROT))
+    if sf & SpriteFlag.CORKSCREW:
+        plan.append(("Rendering corkscrew sprites", _CORKSCREW_ROT))
+    return plan
+
+
+def count_sprites(sprite_flags: int, vehicle_flags: int) -> int:
+    n = sum(_frames(rots) for _msg, rots in _base_render_plan(sprite_flags))
+    # A dive loop's declared count includes the sb22 8-frame upgrade even when
+    # ZERO_G_ROLL is absent (the engine reserves those slots). The loader always
+    # implies ZERO_G_ROLL for DIVE_LOOP, so this only affects the documented
+    # dive-loop-alone desync case -- see tests/test_sprite_counts.py.
+    if (sprite_flags & SpriteFlag.DIVE_LOOP) and not (sprite_flags & SpriteFlag.ZERO_G_ROLL):
+        n += _frames(_ZERO_G_SB22_8) - _frames(_ZERO_G_SB22_4)
+    if vehicle_flags & VehicleFlag.RESTRAINT_ANIMATION:
         n += _RESTRAINT_FRAMES
     return n
 
@@ -332,62 +377,11 @@ def render_vehicle_frame(context: Context, sprite_flags: int, frame: int) -> lis
     Render every sprite for this vehicle frame.
     """
     if frame > 0:
-        print("Rendering restraint animation")
+        log.info("Rendering restraint animation frame %d", frame)
         return _render_rotation(context, _Rot(_RESTRAINT_PER_FRAME, 0, 0, 0))
 
-    sf = sprite_flags
     out: list[IndexedImage] = []
-
-    def emit_if(flag: int, msg: str, rots: list[_Rot]) -> None:
-        if sf & flag:
-            print(msg)
-            out.extend(_render_group(context, rots))
-
-    emit_if(SpriteFlag.FLAT_SLOPE, "Rendering flat sprites", _FLAT_SLOPE_ROT)
-    emit_if(SpriteFlag.GENTLE_SLOPE, "Rendering gentle sprites", _GENTLE_SLOPE_ROT)
-    emit_if(SpriteFlag.STEEP_SLOPE, "Rendering steep sprites", _STEEP_SLOPE_ROT)
-    emit_if(SpriteFlag.VERTICAL_SLOPE, "Rendering vertical sprites", _VERTICAL_SLOPE_ROT)
-    emit_if(SpriteFlag.DIAGONAL_SLOPE, "Rendering diagonal sprites", _DIAGONAL_SLOPE_ROT)
-    emit_if(SpriteFlag.BANKING, "Rendering banked sprites", _BANKING_ROT)
-    emit_if(SpriteFlag.INLINE_TWIST, "Rendering inline twist sprites", _INLINE_TWIST_ROT)
-    emit_if(
-        SpriteFlag.SLOPE_BANK_TRANSITION,
-        "Rendering slope-bank transition sprites",
-        _SLOPE_BANK_T_ROT,
-    )
-    emit_if(
-        SpriteFlag.DIAGONAL_BANK_TRANSITION,
-        "Rendering diagonal slope-bank transition sprites",
-        _DIAG_BANK_T_ROT,
-    )
-    emit_if(
-        SpriteFlag.SLOPED_BANK_TRANSITION,
-        "Rendering sloped bank transition sprites",
-        _SLOPED_BANK_T_ROT,
-    )
-    emit_if(
-        SpriteFlag.DIAGONAL_SLOPED_BANK_TRANSITION,
-        "Rendering diagonal sloped bank transition sprites",
-        _DIAG_SLOPED_BANK_T_ROT,
-    )
-    emit_if(
-        SpriteFlag.SLOPED_BANKED_TURN, "Rendering sloped banked sprites", _SLOPED_BANKED_TURN_ROT
-    )
-    emit_if(
-        SpriteFlag.BANKED_SLOPE_TRANSITION,
-        "Rendering banked slope transition sprites",
-        _BANKED_SLOPE_T_ROT,
-    )
-
-    if sf & SpriteFlag.ZERO_G_ROLL:
-        print("Rendering zero G roll sprites")
-        out.extend(_render_group(context, _ZERO_G_BASE_ROT))
-        sb22 = _ZERO_G_SB22_8 if (sf & SpriteFlag.DIVE_LOOP) else _ZERO_G_SB22_4
-        out.extend(_render_group(context, sb22))
-    if sf & SpriteFlag.DIVE_LOOP:
-        print("Rendering dive loop sprites")
-        out.extend(_render_group(context, _DIVE_LOOP_ROT))
-    if sf & SpriteFlag.CORKSCREW:
-        print("Rendering corkscrew sprites")
-        out.extend(_render_group(context, _CORKSCREW_ROT))
+    for msg, rots in _base_render_plan(sprite_flags):
+        log.info(msg)
+        out.extend(_render_group(context, rots))
     return out

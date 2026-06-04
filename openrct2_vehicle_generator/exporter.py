@@ -3,6 +3,7 @@ Build object.json and assemble the .parkobj ZIP.
 """
 
 import json
+import logging
 import math
 import zipfile
 from pathlib import Path
@@ -22,71 +23,69 @@ from .constants import (
     SpriteFlag,
     VehicleFlag,
 )
-from .sprite_renderer import count_sprites, render_vehicle_frame
+from .sprite_renderer import render_vehicle_frame
 from .types import Model, Ride
+
+log = logging.getLogger(__name__)
 
 
 def _emit_sprite_groups(sf: int, vf: int) -> dict[str, int]:
     out: dict[str, int] = {}
-
-    def add(key: str, n: int) -> None:
-        out[key] = n
-
     if sf & SpriteFlag.FLAT_SLOPE:
-        add("slopeFlat", 32)
+        out["slopeFlat"] = 32
     if sf & SpriteFlag.GENTLE_SLOPE:
-        add("slopes12", 4)
-        add("slopes25", 32)
+        out["slopes12"] = 4
+        out["slopes25"] = 32
     if sf & SpriteFlag.STEEP_SLOPE:
-        add("slopes42", 8)
-        add("slopes60", 32)
+        out["slopes42"] = 8
+        out["slopes60"] = 32
     if sf & SpriteFlag.VERTICAL_SLOPE:
-        add("slopes75", 4)
-        add("slopes90", 32)
-        add("slopesLoop", 4)
-        add("slopeInverted", 4)
+        out["slopes75"] = 4
+        out["slopes90"] = 32
+        out["slopesLoop"] = 4
+        out["slopeInverted"] = 4
     if sf & SpriteFlag.DIAGONAL_SLOPE:
-        add("slopes8", 4)
-        add("slopes16", 4)
-        add("slopes50", 4)
+        out["slopes8"] = 4
+        out["slopes16"] = 4
+        out["slopes50"] = 4
     if sf & SpriteFlag.BANKING:
-        add("flatBanked22", 8)
-        add("flatBanked45", 32)
+        out["flatBanked22"] = 8
+        out["flatBanked45"] = 32
     if sf & SpriteFlag.INLINE_TWIST:
-        add("flatBanked67", 4)
-        add("flatBanked90", 4)
-        add("inlineTwists", 4)
+        out["flatBanked67"] = 4
+        out["flatBanked90"] = 4
+        out["inlineTwists"] = 4
     if sf & SpriteFlag.SLOPE_BANK_TRANSITION:
-        add("slopes12Banked22", 32)
+        out["slopes12Banked22"] = 32
     if sf & SpriteFlag.DIAGONAL_BANK_TRANSITION:
-        add("slopes8Banked22", 4)
+        out["slopes8Banked22"] = 4
     if sf & SpriteFlag.SLOPED_BANK_TRANSITION:
-        add("slopes25Banked22", 4)
+        out["slopes25Banked22"] = 4
     if sf & SpriteFlag.DIAGONAL_SLOPED_BANK_TRANSITION:
-        add("slopes8Banked45", 4)
-        add("slopes16Banked22", 4)
-        add("slopes16Banked45", 4)
+        out["slopes8Banked45"] = 4
+        out["slopes16Banked22"] = 4
+        out["slopes16Banked45"] = 4
     if sf & SpriteFlag.SLOPED_BANKED_TURN:
-        add("slopes25Banked45", 32)
+        out["slopes25Banked45"] = 32
     if sf & SpriteFlag.BANKED_SLOPE_TRANSITION:
-        add("slopes12Banked45", 4)
+        out["slopes12Banked45"] = 4
     if sf & SpriteFlag.ZERO_G_ROLL:
-        add("slopes25Banked67", 4)
-        add("slopes25Banked90", 4)
-        add("slopes25InlineTwists", 4)
-        add("slopes42Banked22", 4)
-        add("slopes42Banked45", 4)
-        add("slopes42Banked67", 4)
-        add("slopes42Banked90", 4)
-        add("slopes60Banked22", 8 if (sf & SpriteFlag.DIVE_LOOP) else 4)
+        out["slopes25Banked67"] = 4
+        out["slopes25Banked90"] = 4
+        out["slopes25InlineTwists"] = 4
+        out["slopes42Banked22"] = 4
+        out["slopes42Banked45"] = 4
+        out["slopes42Banked67"] = 4
+        out["slopes42Banked90"] = 4
+        out["slopes60Banked22"] = 8 if (sf & SpriteFlag.DIVE_LOOP) else 4
     if sf & SpriteFlag.DIVE_LOOP:
-        add("slopes50Banked45", 8)
-        add("slopes50Banked67", 8)
-        add("slopes50Banked90", 8)
+        out["slopes50Banked45"] = 8
+        out["slopes50Banked67"] = 8
+        out["slopes50Banked90"] = 8
     if sf & SpriteFlag.CORKSCREW:
-        add("corkscrews", 4)
+        out["corkscrews"] = 4
     if vf & VehicleFlag.RESTRAINT_ANIMATION:
-        add("restraintAnimation", 4)
+        out["restraintAnimation"] = 4
     return out
 
 
@@ -207,12 +206,14 @@ def _render_sprites(ride: Ride, context: Context, object_dir: Path) -> list:
         sf = ride.sprite_flags
         vf = vehicle.flags
         num_frames = 4 if (vf & VehicleFlag.RESTRAINT_ANIMATION) else 1
-        num_car_images = count_sprites(sf, vf)
+        # Set by the loader via count_sprites; reused here so the declared count
+        # and the rendered set come from a single computation.
+        num_car_images = vehicle.num_sprites
         num_total = num_car_images * (1 + len(vehicle.riders))
 
         car_images: list = [None] * num_total
 
-        print(f"Rendering vehicle {i} car sprites")
+        log.info("Rendering vehicle %d car sprites", i)
         base = 0
         for frame in range(num_frames):
             context.begin_render()
@@ -225,7 +226,7 @@ def _render_sprites(ride: Ride, context: Context, object_dir: Path) -> list:
             context.end_render()
 
         for j, rider in enumerate(vehicle.riders):
-            print(f"Rendering vehicle {i} peep sprites {j}")
+            log.info("Rendering vehicle %d peep sprites %d", i, j)
             base = 0
             for frame in range(num_frames):
                 context.begin_render()
@@ -245,17 +246,22 @@ def _render_sprites(ride: Ride, context: Context, object_dir: Path) -> list:
 
     out_path = object_dir / "images.dat"
     write_images_dat(all_images, out_path)
-    print(f"wrote {out_path} ({len(all_images)} sprites, {out_path.stat().st_size / 1024:.1f} KB)")
+    log.info(
+        "wrote %s (%d sprites, %.1f KB)",
+        out_path,
+        len(all_images),
+        out_path.stat().st_size / 1024,
+    )
     return [f"$LGX:images.dat[0..{len(all_images) - 1}]"]
 
 
-def _make_parkobj(ride: Ride, object_dir: Path, output_path: Path) -> None:
+def _make_parkobj(object_dir: Path, output_path: Path) -> None:
     with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         zf.write(object_dir / "object.json", "object.json")
         zf.write(object_dir / "images.dat", "images.dat")
 
 
-def _clean_working_dir(ride: Ride, object_dir: Path) -> None:
+def _clean_working_dir(object_dir: Path) -> None:
     for p in (object_dir / "object.json", object_dir / "images.dat"):
         p.unlink(missing_ok=True)
     # Also sweep any leftover per-PNG output from older runs.
@@ -288,7 +294,7 @@ def export_ride_to(
         if not isinstance(images_json, list):
             raise RuntimeError('Property "images" is not an array')
     else:
-        _clean_working_dir(ride, work_dir)
+        _clean_working_dir(work_dir)
         images_json = _render_sprites(ride, context, work_dir)
 
     ride_json["images"] = images_json
@@ -296,7 +302,7 @@ def export_ride_to(
     (work_dir / "object.json").write_text(json.dumps(ride_json, indent=4))
 
     parkobj_path.parent.mkdir(parents=True, exist_ok=True)
-    _make_parkobj(ride, work_dir, parkobj_path)
+    _make_parkobj(work_dir, parkobj_path)
 
 
 def export_ride(
@@ -320,7 +326,7 @@ def export_ride_test(ride: Ride, context: Context, test_dir: Path | str = "test"
         vf = vehicle.flags
         num_frames = 4 if (vf & VehicleFlag.RESTRAINT_ANIMATION) else 1
         for j in range(num_frames):
-            print(f"Rendering vehicle {i} frame {j}")
+            log.info("Rendering vehicle %d frame %d", i, j)
             context.begin_render()
             _add_model_to_context(ride, context, vehicle.model, j, 0)
             for rider in vehicle.riders:
