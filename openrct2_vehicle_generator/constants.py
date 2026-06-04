@@ -1,8 +1,7 @@
 """
-Vehicle-specific constants. Shared rendering constants (TILE_SIZE, render
-dimensions, MATERIAL_*/MESH_*/LIGHT_* flags, AA/AO sample counts) live in
-openrct2_x7_renderer.constants and are re-exported here for backwards-compatible
-imports.
+Vehicle-specific constants. Shared rendering primitives (TILE_SIZE and the
+LightType/MaterialFlag/MeshFlag enums) live in openrct2_x7_renderer.constants
+and are re-exported here for convenience.
 
 Ported from X7's rendering engine
 https://github.com/X123M3-256/RCTGen
@@ -11,62 +10,24 @@ https://github.com/X123M3-256/RCTGen
 from enum import IntEnum, IntFlag, auto
 
 from openrct2_x7_renderer.constants import (
-    AA_NUM_SAMPLES_U,
-    AA_NUM_SAMPLES_V,
-    AO_NUM_SAMPLES_U,
-    AO_NUM_SAMPLES_V,
-    FRAGMENT_UNUSED,
-    LIGHT_DIFFUSE,
-    LIGHT_HEMI,
-    LIGHT_SPECULAR,
-    MATERIAL_BACKGROUND_AA,
-    MATERIAL_BACKGROUND_AA_DARK,
-    MATERIAL_HAS_TEXTURE,
-    MATERIAL_IS_FLAT_SHADED,
-    MATERIAL_IS_MASK,
-    MATERIAL_IS_REMAPPABLE,
-    MATERIAL_IS_VISIBLE_MASK,
-    MATERIAL_NO_AO,
-    MATERIAL_NO_BLEED,
-    MAX_REGIONS,
-    MESH_GHOST,
-    MESH_MASK,
-    REGION_MASK,
-    RENDER_HEIGHT,
-    RENDER_WIDTH,
     TILE_SIZE,
-    UNITS_PER_PIXEL,
-    UNITS_PER_TILE,
+    LightType,
+    MaterialFlag,
+    MeshFlag,
 )
 
+# Max animation frames per mesh placement (the restraint-animation frame count).
+# Lived in openrct2_x7_renderer.types as MAX_FRAMES before the v0.2 renderer
+# rework dropped it; kept here as the vehicle front-end is its only consumer.
+MAX_FRAMES = 4
+
 __all__ = [
-    # Re-exported shared rendering constants.
+    # Re-exported shared rendering primitives.
     "TILE_SIZE",
-    "RENDER_WIDTH",
-    "RENDER_HEIGHT",
-    "UNITS_PER_TILE",
-    "UNITS_PER_PIXEL",
-    "FRAGMENT_UNUSED",
-    "REGION_MASK",
-    "MAX_REGIONS",
-    "MATERIAL_HAS_TEXTURE",
-    "MATERIAL_IS_REMAPPABLE",
-    "MATERIAL_IS_MASK",
-    "MATERIAL_NO_AO",
-    "MATERIAL_BACKGROUND_AA",
-    "MATERIAL_BACKGROUND_AA_DARK",
-    "MATERIAL_IS_VISIBLE_MASK",
-    "MATERIAL_NO_BLEED",
-    "MATERIAL_IS_FLAT_SHADED",
-    "MESH_MASK",
-    "MESH_GHOST",
-    "LIGHT_HEMI",
-    "LIGHT_DIFFUSE",
-    "LIGHT_SPECULAR",
-    "AA_NUM_SAMPLES_U",
-    "AA_NUM_SAMPLES_V",
-    "AO_NUM_SAMPLES_U",
-    "AO_NUM_SAMPLES_V",
+    "LightType",
+    "MaterialFlag",
+    "MeshFlag",
+    "MAX_FRAMES",
     # Vehicle-specific.
     "SpriteFlag",
     "RideFlag",

@@ -11,7 +11,8 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 import numpy as np
-from openrct2_x7_renderer.ray_trace import Context, render_view, rotate_x, rotate_y, rotate_z
+from openrct2_x7_renderer.geometry import rotate_x, rotate_y, rotate_z
+from openrct2_x7_renderer.ray_trace import FinalizedScene
 from openrct2_x7_renderer.types import IndexedImage
 
 from .constants import SpriteFlag, VehicleFlag
@@ -400,7 +401,7 @@ def _frame_views(sprite_flags: int, frame: int) -> list[np.ndarray]:
     return views
 
 
-def _render_views(context: Context, views: list[np.ndarray]) -> list[IndexedImage]:
+def _render_views(scene: FinalizedScene, views: list[np.ndarray]) -> list[IndexedImage]:
     """Render `views` against the finalized scene, in order.
 
     Each `render_view` is independent and only reads the shared scene, so they
@@ -410,13 +411,15 @@ def _render_views(context: Context, views: list[np.ndarray]) -> list[IndexedImag
     """
     workers = min(_render_workers(), len(views))
     if workers <= 1:
-        return [render_view(context, v) for v in views]
+        return [scene.render_view(v) for v in views]
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        return list(pool.map(lambda v: render_view(context, v), views))
+        return list(pool.map(scene.render_view, views))
 
 
-def render_vehicle_frame(context: Context, sprite_flags: int, frame: int) -> list[IndexedImage]:
+def render_vehicle_frame(
+    scene: FinalizedScene, sprite_flags: int, frame: int
+) -> list[IndexedImage]:
     """
     Render every sprite for this vehicle frame.
     """
-    return _render_views(context, _frame_views(sprite_flags, frame))
+    return _render_views(scene, _frame_views(sprite_flags, frame))

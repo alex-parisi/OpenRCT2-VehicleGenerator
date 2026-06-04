@@ -7,14 +7,13 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from openrct2_x7_renderer.types import (
-    MAX_FRAMES,
     IndexedImage,
     Light,
     MeshFrame,
     Model,
 )
 
-from .constants import TILE_SIZE
+from .constants import MAX_FRAMES, TILE_SIZE
 
 __all__ = [
     "MAX_FRAMES",

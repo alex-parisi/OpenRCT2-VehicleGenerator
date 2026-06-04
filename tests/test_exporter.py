@@ -1,16 +1,16 @@
 """Tests for object.json construction, images.dat emission, and .parkobj zipping.
 
-The native ray tracer is stubbed out: `render_view` is replaced with a 1x1
-dummy (matching tests/test_sprite_counts.py) and a fake Context records the
-begin/add/finalize/end calls the exporter drives. Everything downstream of the
-pixels -- write_images_dat, write_png, the zip -- runs for real against tmp_path.
+The native ray tracer is stubbed out via a fake render context that mirrors the
+renderer's begin_render -> SceneBuilder -> FinalizedScene flow: every view
+renders a 1x1 dummy and the lifecycle (begin/add/finalize/end) is recorded.
+Everything downstream of the pixels -- write_images_dat, write_png, the zip --
+runs for real against tmp_path.
 """
 
 import json
 import zipfile
 
 import pytest
-from openrct2_vehicle_generator import exporter, sprite_renderer
 from openrct2_vehicle_generator.constants import CarIndex, Category, RunningSound
 from openrct2_vehicle_generator.exporter import (
     build_ride_json,
@@ -23,6 +23,34 @@ from openrct2_vehicle_generator.types import IndexedImage, MeshFrame, Model, Rid
 from openrct2_x7_renderer.mesh import load_mesh
 
 
+class FakeScene:
+    """Stands in for a FinalizedScene; every view renders a 1x1 dummy."""
+
+    def __init__(self, events):
+        self._events = events
+
+    def render_view(self, _view):
+        return IndexedImage.blank(1, 1)
+
+    def end_render(self):
+        self._events.append("end")
+
+
+class FakeBuilder:
+    """Stands in for a SceneBuilder, recording add_model/finalize calls."""
+
+    def __init__(self, events):
+        self._events = events
+
+    def add_model(self, mesh, matrix, translation, mask):
+        self._events.append(("add", mask))
+        return self
+
+    def finalize(self):
+        self._events.append("finalize")
+        return FakeScene(self._events)
+
+
 class FakeContext:
     """Records the render lifecycle calls without touching Embree."""
 
@@ -31,27 +59,7 @@ class FakeContext:
 
     def begin_render(self):
         self.events.append("begin")
-
-    def add_model(self, mesh, matrix, translation, mask):
-        self.events.append(("add", mask))
-
-    def finalize_render(self):
-        self.events.append("finalize")
-
-    def end_render(self):
-        self.events.append("end")
-
-
-@pytest.fixture
-def stub_render(monkeypatch):
-    """Stub render_view everywhere it's pulled in (sprite_renderer drives the
-    per-rotation sprites, exporter drives the single-view test render)."""
-
-    def fake_render_view(_context, _view, **_kw):
-        return IndexedImage.blank(1, 1)
-
-    monkeypatch.setattr(sprite_renderer, "render_view", fake_render_view)
-    monkeypatch.setattr(exporter, "render_view", fake_render_view)
+        return FakeBuilder(self.events)
 
 
 _OBJ = "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n"
@@ -234,7 +242,7 @@ def test_build_ride_json_sprite_groups_zero_g_without_dive_loop(tmp_path):
 # --------------------------------------------------------------------------
 
 
-def test_export_ride_to_writes_parkobj(tmp_path, stub_render):
+def test_export_ride_to_writes_parkobj(tmp_path):
     ride = _build(tmp_path)
     ctx = FakeContext()
     parkobj = tmp_path / "out" / "ride.parkobj"
@@ -254,7 +262,7 @@ def test_export_ride_to_writes_parkobj(tmp_path, stub_render):
     assert (work / "images.dat").exists()
 
 
-def test_export_ride_to_renders_riders_with_masks(tmp_path, stub_render):
+def test_export_ride_to_renders_riders_with_masks(tmp_path):
     # Two rider rows exercise the peep-sprite loop, the prior-row background
     # pass (rows < j are added at mask=1), and the mask=0 subject pass.
     vehicle = {
@@ -279,7 +287,7 @@ def test_export_ride_to_renders_riders_with_masks(tmp_path, stub_render):
     assert masks == {0, 1}
 
 
-def test_export_ride_to_skip_render_reuses_images(tmp_path, stub_render):
+def test_export_ride_to_skip_render_reuses_images(tmp_path):
     ride = _build(tmp_path)
     ctx = FakeContext()
     work = tmp_path / "work"
@@ -306,7 +314,7 @@ def test_export_ride_to_skip_render_rejects_non_array_images(tmp_path):
         export_ride_to(ride, FakeContext(), tmp_path / "x.parkobj", work, skip_render=True)
 
 
-def test_clean_working_dir_sweeps_stale_pngs(tmp_path, stub_render):
+def test_clean_working_dir_sweeps_stale_pngs(tmp_path):
     # An old per-PNG run left images/*.png + a stale object.json/images.dat;
     # a fresh (non-skip) export must remove them before writing.
     ride = _build(tmp_path)
@@ -320,7 +328,7 @@ def test_clean_working_dir_sweeps_stale_pngs(tmp_path, stub_render):
     assert not stale_png.exists()
 
 
-def test_export_ride_wrapper_names_by_id(tmp_path, stub_render, monkeypatch):
+def test_export_ride_wrapper_names_by_id(tmp_path, monkeypatch):
     # export_ride derives the parkobj filename from ride.id and writes into the
     # given output directory; it uses a relative "object" work dir, so run from
     # tmp_path to keep the repo clean.
@@ -332,7 +340,7 @@ def test_export_ride_wrapper_names_by_id(tmp_path, stub_render, monkeypatch):
     assert (out_dir / "test.ride.x.parkobj").exists()
 
 
-def test_export_ride_test_single_view_pngs(tmp_path, stub_render):
+def test_export_ride_test_single_view_pngs(tmp_path):
     # The fast-iteration path renders one PNG per vehicle frame into test_dir.
     vehicle = {
         "model": {"mesh_index": 0},
@@ -348,7 +356,7 @@ def test_export_ride_test_single_view_pngs(tmp_path, stub_render):
     assert (test_dir / "car_0_0.png").exists()
 
 
-def test_export_ride_test_restraint_animation_emits_four_frames(tmp_path, stub_render):
+def test_export_ride_test_restraint_animation_emits_four_frames(tmp_path):
     vehicle = {
         "flags": ["restraint_animation"],
         "model": {
@@ -367,11 +375,10 @@ def test_export_ride_test_restraint_animation_emits_four_frames(tmp_path, stub_r
         assert (test_dir / f"car_0_{frame}.png").exists()
 
 
-def test_add_model_skips_absent_mesh_index(tmp_path, stub_render):
+def test_add_model_skips_absent_mesh_index(tmp_path):
     # mesh_index -1 means "no mesh this frame" -> add_model is never called.
     ride = _build(tmp_path)
-    ride.vehicles[0].model.meshes[0][0] = MeshFrame()
-    ride.vehicles[0].model.meshes[0][0].mesh_index = -1
+    ride.vehicles[0].model.meshes[0][0] = MeshFrame(mesh_index=-1)
     ctx = FakeContext()
     export_ride_test(ride, ctx, tmp_path / "test")
     assert all(not (isinstance(e, tuple) and e[0] == "add") for e in ctx.events)

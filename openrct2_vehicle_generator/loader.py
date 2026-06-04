@@ -67,8 +67,15 @@ def _load_model(value: Any, num_meshes: int, num_frames: int) -> Model:
     for elem in arr:
         if not isinstance(elem, dict):
             raise LoadError('Property "model" is not an object')
-        # Build MAX_FRAMES entries (frames > num_frames are unused).
-        frames = [MeshFrame() for _ in range(MAX_FRAMES)]
+
+        # MeshFrame is immutable, so accumulate per-frame fields first and build
+        # the frames once at the end. Slots 0..MAX_FRAMES; frames >= num_frames
+        # are unused and keep the MeshFrame defaults (mesh_index -1, zero vecs).
+        mesh_indices = [-1] * MAX_FRAMES
+        vectors: dict[str, list[Any]] = {
+            "position": [None] * MAX_FRAMES,
+            "orientation": [None] * MAX_FRAMES,
+        }
 
         mesh_idx_raw = elem.get("mesh_index")
         if mesh_idx_raw is None:
@@ -85,10 +92,10 @@ def _load_model(value: Any, num_meshes: int, num_frames: int) -> Model:
                 raise LoadError('Property "mesh_index" not found or is not an integer')
             if mi >= num_meshes or mi < -1:
                 raise LoadError(f"Mesh index {mi} is out of bounds")
-            frames[j].mesh_index = int(mi)
+            mesh_indices[j] = int(mi)
         if mesh_count < num_frames:
             for j in range(num_frames):
-                frames[j].mesh_index = frames[0].mesh_index
+                mesh_indices[j] = mesh_indices[0]
 
         for key in ("position", "orientation"):
             prop = elem.get(key)
@@ -96,18 +103,28 @@ def _load_model(value: Any, num_meshes: int, num_frames: int) -> Model:
                 continue  # MeshFrame defaults to a zero vector
             if not isinstance(prop, list):
                 raise LoadError(f'Property "{key}" is not an array')
+            target = vectors[key]
             if len(prop) == 3:
                 vec = read_vector3(prop)
-                for frame in frames[:num_frames]:
-                    setattr(frame, key, vec.copy())
+                for j in range(num_frames):
+                    target[j] = vec.copy()
             elif len(prop) == num_frames:
-                for frame, val in zip(frames, prop, strict=False):
-                    setattr(frame, key, read_vector3(val))
+                for j, val in enumerate(prop):
+                    target[j] = read_vector3(val)
             else:
                 raise LoadError(
                     f'Number of elements in "{key}" ({len(prop)}) does not match '
                     f"number of frames ({num_frames})"
                 )
+
+        frames: list[MeshFrame] = []
+        for j in range(MAX_FRAMES):
+            kwargs: dict[str, Any] = {"mesh_index": mesh_indices[j]}
+            if vectors["position"][j] is not None:
+                kwargs["position"] = vectors["position"][j]
+            if vectors["orientation"][j] is not None:
+                kwargs["orientation"] = vectors["orientation"][j]
+            frames.append(MeshFrame(**kwargs))
         meshes_out.append(frames)
     return Model(meshes=meshes_out)
 

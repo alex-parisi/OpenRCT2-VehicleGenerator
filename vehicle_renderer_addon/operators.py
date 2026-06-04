@@ -17,7 +17,7 @@ from bpy.props import StringProperty
 from bpy.types import Operator
 from openrct2_vehicle_generator.exporter import export_ride_test, export_ride_to
 from openrct2_vehicle_generator.loader import build_ride
-from openrct2_x7_renderer.constants import LIGHT_DIFFUSE, LIGHT_SPECULAR
+from openrct2_x7_renderer.constants import LightType
 from openrct2_x7_renderer.ray_trace import Context
 from openrct2_x7_renderer.types import Light
 
@@ -35,19 +35,19 @@ def _normalize(v):
 def _default_lights() -> list[Light]:
     # Same hand-tuned rig as the CLI's __main__._default_lights.
     return [
-        Light(LIGHT_DIFFUSE, 0, _normalize([0.0, -1.0, 0.0]), 0.1),
-        Light(LIGHT_DIFFUSE, 0, _normalize([0.0, 0.5, -1.0]), 0.8),
-        Light(LIGHT_SPECULAR, 1, _normalize([1.0, 1.65, -1.0]), 0.5),
-        Light(LIGHT_DIFFUSE, 1, _normalize([1.0, 1.7, -1.0]), 0.8),
-        Light(LIGHT_DIFFUSE, 0, np.array([0.0, 1.0, 0.0], dtype=np.float64), 0.45),
-        Light(LIGHT_DIFFUSE, 0, _normalize([-1.0, 0.85, 1.0]), 0.475),
-        Light(LIGHT_DIFFUSE, 0, _normalize([0.75, 0.4, -1.0]), 0.6),
-        Light(LIGHT_DIFFUSE, 0, _normalize([1.0, 0.25, 0.0]), 0.5),
-        Light(LIGHT_DIFFUSE, 0, _normalize([-1.0, -0.5, 0.0]), 0.1),
+        Light(LightType.DIFFUSE, 0, _normalize([0.0, -1.0, 0.0]), 0.1),
+        Light(LightType.DIFFUSE, 0, _normalize([0.0, 0.5, -1.0]), 0.8),
+        Light(LightType.SPECULAR, 1, _normalize([1.0, 1.65, -1.0]), 0.5),
+        Light(LightType.DIFFUSE, 1, _normalize([1.0, 1.7, -1.0]), 0.8),
+        Light(LightType.DIFFUSE, 0, np.array([0.0, 1.0, 0.0], dtype=np.float64), 0.45),
+        Light(LightType.DIFFUSE, 0, _normalize([-1.0, 0.85, 1.0]), 0.475),
+        Light(LightType.DIFFUSE, 0, _normalize([0.75, 0.4, -1.0]), 0.6),
+        Light(LightType.DIFFUSE, 0, _normalize([1.0, 0.25, 0.0]), 0.5),
+        Light(LightType.DIFFUSE, 0, _normalize([-1.0, -0.5, 0.0]), 0.1),
     ]
 
 
-_LIGHT_TYPES = {"diffuse": LIGHT_DIFFUSE, "specular": LIGHT_SPECULAR}
+_LIGHT_TYPES = {"diffuse": LightType.DIFFUSE, "specular": LightType.SPECULAR}
 
 
 def _lights_from_scene(context) -> list[Light]:
@@ -87,7 +87,7 @@ class VG_OT_test_render(Operator):
             self.report({"ERROR"}, f"Invalid vehicle: {e}")
             return {"CANCELLED"}
 
-        ctx = Context.make(
+        ctx = Context(
             lights=_lights_from_scene(context), dither=True, upt=ride.units_per_tile
         )
         tmp = tempfile.mkdtemp(prefix="vg_test_")
@@ -151,7 +151,7 @@ class VG_OT_export_parkobj(Operator):
 
         def worker():
             try:
-                ctx = Context.make(lights=lights, dither=True, upt=ride.units_per_tile)
+                ctx = Context(lights=lights, dither=True, upt=ride.units_per_tile)
                 export_ride_to(ride, ctx, self._parkobj, self._work)
             except Exception:
                 self._error = traceback.format_exc()

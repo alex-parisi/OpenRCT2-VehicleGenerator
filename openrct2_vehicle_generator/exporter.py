@@ -10,9 +10,10 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from openrct2_x7_renderer.geometry import rotate_x, rotate_y, rotate_z
 from openrct2_x7_renderer.image import write_png
 from openrct2_x7_renderer.images_dat import write_images_dat
-from openrct2_x7_renderer.ray_trace import Context, render_view, rotate_x, rotate_y, rotate_z
+from openrct2_x7_renderer.ray_trace import Context, SceneBuilder
 
 from .constants import (
     CATEGORY_NAMES,
@@ -180,8 +181,8 @@ def build_ride_json(ride: Ride) -> dict[str, Any]:
     return out
 
 
-def _add_model_to_context(
-    ride: Ride, context: Context, model: Model, frame: int, mask: int
+def _add_model_to_scene(
+    ride: Ride, builder: SceneBuilder, model: Model, frame: int, mask: int
 ) -> None:
     for mesh_frames in model.meshes:
         mf = mesh_frames[frame]
@@ -190,7 +191,7 @@ def _add_model_to_context(
         rx, ry, rz = mf.orientation * math.pi / 180.0
         matrix = rotate_y(rx) @ rotate_z(ry) @ rotate_x(rz)
         translation = mf.position.astype(np.float64)
-        context.add_model(ride.meshes[mf.mesh_index], matrix, translation, mask)
+        builder.add_model(ride.meshes[mf.mesh_index], matrix, translation, mask)
 
 
 def _render_sprites(ride: Ride, context: Context, object_dir: Path) -> list:
@@ -216,31 +217,31 @@ def _render_sprites(ride: Ride, context: Context, object_dir: Path) -> list:
         log.info("Rendering vehicle %d car sprites", i)
         base = 0
         for frame in range(num_frames):
-            context.begin_render()
-            _add_model_to_context(ride, context, vehicle.model, frame, 0)
-            context.finalize_render()
-            frame_imgs = render_vehicle_frame(context, sf, frame)
+            builder = context.begin_render()
+            _add_model_to_scene(ride, builder, vehicle.model, frame, 0)
+            scene = builder.finalize()
+            frame_imgs = render_vehicle_frame(scene, sf, frame)
             for k, img in enumerate(frame_imgs):
                 car_images[base + k] = img
             base += len(frame_imgs)
-            context.end_render()
+            scene.end_render()
 
         for j, rider in enumerate(vehicle.riders):
             log.info("Rendering vehicle %d peep sprites %d", i, j)
             base = 0
             for frame in range(num_frames):
-                context.begin_render()
-                _add_model_to_context(ride, context, vehicle.model, frame, 1)
+                builder = context.begin_render()
+                _add_model_to_scene(ride, builder, vehicle.model, frame, 1)
                 for k in range(j):
-                    _add_model_to_context(ride, context, vehicle.riders[k], frame, 1)
-                _add_model_to_context(ride, context, rider, frame, 0)
-                context.finalize_render()
-                frame_imgs = render_vehicle_frame(context, sf, frame)
+                    _add_model_to_scene(ride, builder, vehicle.riders[k], frame, 1)
+                _add_model_to_scene(ride, builder, rider, frame, 0)
+                scene = builder.finalize()
+                frame_imgs = render_vehicle_frame(scene, sf, frame)
                 offset = (j + 1) * num_car_images + base
                 for k, img in enumerate(frame_imgs):
                     car_images[offset + k] = img
                 base += len(frame_imgs)
-                context.end_render()
+                scene.end_render()
 
         all_images.extend(car_images)
 
@@ -327,11 +328,11 @@ def export_ride_test(ride: Ride, context: Context, test_dir: Path | str = "test"
         num_frames = 4 if (vf & VehicleFlag.RESTRAINT_ANIMATION) else 1
         for j in range(num_frames):
             log.info("Rendering vehicle %d frame %d", i, j)
-            context.begin_render()
-            _add_model_to_context(ride, context, vehicle.model, j, 0)
+            builder = context.begin_render()
+            _add_model_to_scene(ride, builder, vehicle.model, j, 0)
             for rider in vehicle.riders:
-                _add_model_to_context(ride, context, rider, j, 0)
-            context.finalize_render()
-            img = render_view(context, rotate_y(math.pi))
-            context.end_render()
+                _add_model_to_scene(ride, builder, rider, j, 0)
+            scene = builder.finalize()
+            img = scene.render_view(rotate_y(math.pi))
+            scene.end_render()
             write_png(img, test_dir / f"car_{i}_{j}.png")
