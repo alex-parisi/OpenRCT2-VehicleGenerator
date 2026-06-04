@@ -191,3 +191,10 @@ or Embree is needed. `uv sync` pulls everything.
 
 To hack on the renderer itself (C++/Embree/CMake), see its repo,
 [OpenRCT2-X7-Renderer](https://github.com/alex-parisi/OpenRCT2-X7-Renderer).
+
+## License
+
+GPL-3.0-or-later. This front-end depends on
+[openrct2-x7-renderer](https://github.com/alex-parisi/OpenRCT2-X7-Renderer),
+which is also GPL-3.0-or-later and whose distributed wheels bundle Embree and
+TBB (Apache-2.0).

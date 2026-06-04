@@ -30,6 +30,30 @@ jobs:
       - name: ruff check
         run: uv run --no-sync ruff check .
 
+  yamllint:
+    name: yamllint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # uv.lock is gitignored in this repo, so key the cache off pyproject.toml
+      # instead of the default **/uv.lock glob.
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      # yamllint doesn't import the project, so skip installing it.
+      - name: Install dev dependencies
+        run: uv sync --only-group dev --no-install-project
+
+      - name: yamllint
+        run: uv run --no-sync yamllint examples
+
   mypy:
     name: mypy
     runs-on: ubuntu-latest
