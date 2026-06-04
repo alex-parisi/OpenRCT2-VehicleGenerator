@@ -120,7 +120,7 @@ def _extract_car(car: dict) -> tuple[list[str], list[str]]:
 def _extract_all_cars(cars: list[dict]) -> tuple[list[str], list[dict]]:
     """Return (project_sprites, per_car_info) across all car definitions.
 
-    project_sprites is the union of every car's sprite flags — all cars ride
+    project_sprites is the union of every car's sprite flags; all cars ride
     the same track so they're almost always identical, but taking the union is
     the safe default.
     """

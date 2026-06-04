@@ -13,7 +13,7 @@ maps to OBJ ``(bx, bz, -by)``. As a basis matrix that is a proper rotation
 (det = +1), so triangle winding is preserved.
 
 Each contributing object bakes its world rotation+scale into the emitted mesh
-and reports its world translation as the model entry's ``position`` — so a
+and reports its world translation as the model entry's ``position``, so a
 static part sits where you placed it (orientation ``[0,0,0]``), and a restraint
 pivots about the object's ORIGIN via per-frame orientation.
 """
@@ -272,7 +272,7 @@ def _sample_keyframed_transform(
     unchanged.
 
     Currently called only for restraint animation (4 frames), but the helper
-    is intentionally generic — animated vehicle bodies, oars, and rigged
+    is intentionally generic: animated vehicle bodies, oars, and rigged
     peeps want the same per-frame sampling with a different frame count.
     """
     vg = obj.vg_object

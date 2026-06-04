@@ -113,7 +113,7 @@ renderer's settings, so what you set is what you get.
   exponent). Low values give a broad, soft sheen; high values give a tight,
   glossy hotspot (polished metal).
 - **Tint Highlight** (optional) tints the highlight with a colour instead of
-  white — e.g. a warm tint for brass or gold. Leave it off for normal metals and
+  white (e.g. a warm tint for brass or gold). Leave it off for normal metals and
   dielectrics, where the highlight is white.
 
 So to make a shiny chrome rail: high Specular Intensity, high Specular Exponent.
@@ -231,8 +231,8 @@ of the animation.
 
 > Reference: [OpenRCT2 Vehicle → Car Types](blender-plugin-reference.md#car-types).
 
-Everything so far builds **one** car from the whole scene, or the simplest case,
-and all most rides need. But a train can mix several *car-type variants*: a
+Everything so far builds **one** car from the whole scene. That's the simplest
+case, and all that most rides need. But a train can mix several *car-type variants*: a
 distinct **front** (head/engine) car, a **rear** (tail) car, and the **default**
 car used for everything in between. Each variant becomes its own entry in the
 exported object, and OpenRCT2 picks which one to draw at each position in the
@@ -246,7 +246,7 @@ car types defined the add-on renders the entire scene as the one default car
 
 A car type's geometry comes from a Blender **Collection**, not the whole scene.
 So to author variants, put each one's objects (body, riders, restraints) in a
-separate collection — e.g. `Default Car`, `Front Car`, `Rear Car`. In the
+separate collection (e.g. `Default Car`, `Front Car`, `Rear Car`). In the
 Outliner, select a variant's objects and press **M** to move them into a new
 collection.
 
@@ -277,13 +277,13 @@ just **move a collection aside** in the viewport (select its objects, grab, and
 translate). Then record that *same translation* in the car type's **Collection
 Offset** field.
 
-The offset is subtracted back out at export, so the car still renders centred —
+The offset is subtracted back out at export, so the car still renders centred;
 the field exists purely to let you spread the variants out in the viewport. Enter
 the exact X/Y/Z you moved the collection by (in Blender units). For example, if
 you shifted the Front Car collection `+5` along X to get it out of the way, set
 its Collection Offset to `(5, 0, 0)`.
 
-> Collection Offset only undoes a **rigid move** of the whole collection — the
+> Collection Offset only undoes a **rigid move** of the whole collection: the
 > translation you applied to slide it aside. Don't *rotate* or *scale* a
 > collection as a whole expecting the offset to cancel it; only the move is
 > compensated. Leave it at `(0, 0, 0)` (the default) when a collection is already

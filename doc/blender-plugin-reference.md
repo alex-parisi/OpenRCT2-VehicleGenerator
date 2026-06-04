@@ -5,7 +5,7 @@ add-on exposes: what each setting does, its valid values and default, how it map
 into the exported `object.json` / sprites, and the gotchas worth knowing.
 
 For a guided walkthrough that builds a working vehicle start-to-finish, read the
-[tutorial](blender-plugin-tutorial.md) instead — this document is the lever-by-lever
+[tutorial](blender-plugin-tutorial.md) instead. This document is the lever-by-lever
 manual you reach for once you know the workflow.
 
 ## Where the UI lives
@@ -20,25 +20,25 @@ panels:
 | **Selected Object** → *Vehicle* | The active object's role + its materials | `VG_PT_object_view3d` |
 
 The ride-wide panel writes to `scene.vg_ride`; the per-object panel writes to
-`object.vg_object` and `material.vg_material`. Nothing is stored in YAML — the
+`object.vg_object` and `material.vg_material`. Nothing is stored in YAML; the
 whole vehicle lives in the `.blend` file as native Blender properties.
 
 The two action buttons at the bottom of the **OpenRCT2 Vehicle** panel drive the
 pipeline:
 
-- **Test Render** (`vg.test_render`) — renders a *single* viewpoint quickly and
+- **Test Render** (`vg.test_render`): renders a *single* viewpoint quickly and
   loads it into an open Image Editor. Use it to iterate on geometry, materials,
   and lighting without paying for all 4 600+ sprites. It reports an error in the
   Blender header if the scene is invalid (e.g. no Body object, a bad rider
-  pairing) — the same validation the full export runs.
-- **Export .parkobj** (`vg.export_parkobj`) — renders *every* sprite group you
+  pairing), the same validation the full export runs.
+- **Export .parkobj** (`vg.export_parkobj`): renders *every* sprite group you
   selected and writes a complete `.parkobj`. It opens a file selector
   (pre-filled from the Object ID), then renders on a background thread with a
   spinner in the status bar. On failure the full traceback is printed to the
   system console and the header shows a short error.
 
 > The exported `.parkobj` goes in your OpenRCT2 `object/` folder. **Restart
-> OpenRCT2** after installing — it does not hot-reload the object directory.
+> OpenRCT2** after installing. It does not hot-reload the object directory.
 
 ---
 
@@ -48,23 +48,23 @@ pipeline:
 
 | Field | Property | Default | Notes |
 |---|---|---|---|
-| **Object ID** | `id` | `openrct2vg.ride.my_vehicle` | The object's unique id. **Use your own namespace** (`openrct2vg.ride.*` or `<author>.ride.*`). Matching a vanilla id (e.g. `rct2.ride.wooden_rc_trains`) does **not** cleanly override it — the engine keeps both and you can't tell them apart in the dropdown. |
+| **Object ID** | `id` | `openrct2vg.ride.my_vehicle` | The object's unique id. **Use your own namespace** (`openrct2vg.ride.*` or `<author>.ride.*`). Matching a vanilla id (e.g. `rct2.ride.wooden_rc_trains`) does **not** cleanly override it; the engine keeps both and you can't tell them apart in the dropdown. |
 | **Original ID** | `original_id` | *(blank)* | The vanilla object this one derives from / overrides. Optional; leave blank for a standalone object. |
 | **Name** | `name` | `My Vehicle` | Display name in the build menu. |
 | **Description** | `description` | *(blank)* | Free-text description. |
-| **Capacity** | `capacity` | `2 people per car` | Human-readable capacity string shown in-game. This is descriptive text only — the *actual* seat count is derived from how many Rider objects you place (see [Riders](#role-rider-seat)). |
+| **Capacity** | `capacity` | `2 people per car` | Human-readable capacity string shown in-game. This is descriptive text only; the *actual* seat count is derived from how many Rider objects you place (see [Riders](#role-rider-seat)). |
 | **Authors** | `authors` | *(blank)* | Comma-separated list. Split on commas at export; whitespace trimmed. |
 | **Version** | `version` | `1.0` | Object version string. |
-| **Ride Type** | `ride_type` | *(first in list)* | Which OpenRCT2 ride/track type this vehicle is for. The list is read from the add-on's bundled `track_types.json`. This determines the built-in track sprites the engine pairs with your vehicle (your `.parkobj` ships only the vehicle sprites). **Pick the track type you're actually targeting** — it governs the sprite groups that make sense and the cars-per-train limits. |
+| **Ride Type** | `ride_type` | *(first in list)* | Which OpenRCT2 ride/track type this vehicle is for. The list is read from the add-on's bundled `track_types.json`. This determines the built-in track sprites the engine pairs with your vehicle (your `.parkobj` ships only the vehicle sprites). **Pick the track type you're actually targeting**: it governs the sprite groups that make sense and the cars-per-train limits. |
 | **Scale** | `scale_preset` | `Realistic` | How many OBJ units map to one OpenRCT2 tile. See below. |
 | **Units / Tile** | `units_per_tile` | `TILE_SIZE` | Only shown when **Scale** is *Custom*. The raw units-per-tile value. |
 
 **Scale** options:
 
-- **Realistic (`TILE_SIZE` m/tile)** — model in real-world metres; one tile is
+- **Realistic (`TILE_SIZE` m/tile)**: model in real-world metres; one tile is
   `TILE_SIZE` metres across. Matches RCT2's real-world scale.
-- **1 unit = 1 tile** — model in tiles; one OBJ unit spans a whole tile.
-- **Custom** — reveals the **Units / Tile** field so you can type an arbitrary
+- **1 unit = 1 tile**: model in tiles; one OBJ unit spans a whole tile.
+- **Custom**: reveals the **Units / Tile** field so you can type an arbitrary
   value.
 
 Scale drives sprite size and the model→game conversions for car spacing and
@@ -79,7 +79,7 @@ number directly.
 | **All Sprite Groups** | `sprites_all` | **on** | Render every sprite group. Safe default; produces the largest output (a full coaster is ~4 640 vehicle sprites + 3 preview entries). |
 
 When **All Sprite Groups** is **off**, a 2-column grid of per-group checkboxes
-appears — one per entry in `SPRITE_GROUP_NAMES`. Tick only the groups your track
+appears, one per entry in `SPRITE_GROUP_NAMES`. Tick only the groups your track
 type uses to shrink the output. The 16 groups:
 
 `flat`, `gentle_slopes`, `steep_slopes`, `vertical_slopes`, `diagonals`,
@@ -92,7 +92,7 @@ If you turn off *All Sprite Groups* and tick **nothing**, the exporter falls
 back to rendering just `flat` (the default-on group) so you always get a valid
 object. Some groups imply others at load time (e.g. `dive_loops` pulls in
 `zero_g_rolls`, banking pulls in `diagonal_bank_transition`), so the rendered set
-may be a superset of exactly what you ticked — that's expected.
+may be a superset of exactly what you ticked (that's expected).
 
 > Rendering fewer groups is purely an output-size / render-time optimization. If
 > you're unsure which groups a track type needs, leave *All Sprite Groups* on.
@@ -103,7 +103,7 @@ may be a superset of exactly what you ticked — that's expected.
 |---|---|---|---|
 | **Min Cars / Train** | `min_cars` | `1` | Fewest cars a train of this vehicle can have (≥ 1). |
 | **Max Cars / Train** | `max_cars` | `8` | Most cars a train can have (≥ 1). |
-| **Zero Cars** | `zero_cars` | `0` | Cars at the **front** of the train that carry no riders — engines, decorative locomotives, leading dummy cars. They're still rendered, but the engine won't seat peeps in them. Leave at `0` for a train where every car holds riders. |
+| **Zero Cars** | `zero_cars` | `0` | Cars at the **front** of the train that carry no riders (engines, decorative locomotives, leading dummy cars). They're still rendered, but the engine won't seat peeps in them. Leave at `0` for a train where every car holds riders. |
 | **Build Menu Priority** | `build_menu_priority` | `0` | Ordering weight in the vehicle build menu (≥ 0). Hard to derive from scratch; copy the value from a vanilla vehicle of the same track type. |
 | **Running Sound** | `running_sound` | *(first in list)* | The friction/rolling sound. Options: `wooden_old`, `wooden`, `steel`, `steel_smooth`, `train`, `engine`. |
 | **Secondary Sound** | `secondary_sound` | *(first in list)* | The secondary effect sound. Options: `scream1`, `scream2`, `scream3`, `bell`. |
@@ -145,14 +145,14 @@ If you define no presets, the export uses a single default of
 
 > Walkthrough: [Tutorial → Multiple Car Types](blender-plugin-tutorial.md#multiple-car-types).
 
-A train can mix several *car-type variants* — a distinct **Front** (head/engine)
+A train can mix several *car-type variants*: a distinct **Front** (head/engine)
 car, a **Rear** (tail) car, and the **Default** car used in between. Each variant
 becomes one `vehicles[]` entry, and OpenRCT2 picks which to draw at each train
 position.
 
 **With no car types defined, the whole scene is exported as a single default
-car** using built-in defaults — this is the common case and all most vehicles
-need. The panel shows an info line to that effect. Add car types only when you
+car** using built-in defaults. This is the common case, and all that most
+vehicles need. The panel shows an info line to that effect. Add car types only when you
 need per-position variants.
 
 Use **+** / **−** to add/remove entries. Each car type has its own settings,
@@ -170,18 +170,18 @@ shown below the list when selected:
 | **Draw Order** | `draw_order` | `1` | Sprite draw-order/layering hint (≥ 0). Copy from a vanilla vehicle if unsure. |
 | **Effect Visual** | `effect_visual` | `1` | Effect-visual id (≥ 0). Copy from a vanilla vehicle if unsure. |
 
-**Slot** options (slots are **unique** — assigning one already held by another
+**Slot** options (slots are **unique**: assigning one already held by another
 car type clears it from that other car type):
 
-- **(none)** — don't include this car type in the output.
-- **Default** — the standard car for the middle of the train. **You need at
+- **(none)**: don't include this car type in the output.
+- **Default**: the standard car for the middle of the train. **You need at
   least one car type in the Default slot.** (The first car type you add is set to
   Default automatically.)
-- **Front (head car)** — used for the lead car. Optional.
-- **Rear (tail car)** — used for the last car. Optional.
+- **Front (head car)**: used for the lead car. Optional.
+- **Rear (tail car)**: used for the last car. Optional.
 
 > *Second* and *Third* slots exist in the underlying enum but are intentionally
-> hidden — the loader parses them but the exporter doesn't emit them yet.
+> hidden: the loader parses them but the exporter doesn't emit them yet.
 
 **Vehicle Flags** (one checkbox each, all default **off**):
 
@@ -191,7 +191,7 @@ car type clears it from that other car type):
 | **Tertiary Remap** | `vf_tertiary_remap` | This car uses the tertiary remap colour. |
 | **Riders Scream** | `vf_riders_scream` | Riders make scream sounds on this car. |
 
-> The fourth vehicle flag, *Restraint Animation*, is **not** shown — the add-on
+> The fourth vehicle flag, *Restraint Animation*, is **not** shown. The add-on
 > sets it automatically whenever the car contains a Restraint object.
 
 #### Collection Offset, in detail
@@ -200,12 +200,12 @@ If you stage several collections in one scene, their geometry piles up at the
 origin. To author them comfortably, **move a collection aside** in the viewport
 (select its objects, grab, translate), then record that *same* translation in the
 car type's **Collection Offset**. At export the offset is subtracted from every
-model position, so the car still renders centred — the field exists purely to let
+model position, so the car still renders centred; the field exists purely to let
 you spread variants out in the viewport.
 
 It is a **rigid-translation undo only**. It is authored in Blender world space
 and rotated into OBJ space internally. Rotating or scaling a collection as a whole
-is **not** compensated — only a bulk move is. Leave it at `(0, 0, 0)` (the
+is **not** compensated; only a bulk move is. Leave it at `(0, 0, 0)` (the
 default, a no-op) for collections already modelled at the origin.
 
 ### Custom Lighting
@@ -226,7 +226,7 @@ Each light:
 
 Use **+** / **−** to add/remove lights. Custom lighting is all-or-nothing: as
 soon as you add a single light, the defaults are gone and only your lights are
-used — so a custom rig usually needs several lights to avoid a flat, dark render.
+used, so a custom rig usually needs several lights to avoid a flat, dark render.
 For reference, the default rig is a mix of eight diffuse lights and one specular
 light at varying directions and strengths.
 
@@ -251,17 +251,17 @@ and (folded in below) the OpenRCT2 settings for each of its materials.
 
 Options:
 
-- **Ignore** — not part of the vehicle. The object is skipped entirely (no
+- **Ignore**: not part of the vehicle. The object is skipped entirely (no
   material controls are shown).
-- **Body** — a static part of the car (chassis, seats, panels). Placed at its
+- **Body**: a static part of the car (chassis, seats, panels). Placed at its
   world position with no animation.
-- **Restraint** — a lap bar / restraint that animates. Exposes the animation
+- **Restraint**: a lap bar / restraint that animates. Exposes the animation
   fields below.
-- **Rider seat** — a peep mesh. Exposes the **Rider Number** field below.
+- **Rider seat**: a peep mesh. Exposes the **Rider Number** field below.
 
 > Tip: assign one object's role, then right-click the **Role** field →
-> *Copy to Selected* to apply it to every selected object at once — handy for a
-> multi-mesh body import.
+> *Copy to Selected* to apply it to every selected object at once (handy for a
+> multi-mesh body import).
 
 ### Role: Rider seat
 
@@ -277,17 +277,17 @@ unpaired peep becomes a 1-peep row (single-seat cars). The object name is a stab
 tiebreaker when two peeps share a number.
 
 > **Riders are rows, not individuals at the engine level.** For a 2-across ×
-> 2-rows (4-seat) car, place 4 peep meshes numbered 0/1/2/3 — that produces 2 rows
+> 2-rows (4-seat) car, place 4 peep meshes numbered 0/1/2/3, which produces 2 rows
 > of 2. The total seat count (`numSeats`) is *derived* from the number of peep
 > meshes; there is no separate capacity field on the geometry.
 
 **Remap auto-assignment:** you do **not** pick Remap1-vs-Remap2 per seat. The
-exporter assigns them from each peep's position in its row — the **left** peep
+exporter assigns them from each peep's position in its row: the **left** peep
 (lower Rider Number in the pair) gets **Remap 1**, the **right** peep gets
 **Remap 2**. This only rewrites materials you already marked remappable (skin,
 hair, shoes are untouched), so marking one generic remappable shirt material on
 every peep is enough. A material explicitly set to **Remap 3** is preserved and
-never overwritten by this auto-assignment — use it for an accent that should
+never overwritten by this auto-assignment. Use it for an accent that should
 follow the ride's tertiary colour.
 
 ### Role: Restraint
@@ -302,11 +302,11 @@ follow the ride's tertiary colour.
 
 OpenRCT2 restraints animate over **4 frames**. There are two ways to drive them:
 
-1. **Restraint Swing (simple path)** — the add-on linearly interpolates the bar
+1. **Restraint Swing (simple path)**: the add-on linearly interpolates the bar
    from 0° to your value across the 4 frames, swinging around the object's
    **origin**. Good enough for a classic lap bar. Used whenever the restraint
    object has **no** keyframes.
-2. **Keyframes (expressive path)** — if the restraint object has *any* keyframes
+2. **Keyframes (expressive path)**: if the restraint object has *any* keyframes
    (rotation, translation, or both), the add-on samples its world transform at 4
    evenly-spaced scene frames between **Anim Start Frame** and **Anim End Frame**
    and **ignores the Swing value**. This lets you use Blender's graph editor for
@@ -314,13 +314,13 @@ OpenRCT2 restraints animate over **4 frames**. There are two ways to drive them:
    and to scrub the timeline to preview the motion before rendering.
 
 > **Set the object's ORIGIN to the hinge.** The restraint pivots about its
-> origin, so model the pivot at the bar's hinge edge — not its centre — or it
+> origin, so model the pivot at the bar's hinge edge (not its centre), or it
 > tears through the body when it swings. The rest pose is taken at **Anim Start
 > Frame**: whatever orientation the restraint has there becomes frame 0, lined up
 > with orientation `[0, 0, 0]`.
 
 The *Restraint Animation* vehicle flag is set automatically when a Restraint
-object is present — you don't set it yourself.
+object is present; you don't set it yourself.
 
 ### Materials
 
@@ -339,35 +339,35 @@ active material's `vg_material`.
 | **Edge AA** | `edge` | **off** | Apply background edge anti-aliasing on this material's silhouette. |
 | **Dark Edge AA** | `dark_edge` | **off** | Background edge AA using the dark variant. |
 | **No Bleed** | `no_bleed` | **off** | Disable colour bleed for this material. |
-| **Texture** | `texture` | *(none)* | Optional image texture. **Must be saved to disk** — its file is read at export. Wins over a Base-Color-linked image node if both are present. |
+| **Texture** | `texture` | *(none)* | Optional image texture. **Must be saved to disk**: its file is read at export. Wins over a Base-Color-linked image node if both are present. |
 
 **Region** options:
 
-- **None** — plain shaded colour; not recoloured in-game.
-- **Remap 1 (main colour)** — recoloured by the ride's main colour.
-- **Remap 2 (secondary)** — recoloured by the secondary colour.
-- **Remap 3 (tertiary)** — recoloured by the tertiary colour.
-- **Greyscale** — greyscale shading region.
-- **Peep** — rider/peep region.
+- **None**: plain shaded colour; not recoloured in-game.
+- **Remap 1 (main colour)**: recoloured by the ride's main colour.
+- **Remap 2 (secondary)**: recoloured by the secondary colour.
+- **Remap 3 (tertiary)**: recoloured by the tertiary colour.
+- **Greyscale**: greyscale shading region.
+- **Peep**: rider/peep region.
 
 For a remappable material the diffuse colour is *replaced* by the player's chosen
 colour in-game, but it still drives the greyscale shading, so a **mid-grey** reads
 best as the authored colour. Material region can also be driven by **material
-name** in authored `.mtl` files (`_Remap1_`, `_Remap2_`, `_Remap3_` substrings) —
+name** in authored `.mtl` files (`_Remap1_`, `_Remap2_`, `_Remap3_` substrings);
 the panel is the equivalent for scene-authored materials.
 
 #### Shading
 
 > Walkthrough: [Tutorial → Material Appearance: Color & Shininess](blender-plugin-tutorial.md#material-appearance-color--shininess).
 
-These map straight onto the renderer's Phong material — what you set is what you
+These map straight onto the renderer's Phong material: what you set is what you
 get. There is no metallic/roughness here; the renderer is pure Phong.
 
 | Field | Property | Default | Notes |
 |---|---|---|---|
 | **Override Color** | `use_color_override` | **off** | Use the **Color** below instead of the shader's Base Color. |
 | **Color** | `diffuse_color` | `(0.8, 0.8, 0.8)` | Flat diffuse colour, used only when **Override Color** is on. Enabled only then. |
-| **Specular Exponent** | `specular_exponent` | `50.0` | Phong exponent — *tightness* of the highlight. Low = broad, soft sheen; high = tight, glossy hotspot (≥ 1). |
+| **Specular Exponent** | `specular_exponent` | `50.0` | Phong exponent: the *tightness* of the highlight. Low = broad, soft sheen; high = tight, glossy hotspot (≥ 1). |
 | **Specular Intensity** | `specular_intensity` | `0.5` | *Brightness* of the highlight; scales the specular colour (≥ 0). `0` = fully matte (wood, fabric); raise for plastic/metal/glass. |
 | **Tint Highlight** | `use_specular_tint` | **off** | Tint the highlight with **Specular Tint** instead of white. |
 | **Specular Tint** | `specular_tint` | `(1, 1, 1)` | Highlight colour, used only when **Tint Highlight** is on. Enabled only then. E.g. a warm tint for brass/gold. |

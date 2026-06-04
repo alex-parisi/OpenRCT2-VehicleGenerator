@@ -2,11 +2,11 @@
 
 These mirror the config the core `build_ride` consumes (see scene_to_ride.py),
 but expressed as native Blender properties so the whole vehicle is authored in
-the UI — no YAML. Enum item lists are sourced from the installed
+the UI, not YAML. Enum item lists are sourced from the installed
 `openrct2_vehicle_generator` package so they can never drift from what the
 loader validates against.
 
-NOTE: do not add ``from __future__ import annotations`` here — PEP 563 turns
+NOTE: do not add ``from __future__ import annotations`` here; PEP 563 turns
 the ``prop: SomeProperty(...)`` definitions into strings, which breaks Blender's
 property registration.
 """
@@ -65,7 +65,7 @@ def _ride_type_items(_self, _context):
     """Ride-type identifiers, read from the add-on's bundled track_types.json.
 
     Cached on the function object so Blender's repeated enum callbacks don't
-    re-read the file (and so the returned tuples aren't garbage-collected —
+    re-read the file (and so the returned tuples aren't garbage-collected,
     a known EnumProperty-callback pitfall).
     """
     cached = getattr(_ride_type_items, "_cache", None)
@@ -232,7 +232,7 @@ class VGObjectSettings(PropertyGroup):
         description=(
             "Total degrees the restraint swings across its 4 animation frames. "
             "Set the object's ORIGIN to the hinge so it pivots correctly. "
-            "Ignored if the object has keyframes — the keyframed transform is "
+            "Ignored if the object has keyframes; the keyframed transform is "
             "sampled instead."
         ),
         default=90.0,

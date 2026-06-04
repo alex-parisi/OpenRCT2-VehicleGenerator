@@ -1,6 +1,6 @@
 """Blender operators: fast test render and the threaded .parkobj export.
 
-NOTE: no ``from __future__ import annotations`` — the operators declare bpy
+NOTE: no ``from __future__ import annotations``; the operators declare bpy
 properties (``filepath``/``filter_glob``) as annotations, and PEP 563 would
 stringify them and break registration.
 """
