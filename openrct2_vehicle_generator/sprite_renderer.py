@@ -6,6 +6,8 @@ https://github.com/X123M3-256/RCTGen
 
 import logging
 import math
+import os
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 import numpy as np
@@ -15,6 +17,26 @@ from openrct2_x7_renderer.types import IndexedImage
 from .constants import SpriteFlag, VehicleFlag
 
 log = logging.getLogger(__name__)
+
+
+def _render_workers() -> int:
+    """Thread count for parallel sprite rendering.
+
+    The native renderer already parallelizes each `render_view` across pixels,
+    but small vehicle sprites don't fill every core; issuing several
+    `render_view` calls concurrently against the same finalized scene overlaps
+    those tails. Each call releases the GIL and only reads the shared scene, so
+    this is safe and the output is byte-identical to serial rendering. Speedup
+    plateaus around 8 workers, so cap there to avoid oversubscribing the native
+    threads. Set OPENRCT2VG_RENDER_THREADS=1 to force serial rendering.
+    """
+    env = os.environ.get("OPENRCT2VG_RENDER_THREADS")
+    if env is not None:
+        try:
+            return max(1, int(env))
+        except ValueError:
+            pass
+    return min(8, os.cpu_count() or 1)
 
 _TILE_SLOPE = 1.0 / math.sqrt(6.0)
 
@@ -348,40 +370,53 @@ def count_sprites(sprite_flags: int, vehicle_flags: int) -> int:
     return n
 
 
-def _render_rotation(context: Context, rot: _Rot) -> list[IndexedImage]:
+def _rotation_views(rot: _Rot) -> list[np.ndarray]:
     """
-    Render `rot.num_frames` yaw-stepped variants of a (pitch, roll, yaw)
-    orientation.
+    The `rot.num_frames` yaw-stepped view matrices for a (pitch, roll, yaw)
+    orientation, in sprite-index order.
     """
     # Mirror the float round-trip in renderRotation().
     pitch = float(np.float32(rot.pitch))
     roll = float(np.float32(rot.roll))
     yaw_base = float(np.float32(rot.yaw))
-    out: list[IndexedImage] = []
+    out: list[np.ndarray] = []
     for i in range(rot.num_frames):
         yaw = yaw_base + (2.0 * i * math.pi) / rot.num_frames
-        view = rotate_y(yaw) @ rotate_z(pitch) @ rotate_x(roll)
-        out.append(render_view(context, view))
+        out.append(rotate_y(yaw) @ rotate_z(pitch) @ rotate_x(roll))
     return out
 
 
-def _render_group(context: Context, rots: list[_Rot]) -> list[IndexedImage]:
-    out: list[IndexedImage] = []
-    for r in rots:
-        out.extend(_render_rotation(context, r))
-    return out
+def _frame_views(sprite_flags: int, frame: int) -> list[np.ndarray]:
+    """Every view matrix for this vehicle frame, in sprite-index order."""
+    if frame > 0:
+        log.info("Rendering restraint animation frame %d", frame)
+        return _rotation_views(_Rot(_RESTRAINT_PER_FRAME, 0, 0, 0))
+
+    views: list[np.ndarray] = []
+    for msg, rots in _base_render_plan(sprite_flags):
+        log.info(msg)
+        for r in rots:
+            views.extend(_rotation_views(r))
+    return views
+
+
+def _render_views(context: Context, views: list[np.ndarray]) -> list[IndexedImage]:
+    """Render `views` against the finalized scene, in order.
+
+    Each `render_view` is independent and only reads the shared scene, so they
+    are issued concurrently to overlap the native renderer's per-image tails
+    (see `_render_workers`). `ThreadPoolExecutor.map` preserves input order, so
+    sprite indices are unchanged.
+    """
+    workers = min(_render_workers(), len(views))
+    if workers <= 1:
+        return [render_view(context, v) for v in views]
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        return list(pool.map(lambda v: render_view(context, v), views))
 
 
 def render_vehicle_frame(context: Context, sprite_flags: int, frame: int) -> list[IndexedImage]:
     """
     Render every sprite for this vehicle frame.
     """
-    if frame > 0:
-        log.info("Rendering restraint animation frame %d", frame)
-        return _render_rotation(context, _Rot(_RESTRAINT_PER_FRAME, 0, 0, 0))
-
-    out: list[IndexedImage] = []
-    for msg, rots in _base_render_plan(sprite_flags):
-        log.info(msg)
-        out.extend(_render_group(context, rots))
-    return out
+    return _render_views(context, _frame_views(sprite_flags, frame))
