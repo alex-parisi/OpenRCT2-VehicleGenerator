@@ -195,6 +195,47 @@ def _geometry_objects(scene) -> list:
     ]
 
 
+# Modifiers that animate an object's *vertices* (not just its transform) over
+# the timeline. An object carrying one of these -- or animated shape keys --
+# must have its mesh re-extracted per pose to capture the deformation.
+_DEFORM_MODIFIERS = {
+    "ARMATURE",
+    "MESH_DEFORM",
+    "LATTICE",
+    "HOOK",
+    "CLOTH",
+    "SOFT_BODY",
+    "SURFACE_DEFORM",
+    "CORRECTIVE_SMOOTH",
+    "SIMPLE_DEFORM",
+    "CAST",
+    "CURVE",
+    "WARP",
+    "WAVE",
+}
+
+
+def _has_deforming_modifier(obj) -> bool:
+    """True if `obj`'s geometry (not merely its transform) changes across the
+    timeline: it has a deform modifier (armature being the common case) or
+    animated shape keys."""
+    if any(m.type in _DEFORM_MODIFIERS for m in obj.modifiers):
+        return True
+    sk = getattr(obj.data, "shape_keys", None)
+    return bool(sk and sk.animation_data)
+
+
+def _make_deform_predicate(mode: str):
+    """Return `obj -> bool` selecting per-pose mesh re-extraction. `mode` is the
+    scene's `animation_deform`: ALWAYS bakes every object, NEVER bakes none, AUTO
+    bakes only objects with deforming modifiers / animated shape keys."""
+    if mode == "ALWAYS":
+        return lambda obj: True
+    if mode == "NEVER":
+        return lambda obj: False
+    return _has_deforming_modifier
+
+
 def _frame_offsets(cycle: int, loop: str) -> tuple[list[int], int]:
     """Build the engine's `frameOffsets` table and the number of distinct poses
     to sample. The table length equals `cycle` (a power of two) so the engine's
@@ -210,16 +251,28 @@ def _frame_offsets(cycle: int, loop: str) -> tuple[list[int], int]:
     return list(range(cycle)), cycle
 
 
-def _sample_animation_poses(geo_objs, scene, num_poses: int, f_start: int, f_end: int):
-    """Sample every geometry object's transform across `num_poses` evenly-spaced
-    scene frames. Returns ``(meshes, poses)`` where each pose is a list of model
-    entries (one per kept object) carrying that frame's position and the
-    rotation delta from the rest (first-sampled) frame.
+def _sample_animation_poses(
+    geo_objs, scene, num_poses: int, f_start: int, f_end: int, deforms=None
+):
+    """Sample every geometry object across `num_poses` evenly-spaced scene
+    frames. Returns ``(meshes, poses)`` where each pose is a list of model
+    entries (one per kept object, same order every pose) and `meshes` is the
+    shared pool the entries' `mesh_index` references.
 
-    Mirrors the vehicle add-on's restraint sampler: the mesh is extracted once
-    at the rest frame (baking the rest world rotation), so pose 0 emits
-    orientation ``[0, 0, 0]`` and later poses are deltas mapped into the
-    renderer's OBJ-space YZX convention. `scene.frame_current` is restored."""
+    Two per-object sampling modes, chosen by `deforms(obj)` (default: none):
+
+    - **Rigid** (mirrors the vehicle add-on's restraint sampler): the mesh is
+      extracted once at the rest frame (baking the rest world rotation), so
+      pose 0 emits orientation ``[0, 0, 0]`` and later poses carry the rigid
+      delta mapped into the renderer's OBJ-space YZX convention. One pool mesh.
+    - **Deforming**: the mesh is re-extracted at every pose (armature / shape
+      keys / deform modifiers baked into the vertices by `_extract_mesh`, which
+      also bakes that frame's world rotation+scale). The entry therefore carries
+      identity orientation and only the translation. One pool mesh per pose.
+
+    `scene.frame_current` is restored on exit."""
+    if deforms is None:
+        deforms = lambda obj: False  # noqa: E731
     if f_end <= f_start:
         f_start, f_end = scene.frame_start, scene.frame_end
     if num_poses <= 1 or f_end <= f_start:
@@ -232,24 +285,33 @@ def _sample_animation_poses(geo_objs, scene, num_poses: int, f_start: int, f_end
 
     orig_frame = scene.frame_current
     meshes: list[Mesh] = []
-    kept: list = []  # (obj, R_rest_inv) for objects that yielded geometry
-    poses: list[list[dict]] = []
+    poses: list[list[dict]] = [[] for _ in frames]
     try:
+        # Rest pass: classify each object and pre-extract its rest mesh. Rigid
+        # objects keep this mesh for every pose; deforming objects reuse it for
+        # pose 0 (same frame) and as the fallback if a later frame extracts empty.
         scene.frame_set(frames[0])
         dg = bpy.context.evaluated_depsgraph_get()
+        rigid: list = []  # (obj, mesh_index, R_rest_inv)
+        deforming: list = []  # (obj, rest_mesh_index)
         for obj in geo_objs:
             mesh = _extract_mesh(obj, dg)
             if mesh is None:
                 continue
             meshes.append(mesh)
-            r_rest_inv = obj.evaluated_get(dg).matrix_world.to_3x3().inverted_safe()
-            kept.append((obj, r_rest_inv))
+            idx = len(meshes) - 1
+            if deforms(obj):
+                deforming.append((obj, idx))
+            else:
+                r_rest_inv = obj.evaluated_get(dg).matrix_world.to_3x3().inverted_safe()
+                rigid.append((obj, idx, r_rest_inv))
 
-        for f in frames:
+        last_slot = {obj: rest_idx for obj, rest_idx in deforming}
+        for fi, f in enumerate(frames):
             scene.frame_set(f)
             dg = bpy.context.evaluated_depsgraph_get()
-            entries: list[dict] = []
-            for idx, (obj, r_rest_inv) in enumerate(kept):
+            entries = poses[fi]
+            for obj, idx, r_rest_inv in rigid:
                 m_f = obj.evaluated_get(dg).matrix_world
                 p = _BASIS @ m_f.to_translation()
                 r_rel = m_f.to_3x3() @ r_rest_inv
@@ -266,7 +328,24 @@ def _sample_animation_poses(geo_objs, scene, num_poses: int, f_start: int, f_end
                         float(math.degrees(e.x)),
                     ],
                 })
-            poses.append(entries)
+            for obj, rest_idx in deforming:
+                if fi == 0:
+                    slot = rest_idx  # rest mesh already in the pool
+                else:
+                    mesh = _extract_mesh(obj, dg)
+                    if mesh is None:
+                        slot = last_slot[obj]  # hold the last good geometry
+                    else:
+                        meshes.append(mesh)
+                        slot = len(meshes) - 1
+                        last_slot[obj] = slot
+                # _extract_mesh baked this frame's world rotation+scale (and the
+                # deformation) into the vertices; only the translation remains.
+                entries.append({
+                    "mesh_index": slot,
+                    "position": _object_position(obj),
+                    "orientation": [0.0, 0.0, 0.0],
+                })
     finally:
         scene.frame_set(orig_frame)
 
@@ -308,7 +387,12 @@ def build_config_and_meshes(context):
     if animated:
         offsets, num_poses = _frame_offsets(int(ss.animation_cycle), ss.animation_loop)
         meshes, poses = _sample_animation_poses(
-            geo_objs, scene, num_poses, int(ss.anim_start_frame), int(ss.anim_end_frame)
+            geo_objs,
+            scene,
+            num_poses,
+            int(ss.anim_start_frame),
+            int(ss.anim_end_frame),
+            _make_deform_predicate(ss.animation_deform),
         )
         animation = {
             "delay": int(ss.animation_delay),

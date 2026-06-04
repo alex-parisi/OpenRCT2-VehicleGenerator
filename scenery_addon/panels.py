@@ -72,10 +72,16 @@ class VGS_PT_scenery(Panel):
                 abox.prop(ss, "animation_cycle")
                 abox.prop(ss, "animation_loop")
                 abox.prop(ss, "animation_delay")
+                abox.prop(ss, "animation_deform")
                 row = abox.row(align=True)
                 row.prop(ss, "anim_start_frame")
                 row.prop(ss, "anim_end_frame")
                 abox.label(text="Keyframe the geometry over this range.", icon="INFO")
+                if ss.animation_deform != "NEVER":
+                    abox.label(
+                        text="Deforming objects: one mesh baked per pose.",
+                        icon="INFO",
+                    )
         elif ss.object_type == "scenery_wall":
             box = layout.box()
             box.label(text="Wall", icon="MOD_BUILD")

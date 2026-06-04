@@ -132,11 +132,28 @@ ANIMATION_CYCLE_ITEMS = [
     ("4", "4 frames", "Short loop"),
     ("8", "8 frames", "Medium loop"),
     ("16", "16 frames", "Long loop"),
+    ("32", "32 frames", "Long loop (128 sprites)"),
+    ("64", "64 frames", "Long loop (256 sprites)"),
+    ("128", "128 frames", "Very long loop (512 sprites)"),
+    ("256", "256 frames", "Very long loop (1024 sprites)"),
 ]
 
 ANIMATION_LOOP_ITEMS = [
     ("LOOP", "Loop", "Play poses 0..N-1 then jump back to 0"),
     ("PINGPONG", "Ping-Pong", "Play poses forward then back (smooth for swings)"),
+]
+
+# How each animated object's geometry is sampled. The cheap default treats an
+# object as a rigid body (one mesh + a per-pose transform), which can't capture
+# armature/shape-key deformation. "Bake" re-extracts the deformed mesh at every
+# pose -- needed for skinned/deforming objects, at the cost of one mesh per pose.
+ANIMATION_DEFORM_ITEMS = [
+    ("AUTO", "Auto", "Bake objects with an armature/deform modifier or animated "
+     "shape keys; keep others rigid"),
+    ("ALWAYS", "Bake all", "Re-extract every object's mesh each pose (use for "
+     "deformation Auto can't detect)"),
+    ("NEVER", "Rigid only", "Never re-extract; animate transforms only "
+     "(deformation is frozen at the rest pose)"),
 ]
 
 
@@ -347,6 +364,13 @@ class VGSScenerySettings(PropertyGroup):
         default=1,
     )
     anim_end_frame: IntProperty(name="End Frame", default=24)
+    animation_deform: EnumProperty(
+        name="Deformation",
+        description="How animated geometry is sampled (rigid transform vs. "
+        "re-extracting the deformed mesh per pose)",
+        items=ANIMATION_DEFORM_ITEMS,
+        default="AUTO",
+    )
 
     # --- Large scenery -----------------------------------------------------
     has_tertiary_colour: BoolProperty(name="Tertiary Colour", default=False)
