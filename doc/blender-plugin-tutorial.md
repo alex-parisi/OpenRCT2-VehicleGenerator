@@ -3,6 +3,9 @@
 After [installing the plugin](blender-plugin-installation.md), you can follow this tutorial 
 to generate a very basic vehicle for the Classic Wooden Roller Coaster from RCT1.
 
+> Looking for an exhaustive, lever-by-lever description of every UI control
+> rather than a walkthrough? See the [add-on reference](blender-plugin-reference.md).
+
 **NOTE**: This tutorial assumes you have the RCT1 assets installed in OpenRCT2. If you do 
 not, use another similar ride that you do have the assets for.
 
@@ -40,6 +43,8 @@ File --> Import --> Wavefront
 
 ### Assign "Body" Role to Car
 
+> Reference: [Selected Object → Role](blender-plugin-reference.md#role).
+
 After importing the object, all the meshes should be still be selected. In the 3D viewport, 
 press **N** to open the sidebar and click the **OpenRCT2** tab. The active object's settings 
 live in the **"Selected Object"** section there. Select the "Body" role.
@@ -58,6 +63,8 @@ car meshes have the "Body" role.
 All meshes associated with the vehicle car need to get assigned this role.
 
 ### Assign Color Remap Meshes
+
+> Reference: [Materials → Region & flags](blender-plugin-reference.md#region--flags).
 
 Material settings live in the **"Selected Object"** section of the OpenRCT2
 sidebar tab, the same place you set an object's role, so you don't have to
@@ -86,6 +93,8 @@ the same for "_Remap2_" and "_Remap3_".
 Feel free to change them how you like.
 
 ### Material Appearance: Color & Shininess
+
+> Reference: [Materials → Shading](blender-plugin-reference.md#shading).
 
 A material's look is controlled directly in the **OpenRCT2 Vehicle** section of
 the OpenRCT2 sidebar tab's "Selected Object" section, under **Shading**. These map straight onto the
@@ -116,6 +125,8 @@ For a matte wooden body: low Specular Intensity.
 - Remap materials assigned to respective meshes
 
 ## Riders
+
+> Reference: [Selected Object → Role: Rider seat](blender-plugin-reference.md#role-rider-seat).
 
 ### Import the Peep Object
 
@@ -169,6 +180,8 @@ to "Remap 3": Remap3 is preserved and never overwritten by the left/right auto-a
 
 ## Restraint
 
+> Reference: [Selected Object → Role: Restraint](blender-plugin-reference.md#role-restraint).
+
 ### Import the Restraint Object
 
 Just like `car.obj` and `peep.obj`, import `restraint.obj` into the Scene.
@@ -216,6 +229,8 @@ of the animation.
 
 ## Multiple Car Types
 
+> Reference: [OpenRCT2 Vehicle → Car Types](blender-plugin-reference.md#car-types).
+
 Everything so far builds **one** car from the whole scene, or the simplest case,
 and all most rides need. But a train can mix several *car-type variants*: a
 distinct **front** (head/engine) car, a **rear** (tail) car, and the **default**
@@ -254,6 +269,8 @@ In the **OpenRCT2 Vehicle** sidebar tab, find the **Car Types** panel. Use the
 
 ### Collection Offset: stage variants without overlap
 
+> Reference: [Car Types → Collection Offset, in detail](blender-plugin-reference.md#collection-offset-in-detail).
+
 If you build several collections in the same scene, their geometry will pile up
 on top of each other at the origin, which is awkward to author. To avoid that,
 just **move a collection aside** in the viewport (select its objects, grab, and
@@ -285,6 +302,8 @@ its Collection Offset to `(5, 0, 0)`.
 
 ### Settings
 
+> Reference: [Panel: OpenRCT2 Vehicle (ride-wide)](blender-plugin-reference.md#panel-openrct2-vehicle-ride-wide), and the [Train](blender-plugin-reference.md#train) section for the fields below.
+
 Now, press "N", and then select "OpenRCT2" on the right side.
 
 We'll be using most of the information in the [classic_wodden.yaml](../examples/wooden/classic_wooden.yaml)
@@ -305,6 +324,8 @@ won't seat any peeps in them. Leave it at `0` (the default) for a train where ev
 holds riders.
 
 ### Render Preview
+
+> Reference: [the Test Render / Export buttons](blender-plugin-reference.md#where-the-ui-lives).
 
 We're now ready to see how it would look in-game!
 

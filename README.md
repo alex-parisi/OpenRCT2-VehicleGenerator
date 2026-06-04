@@ -19,6 +19,7 @@ Heavily inspired by X7's [RCTGen](https://github.com/X123M3-256/RCTGen) project.
 1. Download the latest version of the Blender add-on [here](https://github.com/alex-parisi/OpenRCT2-VehicleGenerator/releases/latest)
 2. Install the add-on into Blender. If you are not sure how, follow [these instructions](doc/blender-plugin-installation.md)
 3. Follow the tutorial [here](doc/blender-plugin-tutorial.md)
+4. For a lever-by-lever reference of every UI setting, see the [add-on reference](doc/blender-plugin-reference.md)
 
 ## Material Triggers
 
