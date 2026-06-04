@@ -5,7 +5,7 @@ Load a scenery config (JSON or YAML) into a SmallScenery dataclass.
 from pathlib import Path
 from typing import Any
 
-from openrct2_iso_core.config import (
+from openrct2_x7_renderer.config import (
     LoadError,
     as_array_or_wrap,
     load_meshes,
@@ -19,8 +19,8 @@ from openrct2_iso_core.config import (
     read_vector3,
     require_string,
 )
-from openrct2_iso_core.constants import TILE_SIZE
-from openrct2_iso_core.types import IndexedImage, MeshFrame, Model
+from openrct2_x7_renderer.constants import TILE_SIZE
+from openrct2_x7_renderer.types import IndexedImage, MeshFrame, Model
 
 from .constants import (
     DEFAULT_CURSOR,

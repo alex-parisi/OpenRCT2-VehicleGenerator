@@ -1,23 +1,22 @@
 #!/usr/bin/env python3
 """Build the Blender extension fresh for THIS machine and its Blender.
 
-The CI release (.github/workflows/build-plugin.yml) cross-builds renderer wheels
-for every platform x CPython 3.11/3.13 and bundles them into one zip. That can't
-be reproduced locally -- you can only compile a wheel for the interpreter and OS
-you're running on. This script instead produces a single-platform zip you can
-install into your local Blender right now:
+The renderer is now an external PyPI package (``openrct2-x7-renderer``) shipping
+prebuilt, Embree-vendored wheels, so there's nothing to compile here. This script
+produces a single-platform zip you can install into your local Blender right now:
 
-  1. Compile the renderer wheel from x7_renderer/ against your Homebrew Embree.
-  2. Vendor Embree (+its TBB) into the wheel with delocate, so it's
-     self-contained and needs no system Embree at runtime.
-  3. Download numpy/pillow/pyyaml wheels matching your Blender's CPython.
-  4. Stage the add-on with a local-only manifest (just this platform + these 4
+  1. Build this repo's pure-Python front-end wheel (``openrct2_vehiclegenerator``,
+     ``py3-none-any``) with `uv build --wheel`.
+  2. Download the ``openrct2-x7-renderer`` wheel + numpy/pillow/pyyaml from PyPI
+     for your platform and your Blender's CPython.
+  3. Stage the add-on with a local-only manifest (just this platform + these
      wheels) and run `blender --command extension build`.
 
 The committed <addon>/wheels/ and blender_manifest.toml are never touched;
 everything is staged in a temp dir.
 
-macOS only (vendoring uses delocate). For a Linux/Windows release, use CI.
+macOS only for now (the platform/arch mapping below covers macOS). For a
+Linux/Windows release, use CI (.github/workflows/build-plugin.yml).
 
 Usage:
     uv run python scripts/build_plugin_local.py [--install] [--no-verify] [-o dist]
@@ -26,7 +25,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import os
 import platform
 import re
 import shutil
@@ -37,32 +35,23 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 ADDONS = {"vehicle": "vehicle_renderer_addon", "scenery": "scenery_addon"}
 
-RENDERER = "openrct2_vehiclegenerator"
+# External renderer: PyPI dist name, wheel-filename prefix, pinned version.
+RENDERER_DIST = "openrct2-x7-renderer"
+RENDERER_PREFIX = "openrct2_x7_renderer"
+RENDERER_VERSION = "0.1.0"
 DEPS = ("numpy", "pillow", "pyyaml")
 
 
-def run(cmd: list[str], *, env: dict | None = None, capture: bool = False) -> str:
+def run(cmd: list[str], *, capture: bool = False) -> str:
     """Run a command, echoing it; raise on failure. Return stdout if captured."""
     print("+", " ".join(cmd))
     res = subprocess.run(
         cmd,
-        env=env,
         check=True,
         text=True,
         stdout=subprocess.PIPE if capture else None,
     )
     return res.stdout if capture else ""
-
-
-def brew_prefix(formula: str | None = None) -> str:
-    cmd = ["brew", "--prefix"] + ([formula] if formula else [])
-    try:
-        return subprocess.run(cmd, check=True, text=True, capture_output=True).stdout.strip()
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        raise SystemExit(
-            f"Could not find {'Homebrew' if not formula else formula} via `brew`. "
-            "Install Embree first: brew install embree"
-        ) from None
 
 
 def blender_python_tag() -> tuple[str, str]:
@@ -87,7 +76,7 @@ def local_target() -> tuple[str, list[str]]:
     """Return (manifest_platform, pip_platform_tags) for the current macOS arch."""
     if platform.system() != "Darwin":
         raise SystemExit(
-            "This script builds for macOS only (vendoring uses delocate).\n"
+            "This script builds for macOS only.\n"
             "For a Linux/Windows release build, run the CI workflow "
             "(.github/workflows/build-plugin.yml)."
         )
@@ -110,7 +99,7 @@ def local_target() -> tuple[str, list[str]]:
 
 
 def dep_specs() -> list[str]:
-    """Pin deps to the versions in the build env, so they match what we compiled against."""
+    """Pin deps to the versions resolved in the build env."""
     out = run(
         [
             "uv",
@@ -126,45 +115,23 @@ def dep_specs() -> list[str]:
 
 
 def one_renderer_wheel(d: Path) -> Path:
-    wheels = list(d.glob(f"{RENDERER}-*.whl"))
+    wheels = list(d.glob(f"{RENDERER_PREFIX}-*.whl"))
     if len(wheels) != 1:
         raise SystemExit(f"Expected one renderer wheel in {d}, found {wheels}")
     return wheels[0]
 
 
-def build_renderer_wheel(out_dir: Path) -> Path:
-    """Compile the renderer wheel against Homebrew Embree; return its path."""
-    env = os.environ.copy()
-    # find_package(embree) + its TBB dependency resolve from the Homebrew prefix.
-    env["CMAKE_PREFIX_PATH"] = os.pathsep.join(
-        p for p in [brew_prefix(), env.get("CMAKE_PREFIX_PATH", "")] if p
-    )
-    env["MACOSX_DEPLOYMENT_TARGET"] = "11.0"
-    run(["uv", "build", "--wheel", "--out-dir", str(out_dir)], env=env)
-    return one_renderer_wheel(out_dir)
+def build_frontend_wheel(out_dir: Path) -> Path:
+    """Build this repo's pure-Python front-end wheel (py3-none-any)."""
+    run(["uv", "build", "--wheel", "--out-dir", str(out_dir)])
+    wheels = list(out_dir.glob("openrct2_vehiclegenerator-*.whl"))
+    if len(wheels) != 1:
+        raise SystemExit(f"Expected one front-end wheel in {out_dir}, found {wheels}")
+    return wheels[0]
 
 
-def vendor_embree(out_dir: Path) -> Path:
-    """Copy Embree + TBB into the renderer wheel so it loads without Homebrew.
-
-    delocate retags the wheel to the macOS minimum of the libs it vendors (the
-    Homebrew build's, i.e. this host's) and renames the file, so re-glob for the
-    result rather than trusting the pre-delocate name.
-    """
-    wheel = one_renderer_wheel(out_dir)
-    env = os.environ.copy()
-    env["DYLD_FALLBACK_LIBRARY_PATH"] = os.pathsep.join(
-        [
-            f"{brew_prefix('embree')}/lib",
-            f"{brew_prefix('tbb')}/lib",
-            env.get("DYLD_FALLBACK_LIBRARY_PATH", ""),
-        ]
-    )
-    run(["uv", "run", "--with", "delocate", "delocate-wheel", "-v", str(wheel)], env=env)
-    return one_renderer_wheel(out_dir)
-
-
-def download_deps(out_dir: Path, py_version: str, abi: str, pip_platforms: list[str]) -> None:
+def download_pkgs(out_dir: Path, py_version: str, abi: str, pip_platforms: list[str]) -> None:
+    """Download the renderer wheel + deps from PyPI for the target platform/Python."""
     cmd = [
         "uv",
         "run",
@@ -187,6 +154,7 @@ def download_deps(out_dir: Path, py_version: str, abi: str, pip_platforms: list[
     ]
     for tag in pip_platforms:
         cmd += ["--platform", tag]
+    cmd += [f"{RENDERER_DIST}=={RENDERER_VERSION}"]
     cmd += dep_specs()
     run(cmd)
 
@@ -218,7 +186,7 @@ def stage_addon(stage: Path, wheels_src: Path, manifest_platform: str, addon_dir
 
 
 def verify_wheel(wheel: Path) -> None:
-    """Import the vendored wheel in a clean env -- catches an unvendored Embree."""
+    """Import the renderer wheel in a clean env -- catches an unvendored Embree."""
     run(
         [
             "uv",
@@ -227,7 +195,7 @@ def verify_wheel(wheel: Path) -> None:
             str(wheel),
             "python",
             "-c",
-            "import openrct2_iso_core._x7_renderer as n;"
+            "import openrct2_x7_renderer._x7_renderer as n;"
             "print('embree ok:', n.LIGHT_DIFFUSE)",
         ]
     )
@@ -269,11 +237,10 @@ def main() -> None:
         stage = tmp / "addon"
         stage.mkdir()
 
-        build_renderer_wheel(wheels)
-        renderer = vendor_embree(wheels)
+        build_frontend_wheel(wheels)
+        download_pkgs(wheels, py_version, abi, pip_platforms)
         if not args.no_verify:
-            verify_wheel(renderer)
-        download_deps(wheels, py_version, abi, pip_platforms)
+            verify_wheel(one_renderer_wheel(wheels))
         stage_addon(stage, wheels, manifest_platform, addon_dir)
 
         run(

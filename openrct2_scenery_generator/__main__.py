@@ -10,8 +10,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Protocol
 
-from openrct2_iso_core.cli import make_context, output_directory_of, run_cli
-from openrct2_iso_core.types import Light
+from openrct2_x7_renderer.cli import make_context, output_directory_of, run_cli
+from openrct2_x7_renderer.types import Light
 
 from .exporter import (
     export_large_scenery,

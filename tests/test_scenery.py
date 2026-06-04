@@ -3,7 +3,6 @@ object.json shape. The native renderer is stubbed so this runs without Embree.""
 
 import numpy as np
 import pytest
-from openrct2_iso_core.types import IndexedImage
 from openrct2_scenery_generator import sprite_renderer
 from openrct2_scenery_generator.exporter import build_small_scenery_json
 from openrct2_scenery_generator.loader import LoadError, build_small_scenery
@@ -11,6 +10,7 @@ from openrct2_scenery_generator.sprite_renderer import (
     count_small_scenery_sprites,
     render_small_scenery,
 )
+from openrct2_x7_renderer.types import IndexedImage
 
 
 @pytest.fixture
@@ -30,7 +30,7 @@ def test_count_matches_render(stub_render, rotatable, expected):
 
 def _make_scenery(tmp_path, **overrides):
     (tmp_path / "m.obj").write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n")
-    from openrct2_iso_core.mesh import load_mesh
+    from openrct2_x7_renderer.mesh import load_mesh
 
     config = {
         "id": "openrct2vg.scenery_small.test",
@@ -87,7 +87,7 @@ def _animation_block(poses):
 
 def _make_animated(tmp_path, poses=3, **overrides):
     (tmp_path / "m.obj").write_text("v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n")
-    from openrct2_iso_core.mesh import load_mesh
+    from openrct2_x7_renderer.mesh import load_mesh
 
     config = {
         "id": "openrct2vg.scenery_small.anim",
@@ -165,13 +165,13 @@ def test_animated_negative_offset_rejected(tmp_path):
 
 # --- large scenery ---
 
-from openrct2_iso_core.geometry import combine_model_world  # noqa: E402
 from openrct2_scenery_generator.exporter import build_large_scenery_json  # noqa: E402
 from openrct2_scenery_generator.loader import build_large_scenery  # noqa: E402
 from openrct2_scenery_generator.sprite_renderer import (  # noqa: E402
     count_large_scenery_sprites,
     render_large_scenery,
 )
+from openrct2_x7_renderer.geometry import combine_model_world  # noqa: E402
 
 
 class _FakeContext:
@@ -212,7 +212,7 @@ def _make_wall(tmp_path, *, glass=False, **overrides):
         "usemtl Frame\nf 1 2 3\n"
         "usemtl Glass\nf 2 4 3\n"
     )
-    from openrct2_iso_core.mesh import load_mesh
+    from openrct2_x7_renderer.mesh import load_mesh
 
     config = {
         "id": "openrct2vg.scenery_wall.test",
@@ -243,7 +243,7 @@ def test_glass_material_classified(tmp_path):
     ],
 )
 def test_wall_count_matches_render(stub_render, tmp_path, glass, double, slope, expected):
-    from openrct2_iso_core.geometry import combine_model_world
+    from openrct2_x7_renderer.geometry import combine_model_world
 
     obj = _make_wall(tmp_path, glass=glass, is_double_sided=double, is_allowed_on_slope=slope)
     assert obj.num_sprites == expected
@@ -268,7 +268,7 @@ def _make_double_wall(tmp_path):
         "usemtl FrontPanel\nf 2 4 3\n"
         "usemtl BackPanel\nf 1 4 2\n"
     )
-    from openrct2_iso_core.mesh import load_mesh
+    from openrct2_x7_renderer.mesh import load_mesh
 
     config = {
         "id": "openrct2vg.scenery_wall.dbl",
@@ -289,8 +289,8 @@ def test_front_back_material_classified(tmp_path):
 def test_double_sided_blocks_exclude_opposite_side(stub_render, tmp_path, monkeypatch):
     # The front block must drop Back faces and the back block must drop Front
     # faces (shared Frame survives both). Capture each block's face count.
-    from openrct2_iso_core.geometry import combine_model_world
     from openrct2_scenery_generator import sprite_renderer as sr
+    from openrct2_x7_renderer.geometry import combine_model_world
 
     seen = []
 
@@ -316,7 +316,7 @@ def test_glass_double_combo_refused(tmp_path, capsys):
 
 
 def _make_large(tmp_path, ntiles=2, **overrides):
-    from openrct2_iso_core.mesh import load_mesh
+    from openrct2_x7_renderer.mesh import load_mesh
 
     # Two triangles, one near OBJ X=0, one near OBJ X=TILE_SIZE.
     (tmp_path / "m.obj").write_text(

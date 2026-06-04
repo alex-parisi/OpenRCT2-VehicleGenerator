@@ -4,14 +4,14 @@ import json
 
 import numpy as np
 import pytest
-from openrct2_iso_core.lights import load_lights
-from openrct2_iso_core.mesh import load_mesh
 from openrct2_vehicle_generator.constants import Category, SpriteFlag
 from openrct2_vehicle_generator.loader import (
     LoadError,
     build_ride,
     load_ride,
 )
+from openrct2_x7_renderer.lights import load_lights
+from openrct2_x7_renderer.mesh import load_mesh
 
 ALL_SPRITE_FLAGS = (1 << len(SpriteFlag)) - 1
 

@@ -1,7 +1,7 @@
 """
 Vehicle-specific constants. Shared rendering constants (TILE_SIZE, render
 dimensions, MATERIAL_*/MESH_*/LIGHT_* flags, AA/AO sample counts) live in
-openrct2_iso_core.constants and are re-exported here for backwards-compatible
+openrct2_x7_renderer.constants and are re-exported here for backwards-compatible
 imports.
 
 Ported from X7's rendering engine
@@ -10,7 +10,7 @@ https://github.com/X123M3-256/RCTGen
 
 from enum import IntEnum, IntFlag, auto
 
-from openrct2_iso_core.constants import (
+from openrct2_x7_renderer.constants import (
     AA_NUM_SAMPLES_U,
     AA_NUM_SAMPLES_V,
     AO_NUM_SAMPLES_U,

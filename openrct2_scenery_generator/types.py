@@ -1,13 +1,13 @@
 """
 Scenery dataclasses. Rendering primitives (Model, MeshFrame, IndexedImage,
-Light) come from openrct2_iso_core.types.
+Light) come from openrct2_x7_renderer.types.
 """
 
 from dataclasses import dataclass, field
 from typing import Any
 
-from openrct2_iso_core.constants import TILE_SIZE
-from openrct2_iso_core.types import IndexedImage, Model
+from openrct2_x7_renderer.constants import TILE_SIZE
+from openrct2_x7_renderer.types import IndexedImage, Model
 
 from .constants import (
     DEFAULT_CURSOR,

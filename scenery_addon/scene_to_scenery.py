@@ -18,7 +18,7 @@ import os
 import bpy
 import numpy as np
 from mathutils import Matrix, Vector
-from openrct2_iso_core.constants import (
+from openrct2_x7_renderer.constants import (
     MATERIAL_BACKGROUND_AA,
     MATERIAL_BACKGROUND_AA_DARK,
     MATERIAL_HAS_TEXTURE,
@@ -29,9 +29,9 @@ from openrct2_iso_core.constants import (
     MATERIAL_NO_AO,
     MATERIAL_NO_BLEED,
 )
-from openrct2_iso_core.image import quantize_to_indexed, read_png
-from openrct2_iso_core.mesh import Material, Mesh, load_texture
-from openrct2_iso_core.types import IndexedImage
+from openrct2_x7_renderer.image import quantize_to_indexed, read_png
+from openrct2_x7_renderer.mesh import Material, Mesh, load_texture
+from openrct2_x7_renderer.types import IndexedImage
 
 # Blender (x, y, z) -> OBJ (x, z, -y).
 _BASIS = Matrix(((1.0, 0.0, 0.0), (0.0, 0.0, 1.0), (0.0, -1.0, 0.0)))

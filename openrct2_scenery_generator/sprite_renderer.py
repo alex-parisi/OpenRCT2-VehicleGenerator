@@ -12,11 +12,11 @@ not add sprites here.
 from typing import Any
 
 import numpy as np
-from openrct2_iso_core.constants import TILE_SIZE
-from openrct2_iso_core.geometry import assign_faces_to_tiles, combine_model_world, subset_mesh
-from openrct2_iso_core.mesh import Mesh
-from openrct2_iso_core.ray_trace import VIEWS, Context, render_view
-from openrct2_iso_core.types import IndexedImage, Model
+from openrct2_x7_renderer.constants import TILE_SIZE
+from openrct2_x7_renderer.geometry import assign_faces_to_tiles, combine_model_world, subset_mesh
+from openrct2_x7_renderer.mesh import Mesh
+from openrct2_x7_renderer.ray_trace import VIEWS, Context, render_view
+from openrct2_x7_renderer.types import IndexedImage, Model
 
 _IDENTITY3 = np.eye(3, dtype=np.float64)
 

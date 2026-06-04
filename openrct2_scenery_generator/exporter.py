@@ -9,10 +9,10 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from openrct2_iso_core.geometry import combine_model_world
-from openrct2_iso_core.image import write_png
-from openrct2_iso_core.images_dat import write_images_dat
-from openrct2_iso_core.ray_trace import VIEWS, Context, render_view, rotate_x, rotate_y, rotate_z
+from openrct2_x7_renderer.geometry import combine_model_world
+from openrct2_x7_renderer.image import write_png
+from openrct2_x7_renderer.images_dat import write_images_dat
+from openrct2_x7_renderer.ray_trace import VIEWS, Context, render_view, rotate_x, rotate_y, rotate_z
 
 from .constants import COORDS_PER_TILE, SCROLLING_MODE_NONE
 from .sprite_renderer import (

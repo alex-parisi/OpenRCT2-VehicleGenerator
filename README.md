@@ -44,19 +44,18 @@ This project is composed of three layers:
 
 #### X7 Renderer
 
-Ported from X7's [RCTGen](https://github.com/X123M3-256/RCTGen) project, I started by first modernizing the C code 
-to C++23, and then isolated most of the IsoRenderer code. As I was making changes, 
-I ensured all outputs from both the `makevehicle` and `maketrack` executables were 
-byte-identical.
-
-On top of this, I added some pybind11 bindings so the Python package could use the 
-X7 renderer.
+The Embree-backed renderer ported from X7's [RCTGen](https://github.com/X123M3-256/RCTGen)
+lives in its own package, [`openrct2-x7-renderer`](https://pypi.org/project/openrct2-x7-renderer/)
+(C++23 + pybind11), and is installed from PyPI as a dependency — its wheels
+vendor Embree, so there's nothing to compile here. It provides the ray tracer
+plus the shared OBJ/MTL parser, RCT2 palette, and `images.dat` packing.
 
 #### Python Package
 
-All other operations, like OBJ/MTL parsing, JSON/YAML configuration, most of the 
-rotation tables, and the `.parkobj` assembly, are handled by the `openrct2_vehicle_generator` 
-Python Package.
+All vehicle/scenery-specific operations — JSON/YAML configuration, the rotation
+tables, and the `.parkobj` assembly — are handled by the `openrct2_vehicle_generator`
+and `openrct2_scenery_generator` packages in this repo, which call into
+`openrct2_x7_renderer` for rendering.
 
 #### Blender Add-On
 
@@ -187,14 +186,11 @@ the repo root unless you've copied the assets elsewhere.
 ### Requirements
 
 - Python >= 3.11
-- CMake >= 3.25
-- A C++23 compiler (clang, gcc13+, MSVC)
-- Embree 4
-  - macOS: `brew install embree`
-  - Linux: see [scripts/ci/install_embree_linux.sh](scripts/ci/install_embree_linux.sh)
-  - Windows: the RenderKit release zip pointed to via `EMBREE_ROOT`
 - uv
 
-**Optional**
-- GTest
-- LLVM clang-format + clang-tidy
+That's it — this repo is pure Python. The renderer (`openrct2-x7-renderer`)
+installs from PyPI as a prebuilt, Embree-vendored wheel, so no compiler, CMake,
+or Embree is needed. `uv sync` pulls everything.
+
+To hack on the renderer itself (C++/Embree/CMake), see its repo,
+[OpenRCT2-X7-Renderer](https://github.com/alex-parisi/OpenRCT2-X7-Renderer).

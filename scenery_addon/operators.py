@@ -15,9 +15,6 @@ import bpy
 import numpy as np
 from bpy.props import StringProperty
 from bpy.types import Operator
-from openrct2_iso_core.constants import LIGHT_DIFFUSE, LIGHT_SPECULAR, TILE_SIZE
-from openrct2_iso_core.ray_trace import Context
-from openrct2_iso_core.types import Light
 from openrct2_scenery_generator.exporter import (
     export_large_scenery_test,
     export_large_scenery_to,
@@ -31,6 +28,9 @@ from openrct2_scenery_generator.loader import (
     build_small_scenery,
     build_wall_scenery,
 )
+from openrct2_x7_renderer.constants import LIGHT_DIFFUSE, LIGHT_SPECULAR, TILE_SIZE
+from openrct2_x7_renderer.ray_trace import Context
+from openrct2_x7_renderer.types import Light
 
 from . import scene_to_scenery
 

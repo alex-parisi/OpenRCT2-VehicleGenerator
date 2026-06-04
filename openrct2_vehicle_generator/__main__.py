@@ -7,8 +7,8 @@ Usage:
 import argparse
 import sys
 
-from openrct2_iso_core.cli import make_context, output_directory_of, run_cli
-from openrct2_iso_core.types import Light
+from openrct2_x7_renderer.cli import make_context, output_directory_of, run_cli
+from openrct2_x7_renderer.types import Light
 
 from .exporter import export_ride, export_ride_test
 from .loader import load_ride

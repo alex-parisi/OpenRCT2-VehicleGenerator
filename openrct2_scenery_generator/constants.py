@@ -1,6 +1,6 @@
 """
 Scenery-specific constants. Shared rendering constants live in
-openrct2_iso_core.constants.
+openrct2_x7_renderer.constants.
 """
 
 # Small-scenery footprint shapes, as accepted by OpenRCT2's object.json

@@ -8,8 +8,6 @@ in-game, but the geometry these produce can be checked numerically.
 """
 
 import numpy as np
-from openrct2_iso_core.constants import TILE_SIZE
-from openrct2_iso_core.mesh import Material, Mesh
 from openrct2_scenery_generator.sprite_renderer import (
     _CORNER_BY_DIR,
     _corners_by_dir,
@@ -19,6 +17,8 @@ from openrct2_scenery_generator.sprite_renderer import (
     _shear_wall,
     _submesh,
 )
+from openrct2_x7_renderer.constants import TILE_SIZE
+from openrct2_x7_renderer.mesh import Material, Mesh
 
 
 def _panel(materials=None, faces=None, face_materials=None):

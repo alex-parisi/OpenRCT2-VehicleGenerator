@@ -9,9 +9,9 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from openrct2_iso_core.image import write_png
-from openrct2_iso_core.images_dat import write_images_dat
-from openrct2_iso_core.ray_trace import Context, render_view, rotate_x, rotate_y, rotate_z
+from openrct2_x7_renderer.image import write_png
+from openrct2_x7_renderer.images_dat import write_images_dat
+from openrct2_x7_renderer.ray_trace import Context, render_view, rotate_x, rotate_y, rotate_z
 
 from .constants import (
     CATEGORY_NAMES,

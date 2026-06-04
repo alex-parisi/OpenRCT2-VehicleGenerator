@@ -21,8 +21,8 @@ from bpy.props import (
     StringProperty,
 )
 from bpy.types import Material, Object, PropertyGroup, Scene
-from openrct2_iso_core.constants import TILE_SIZE
 from openrct2_scenery_generator.constants import DEFAULT_CURSOR, SMALL_SCENERY_SHAPES
+from openrct2_x7_renderer.constants import TILE_SIZE
 
 
 def _title(name: str) -> str:

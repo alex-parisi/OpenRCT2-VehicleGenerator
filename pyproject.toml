@@ -1,15 +1,14 @@
 [project]
 name = "OpenRCT2-VehicleGenerator"
 version = "0.1.1"
-description = "Python interface to the OpenRCT2 vehicle sprite generator (Embree-backed)."
+description = "Author and export OpenRCT2 ride vehicles and scenery from meshes (renders via openrct2-x7-renderer)."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "openrct2-x7-renderer>=0.1.0",
     "numpy>=1.26",
     "pillow>=10.0",
-    "pybind11>=2.12",
     "pyyaml>=6.0",
-    "scikit-build-core>=0.10",
 ]
 
 [project.scripts]
@@ -32,47 +31,26 @@ addopts = "-q"
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-src = ["openrct2_iso_core", "openrct2_vehicle_generator", "openrct2_scenery_generator", "scripts", "tests"]
+src = ["openrct2_vehicle_generator", "openrct2_scenery_generator", "scripts", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "W"]
 
 [tool.mypy]
 python_version = "3.11"
-files = ["openrct2_iso_core", "openrct2_vehicle_generator", "openrct2_scenery_generator"]
+files = ["openrct2_vehicle_generator", "openrct2_scenery_generator"]
 warn_unused_ignores = true
 warn_redundant_casts = true
 warn_unused_configs = true
 
+# openrct2-x7-renderer ships no py.typed marker, so mypy can't resolve its types.
+[[tool.mypy.overrides]]
+module = ["openrct2_x7_renderer.*"]
+ignore_missing_imports = true
+
 [build-system]
-requires = ["scikit-build-core>=0.10", "pybind11>=2.12"]
-build-backend = "scikit_build_core.build"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.scikit-build]
-cmake.source-dir = "x7_renderer"
-cmake.version = ">=3.25"
-wheel.packages = ["openrct2_iso_core", "openrct2_vehicle_generator", "openrct2_scenery_generator"]
-build-dir = "build/{wheel_tag}"
-
-# Wheel building for the Blender add-on bundle
-[tool.cibuildwheel]
-build = "cp311-* cp313-*"
-build-frontend = "build"
-skip = ["*-musllinux*", "*_i686", "*-win32"]
-
-# Sanity check: the extension imports and Embree resolves from vendored libs.
-test-command = "python -c \"import openrct2_iso_core._x7_renderer as n; print('embree ok', n.LIGHT_DIFFUSE)\""
-
-[tool.cibuildwheel.linux]
-manylinux-x86_64-image = "manylinux_2_28"
-# Install Embree to /embree.
-before-all = "bash {project}/scripts/ci/install_embree_linux.sh"
-environment = { EMBREE_ROOT = "/embree", CMAKE_PREFIX_PATH = "/embree", LD_LIBRARY_PATH = "/embree/lib64" }
-
-[tool.cibuildwheel.macos]
-environment = { MACOSX_DEPLOYMENT_TARGET = "11.0" }
-
-[tool.cibuildwheel.windows]
-before-build = "pip install delvewheel"
-# Embree DLLs live in <EMBREE_ROOT>\bin
-repair-wheel-command = "delvewheel repair --add-path %EMBREE_ROOT%\\bin -w {dest_dir} {wheel}"
+[tool.hatch.build.targets.wheel]
+packages = ["openrct2_vehicle_generator", "openrct2_scenery_generator"]

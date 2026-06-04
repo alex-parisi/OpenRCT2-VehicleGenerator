@@ -1,12 +1,12 @@
 """
 Vehicle-specific dataclasses. Shared rendering primitives (MeshFrame, Model,
-IndexedImage, Light, MAX_FRAMES) live in openrct2_iso_core.types.
+IndexedImage, Light, MAX_FRAMES) live in openrct2_x7_renderer.types.
 """
 
 from dataclasses import dataclass, field
 from typing import Any
 
-from openrct2_iso_core.types import (
+from openrct2_x7_renderer.types import (
     MAX_FRAMES,
     IndexedImage,
     Light,

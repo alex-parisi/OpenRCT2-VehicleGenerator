@@ -1,26 +1,30 @@
 #!/usr/bin/env python3
-"""Bundle the Blender add-on's dependency wheels and regenerate the manifest.
+"""Bundle the Blender add-on's wheels and regenerate the manifest.
 
 Blender extensions run in an isolated Python env and install ONLY the wheels
 listed in ``blender_manifest.toml`` -- pip is never consulted at install time.
-So every native runtime dependency (numpy, Pillow, PyYAML) must be vendored as a
-wheel for each platform x Python combination Blender ships, or the add-on fails
-to import (e.g. "No module named 'PIL'").
+So everything the add-on imports must be vendored as a wheel for each platform x
+Python combination Blender ships, or it fails to import (e.g. "No module named
+'PIL'").
 
-This script:
-  1. Downloads those dependency wheels for all targets into blender_addon/wheels/.
-  2. Rewrites the manifest's ``wheels = [...]`` list to reference the full set:
-     the dependency wheels it just fetched plus the renderer wheels CI produces.
+The add-on now bundles three kinds of wheel:
 
-The renderer wheels themselves are NOT downloaded here -- they link Embree and
-are compiled per-platform by .github/workflows/wheels.yml. Unzip those 6 files
-from the CI artifacts into blender_addon/wheels/ before running
-``blender --command extension build``; this script lists their expected names so
-the manifest is complete, and reports which are still missing.
+  1. The **renderer** (``openrct2-x7-renderer``) -- the external PyPI package with
+     the Embree-vendored native extension. Platform + Python specific; downloaded
+     here straight from PyPI (no CI build needed).
+  2. The **dependency** wheels (numpy, Pillow, PyYAML). Platform + Python
+     specific; downloaded from PyPI.
+  3. The **front-end** wheel (``openrct2_vehiclegenerator``) -- this repo, now
+     pure-Python (``py3-none-any``, one wheel for every target). Built separately
+     with ``uv build --wheel`` and placed in ``<addon>/wheels/`` before this runs.
 
-Run from the repo root (pip must be importable, so add it if your venv lacks it):
+This script downloads (1) and (2) for all targets, then rewrites the manifest's
+``wheels = [...]`` to list every wheel present in ``<addon>/wheels/`` (including
+the pre-placed front-end wheel).
 
-    uv run --with pip python scripts/collect_wheels.py
+Run from the repo root (pip must be importable):
+
+    uv run --with pip python scripts/collect_wheels.py --addon vehicle
 """
 
 from __future__ import annotations
@@ -30,7 +34,6 @@ import importlib.metadata as md
 import re
 import subprocess
 import sys
-import tomllib
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
@@ -40,16 +43,24 @@ ADDON = REPO / ADDONS["vehicle"]
 WHEELS = ADDON / "wheels"
 MANIFEST = ADDON / "blender_manifest.toml"
 
-RENDERER = "openrct2_vehiclegenerator"
+# External renderer: PyPI dist name, wheel-filename prefix, and the pinned
+# version to bundle. Keep RENDERER_VERSION in step with the floor in
+# pyproject.toml's `openrct2-x7-renderer>=...` dependency.
+RENDERER_DIST = "openrct2-x7-renderer"
+RENDERER_PREFIX = "openrct2_x7_renderer"
+RENDERER_VERSION = "0.1.0"
+
+# This repo's pure-Python front-end wheel (built + placed by the caller).
+FRONTEND_PREFIX = "openrct2_vehiclegenerator"
+
 DEPS = ("numpy", "pillow", "pyyaml")
 
 # (python version, abi tag) for each interpreter Blender ships: 3.11 (4.2/4.5
 # LTS), 3.13 (5.x).
 PYTHONS = (("3.11", "cp311"), ("3.13", "cp313"))
 
-# (renderer wheel platform tag, dep-download --platform tags). Several dep tags
-# per OS let pip pick each package's compatible wheel -- e.g. numpy publishes a
-# higher macOS minimum than Pillow.
+# (label, --platform tags). Several dep tags per OS let pip pick each package's
+# compatible wheel -- e.g. numpy publishes a higher macOS minimum than Pillow.
 TARGETS = (
     ("win_amd64", ["win_amd64"]),
     (
@@ -73,32 +84,30 @@ def ensure_pip() -> None:
         ) from None
 
 
-def project_version() -> str:
-    data = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))
-    return str(data["project"]["version"])
+def download_specs() -> list[str]:
+    # Renderer pinned to the bundled release; deps pinned to the versions
+    # resolved in this env so they match what the renderer was built against.
+    return [f"{RENDERER_DIST}=={RENDERER_VERSION}"] + [
+        f"{name}=={md.version(name)}" for name in DEPS
+    ]
 
 
-def dep_specs() -> list[str]:
-    # Pin to the versions resolved in this env so the bundled deps match what the
-    # renderer was built and tested against.
-    return [f"{name}=={md.version(name)}" for name in DEPS]
-
-
-def is_dep_wheel(name: str) -> bool:
+def is_managed_wheel(name: str) -> bool:
+    """True for wheels this script downloads (renderer + deps), not the front-end."""
     low = name.lower()
-    return any(low.startswith(f"{d}-") for d in DEPS)
+    return low.startswith(f"{RENDERER_PREFIX}-") or any(low.startswith(f"{d}-") for d in DEPS)
 
 
-def clear_dep_wheels() -> None:
+def clear_managed_wheels() -> None:
     for whl in WHEELS.glob("*.whl"):
-        if is_dep_wheel(whl.name):
+        if is_managed_wheel(whl.name):
             whl.unlink()
 
 
-def download_deps() -> None:
-    specs = dep_specs()
+def download_wheels() -> None:
+    specs = download_specs()
     for py, abi in PYTHONS:
-        for _renderer_tag, plat_tags in TARGETS:
+        for _label, plat_tags in TARGETS:
             cmd = [
                 sys.executable,
                 "-m",
@@ -120,18 +129,6 @@ def download_deps() -> None:
             cmd += specs
             print("+", " ".join(cmd))
             subprocess.run(cmd, check=True)
-
-
-def renderer_wheel_names(version: str) -> list[str]:
-    return [
-        f"{RENDERER}-{version}-{abi}-{abi}-{renderer_tag}.whl"
-        for _py, abi in PYTHONS
-        for renderer_tag, _plat_tags in TARGETS
-    ]
-
-
-def dep_wheel_names() -> list[str]:
-    return [whl.name for whl in WHEELS.glob("*.whl") if is_dep_wheel(whl.name)]
 
 
 def write_manifest(wheel_names: list[str]) -> None:
@@ -157,26 +154,24 @@ def main() -> None:
 
     ensure_pip()
     WHEELS.mkdir(parents=True, exist_ok=True)
-    clear_dep_wheels()
-    download_deps()
+    clear_managed_wheels()
+    download_wheels()
 
-    version = project_version()
-    renderer = renderer_wheel_names(version)
-    deps = dep_wheel_names()
-    write_manifest(renderer + deps)
+    all_wheels = [whl.name for whl in WHEELS.glob("*.whl")]
+    write_manifest(all_wheels)
+
+    renderer = [n for n in all_wheels if n.lower().startswith(f"{RENDERER_PREFIX}-")]
+    deps = [n for n in all_wheels if any(n.lower().startswith(f"{d}-") for d in DEPS)]
+    frontend = [n for n in all_wheels if n.lower().startswith(f"{FRONTEND_PREFIX}-")]
     print(
-        f"\nManifest updated: {len(set(renderer + deps))} wheels "
-        f"({len(renderer)} renderer + {len(deps)} deps)."
+        f"\nManifest updated: {len(set(all_wheels))} wheels "
+        f"({len(renderer)} renderer + {len(frontend)} front-end + {len(deps)} deps)."
     )
-
-    missing = [n for n in renderer if not (WHEELS / n).exists()]
-    if missing:
+    if not frontend:
         print(
-            "\nRenderer wheels still missing -- unzip CI artifacts into "
-            f"{WHEELS.relative_to(REPO)}/ before `extension build`:"
+            f"\nWARNING: no {FRONTEND_PREFIX}-*.whl found in {WHEELS.relative_to(REPO)}/ -- "
+            "build it with `uv build --wheel` and copy it in before `extension build`."
         )
-        for m in missing:
-            print(f"  - {m}")
 
 
 if __name__ == "__main__":

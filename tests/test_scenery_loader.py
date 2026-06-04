@@ -3,8 +3,6 @@ tile-centre mapping, and the wall/large object.json flag emission rules."""
 
 import numpy as np
 import pytest
-from openrct2_iso_core.constants import TILE_SIZE
-from openrct2_iso_core.mesh import load_mesh
 from openrct2_scenery_generator.constants import COORDS_PER_TILE
 from openrct2_scenery_generator.exporter import (
     _tile_centers_xz,
@@ -16,6 +14,8 @@ from openrct2_scenery_generator.loader import (
     build_wall_scenery,
     object_type_of,
 )
+from openrct2_x7_renderer.constants import TILE_SIZE
+from openrct2_x7_renderer.mesh import load_mesh
 
 
 @pytest.fixture

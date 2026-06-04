@@ -8,8 +8,8 @@ import math
 from dataclasses import dataclass
 
 import numpy as np
-from openrct2_iso_core.ray_trace import Context, render_view, rotate_x, rotate_y, rotate_z
-from openrct2_iso_core.types import IndexedImage
+from openrct2_x7_renderer.ray_trace import Context, render_view, rotate_x, rotate_y, rotate_z
+from openrct2_x7_renderer.types import IndexedImage
 
 from .constants import SpriteFlag, VehicleFlag
 
