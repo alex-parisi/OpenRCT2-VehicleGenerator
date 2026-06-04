@@ -17,6 +17,7 @@ openrct2-vehicle-generator = "openrct2_vehicle_generator.__main__:main"
 [dependency-groups]
 dev = [
     "pytest>=8.0",
+    "pytest-cov>=5.0",
     "mypy>=1.10",
     "types-PyYAML>=6.0",
     "ruff>=0.5",
@@ -26,6 +27,14 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+[tool.coverage.run]
+source = ["openrct2_vehicle_generator"]
+
+[tool.coverage.report]
+exclude_also = [
+    "if __name__ == .__main__.:",
+]
 
 [tool.ruff]
 line-length = 100

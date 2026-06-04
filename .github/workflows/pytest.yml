@@ -30,4 +30,4 @@ jobs:
         run: uv sync --group dev
 
       - name: pytest
-        run: uv run --no-sync pytest
+        run: uv run --no-sync pytest --cov --cov-report=term-missing --cov-fail-under=100

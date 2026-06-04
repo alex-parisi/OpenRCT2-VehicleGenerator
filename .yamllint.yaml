@@ -1,11 +1,9 @@
-# yamllint config — lints hand-authored ride configs (examples/, textures/),
-# not CMake/build artifacts.
+# yamllint config — lints hand-authored ride configs (examples/), not build
+# artifacts.
 extends: default
 
 ignore: |
   build/
-  x7_renderer/build/
-  x7_renderer/cmake-build-debug/
   dist/
 
 rules:
