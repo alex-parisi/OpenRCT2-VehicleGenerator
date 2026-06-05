@@ -440,6 +440,13 @@ def test_combine_indexed_images_single_image_no_blank_cell():
     assert (out.width, out.height) == (1, 1)
 
 
+def test_combine_indexed_images_empty_returns_blank():
+    # No images yields a 1x1 transparent placeholder rather than failing.
+    out = combine_indexed_images([])
+    assert (out.width, out.height) == (1, 1)
+    assert out.pixels.tolist() == [[0]]
+
+
 def test_export_ride_test_overrides_from_first_preset(tmp_path):
     # The first colour preset drives the preview's remap recolouring:
     # region 1 = main, 2 = additional 1, 3 = additional 2.
