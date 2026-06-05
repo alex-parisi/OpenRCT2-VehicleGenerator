@@ -3,7 +3,7 @@
 The native ray tracer is stubbed out via a fake render context that mirrors the
 renderer's begin_render -> SceneBuilder -> FinalizedScene flow: every view
 renders a 1x1 dummy and the lifecycle (begin/add/finalize/end) is recorded.
-Everything downstream of the pixels -- write_images_dat, write_png, the zip --
+Everything downstream of the pixels (write_images_dat, write_png, the zip)
 runs for real against tmp_path.
 """
 
@@ -191,7 +191,7 @@ def test_build_ride_json_loading_positions_single_rider(tmp_path):
 def test_build_ride_json_loading_positions_multi_row_single_seat(tmp_path):
     # Several single-seat rows (single-file seating): each row emits exactly one
     # loading position, so the count tracks numSeats rather than doubling. The
-    # row width -- not the car's total seat count -- decides the left/right pair.
+    # row width, not the car's total seat count, decides the left/right pair.
     vehicle = {
         "model": {"mesh_index": 0},
         "mass": 100,

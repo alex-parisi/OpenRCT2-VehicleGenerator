@@ -26,12 +26,12 @@ whole vehicle lives in the `.blend` file as native Blender properties.
 The two action buttons at the bottom of the **OpenRCT2 Vehicle** panel drive the
 pipeline:
 
-- **Test Render** (`vg.test_render`): renders a *single* viewpoint quickly and
+- **Test Render** (`vg.test_render`): renders a single viewpoint quickly and
   loads it into an open Image Editor. Use it to iterate on geometry, materials,
-  and lighting without paying for all 4 600+ sprites. It reports an error in the
+  and lighting without paying for all 4,600+ sprites. It reports an error in the
   Blender header if the scene is invalid (e.g. no Body object, a bad rider
   pairing), the same validation the full export runs.
-- **Export .parkobj** (`vg.export_parkobj`): renders *every* sprite group you
+- **Export .parkobj** (`vg.export_parkobj`): renders every sprite group you
   selected and writes a complete `.parkobj`. It opens a file selector
   (pre-filled from the Object ID), then renders on a background thread with a
   spinner in the status bar. On failure the full traceback is printed to the
@@ -76,7 +76,7 @@ number directly.
 
 | Field | Property | Default | Notes |
 |---|---|---|---|
-| **All Sprite Groups** | `sprites_all` | **on** | Render every sprite group. Safe default; produces the largest output (a full coaster is ~4 640 vehicle sprites + 3 preview entries). |
+| **All Sprite Groups** | `sprites_all` | **on** | Render every sprite group. Safe default; produces the largest output (a full coaster is ~4,640 vehicle sprites + 3 preview entries). |
 
 When **All Sprite Groups** is **off**, a 2-column grid of per-group checkboxes
 appears, one per entry in `SPRITE_GROUP_NAMES`. Tick only the groups your track
@@ -278,7 +278,7 @@ tiebreaker when two peeps share a number.
 
 > **Riders are rows, not individuals at the engine level.** For a 2-across ×
 > 2-rows (4-seat) car, place 4 peep meshes numbered 0/1/2/3, which produces 2 rows
-> of 2. The total seat count (`numSeats`) is *derived* from the number of peep
+> of 2. The total seat count (`numSeats`) is derived from the number of peep
 > meshes; there is no separate capacity field on the geometry.
 
 **Remap auto-assignment:** you do **not** pick Remap1-vs-Remap2 per seat. The
@@ -306,7 +306,7 @@ OpenRCT2 restraints animate over **4 frames**. There are two ways to drive them:
    from 0° to your value across the 4 frames, swinging around the object's
    **origin**. Good enough for a classic lap bar. Used whenever the restraint
    object has **no** keyframes.
-2. **Keyframes (expressive path)**: if the restraint object has *any* keyframes
+2. **Keyframes (expressive path)**: if the restraint object has any keyframes
    (rotation, translation, or both), the add-on samples its world transform at 4
    evenly-spaced scene frames between **Anim Start Frame** and **Anim End Frame**
    and **ignores the Swing value**. This lets you use Blender's graph editor for

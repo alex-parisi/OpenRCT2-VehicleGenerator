@@ -1,6 +1,6 @@
 """Render-dispatch helpers: worker-count selection and the serial/parallel split.
 
-These don't touch Embree -- they decide how many threads to issue `render_view`
+These don't touch Embree; they decide how many threads to issue `render_view`
 calls on and preserve sprite order. We stub the scene so they run anywhere.
 """
 

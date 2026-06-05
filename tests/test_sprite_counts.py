@@ -30,7 +30,7 @@ def scene():
 
 
 # Each single flag (except bare DIVE_LOOP, which the loader never emits without
-# ZERO_G_ROLL -- see test_dive_loop_alone_would_desync), plus the combination
+# ZERO_G_ROLL; see test_dive_loop_alone_would_desync), plus the combination
 # that exercises the shared sb22 accounting, plus the everything-on case.
 _FLAG_CASES = [
     pytest.param(int(f), id=f.name) for f in SpriteFlag if f is not SpriteFlag.DIVE_LOOP

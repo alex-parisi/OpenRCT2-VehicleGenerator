@@ -2,19 +2,19 @@
 """Bundle the Blender add-on's wheels and regenerate the manifest.
 
 Blender extensions run in an isolated Python env and install ONLY the wheels
-listed in ``blender_manifest.toml`` -- pip is never consulted at install time.
-So everything the add-on imports must be vendored as a wheel for each platform x
-Python combination Blender ships, or it fails to import (e.g. "No module named
+listed in ``blender_manifest.toml``; pip is never consulted at install time.
+So everything the add-on imports must be vendored as a wheel for each platform
+and Python version Blender ships, or it fails to import (e.g. "No module named
 'PIL'").
 
-The add-on now bundles three kinds of wheel:
+The add-on bundles three kinds of wheel:
 
-  1. The **renderer** (``openrct2-x7-renderer``) -- the external PyPI package with
-     the Embree-vendored native extension. Platform + Python specific; downloaded
-     here straight from PyPI (no CI build needed).
-  2. The **dependency** wheels (numpy, Pillow, PyYAML). Platform + Python
+  1. The renderer (``openrct2-x7-renderer``): the external PyPI package with
+     the Embree-vendored native extension. Platform- and Python-specific;
+     downloaded here straight from PyPI (no CI build needed).
+  2. The dependency wheels (numpy, Pillow, PyYAML). Platform- and Python-
      specific; downloaded from PyPI.
-  3. The **front-end** wheel (``openrct2_vehiclegenerator``) -- this repo, now
+  3. The front-end wheel (``openrct2_vehiclegenerator``): this repo, now
      pure-Python (``py3-none-any``, one wheel for every target). Built separately
      with ``uv build --wheel`` and placed in ``<addon>/wheels/`` before this runs.
 
@@ -56,7 +56,7 @@ MANIFEST = ADDON / "blender_manifest.toml"
 PYTHONS = (("3.11", "cp311"), ("3.13", "cp313"))
 
 # (label, --platform tags). Several dep tags per OS let pip pick each package's
-# compatible wheel -- e.g. numpy publishes a higher macOS minimum than Pillow.
+# compatible wheel (e.g. numpy publishes a higher macOS minimum than Pillow).
 TARGETS = (
     ("win_amd64", ["win_amd64"]),
     (
@@ -148,7 +148,7 @@ def main() -> None:
     )
     if not frontend:
         print(
-            f"\nWARNING: no {FRONTEND_PREFIX}-*.whl found in {WHEELS.relative_to(REPO)}/ -- "
+            f"\nWARNING: no {FRONTEND_PREFIX}-*.whl found in {WHEELS.relative_to(REPO)}/; "
             "build it with `uv build --wheel` and copy it in before `extension build`."
         )
 

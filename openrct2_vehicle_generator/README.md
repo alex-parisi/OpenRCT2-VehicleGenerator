@@ -1,8 +1,8 @@
 # openrct2_vehicle_generator
 
 The pure-Python front-end that turns a ride config (YAML/JSON or an in-memory
-dict) into a finished OpenRCT2 `.parkobj`. It owns everything *vehicle*-specific
-— the config schema, the sprite-group rotation tables, and `.parkobj` assembly —
+dict) into a finished OpenRCT2 `.parkobj`. It owns the vehicle-specific parts
+(the config schema, the sprite-group rotation tables, and `.parkobj` assembly)
 and calls into [`openrct2-x7-renderer`](https://pypi.org/project/openrct2-x7-renderer/)
 for the actual ray tracing, OBJ/MTL parsing, RCT2 palette, and `images.dat`
 packing.
@@ -13,7 +13,7 @@ Heavily inspired by X7's [RCTGen](https://github.com/X123M3-256/RCTGen).
 
 A render goes through three stages, each in its own module:
 
-1. **Load** (`loader.py`): `build_ride(config, meshes, preview)` validates a
+1. Load (`loader.py`). `build_ride(config, meshes, preview)` validates a
    parsed config dict and returns a `Ride` dataclass (`types.py`). It resolves
    every config string to a flag/enum via the name→enum tables in `constants.py`,
    ORs in implied sprite groups (banking pulls in diagonal-bank transitions;
@@ -21,14 +21,14 @@ A render goes through three stages, each in its own module:
    orientation lists, and derives each car's seat count from its rider meshes.
    `load_ride(path)` is the convenience wrapper that parses the file and loads
    meshes + preview from disk first.
-2. **Render** (`sprite_renderer.py`): for each enabled sprite group, a rotation
+2. Render (`sprite_renderer.py`). For each enabled sprite group, a rotation
    table (`_Rot(num_frames, pitch, roll, yaw)`) describes the poses OpenRCT2
    expects. `render_vehicle_frame` walks the ordered render plan, builds a view
    matrix per yaw step, and renders each against a finalized X7 scene. The same
-   plan feeds `count_sprites`, so the *declared* sprite count can never drift
-   from the *rendered* set. Independent `render_view` calls are issued across a
+   plan feeds `count_sprites`, so the declared sprite count can never drift
+   from the rendered set. Independent `render_view` calls are issued across a
    small thread pool to overlap the native renderer's per-image tails.
-3. **Export** (`exporter.py`): `build_ride_json` emits the OpenRCT2 `object.json`
+3. Export (`exporter.py`). `build_ride_json` emits the OpenRCT2 `object.json`
    (properties, cars, sprite groups, colour presets, loading positions).
    `export_ride` renders every sprite for every car (plus a peep pass per rider
    row), concatenates them into one `images.dat`, references it via the `$LGX:`
@@ -79,7 +79,7 @@ The 16 groups (bit order in `SpriteFlag`, names in `SPRITE_GROUP_NAMES`):
 `diagonal_sloped_bank_transition`, `dive_loops`.
 
 The loader ORs in implied groups, so the rendered set may be a superset of what
-was requested. A full coaster (`sprites: all`) is ~4 640 vehicle sprites per car
+was requested. A full coaster (`sprites: all`) is ~4,640 vehicle sprites per car
 plus 3 preview entries. `restraint_animation` adds 12 sprites per car (3 extra
 animation frames × 4 views each).
 

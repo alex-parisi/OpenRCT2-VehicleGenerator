@@ -189,7 +189,7 @@ FRICTION_SOUND_IDS = [sound.value for _, sound in _RUNNING_SOUNDS]
 
 # A name's index here is written directly as object.json `soundRange`, so each
 # name must sit at its SecondarySound value; ordering by value guarantees it.
-# (NONE is intentionally excluded -- it isn't selectable from config.)
+# (NONE is intentionally excluded; it isn't selectable from config.)
 _SECONDARY_SOUND_NAME: dict[SecondarySound, str] = {
     SecondarySound.SCREAMS1: "scream1",
     SecondarySound.SCREAMS2: "scream2",

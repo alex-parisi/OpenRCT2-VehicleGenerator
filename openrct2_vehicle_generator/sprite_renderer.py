@@ -7,7 +7,7 @@ zero-g/dive-loop/corkscrew entries built in `_base_render_plan`), pairing its
 rotation table with the object.json `spriteGroups` keys it declares. Everything
 downstream derives from that single plan: `render_vehicle_frame` renders the
 rotation tables, `count_sprites` sums their frames, and `sprite_group_counts`
-emits the matching object.json block -- so the rendered set, the declared sprite
+emits the matching object.json block, so the rendered set, the declared sprite
 count, and the object.json declaration can't drift apart.
 
 Ported from X7's rendering engine
@@ -492,7 +492,7 @@ def count_sprites(sprite_flags: int, vehicle_flags: int) -> int:
     # A dive loop's declared count includes the sb22 8-frame upgrade even when
     # ZERO_G_ROLL is absent (the engine reserves those slots). The loader always
     # implies ZERO_G_ROLL for DIVE_LOOP, so this only affects the documented
-    # dive-loop-alone desync case -- see tests/test_sprite_counts.py.
+    # dive-loop-alone desync case; see tests/test_sprite_counts.py.
     if (sprite_flags & SpriteFlag.DIVE_LOOP) and not (sprite_flags & SpriteFlag.ZERO_G_ROLL):
         n += _frames(_ZERO_G_SB22_8) - _frames(_ZERO_G_SB22_4)
     if vehicle_flags & VehicleFlag.RESTRAINT_ANIMATION:

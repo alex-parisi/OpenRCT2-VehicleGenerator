@@ -1,36 +1,36 @@
 # vehicle_renderer_addon
 
-The Blender 4.2+ add-on (extension). It is the UI + scene adapter only: the
-whole pipeline — config validation, rendering, `.parkobj` assembly — lives in the
+The Blender 4.2+ add-on (extension). It is the UI and scene adapter only. The
+whole pipeline (config validation, rendering, `.parkobj` assembly) lives in the
 bundled [`openrct2_vehicle_generator`](../openrct2_vehicle_generator/) and
 [`openrct2-x7-renderer`](https://pypi.org/project/openrct2-x7-renderer/) wheels.
 This package reads the Blender scene, hands the core an in-memory config dict +
 `Mesh` list, and surfaces the result in the viewport.
 
-> **Authoring a vehicle?** Read the user-facing guides instead:
-> [installation](../doc/blender-plugin-installation.md) ·
-> [tutorial](../doc/blender-plugin-tutorial.md) ·
+> Authoring a vehicle? Read the user-facing guides instead:
+> [installation](../doc/blender-plugin-installation.md),
+> [tutorial](../doc/blender-plugin-tutorial.md),
 > [reference](../doc/blender-plugin-reference.md). This file documents the
-> add-on's *internals* for contributors.
+> add-on's internals for contributors.
 
 ## How it works
 
-1. **Properties** (`props.py`): native Blender `PropertyGroup`s store the entire
-   vehicle in the `.blend` file — ride-wide settings on `scene.vg_ride`, per-object
+1. Properties (`props.py`). Native Blender `PropertyGroup`s store the entire
+   vehicle in the `.blend` file: ride-wide settings on `scene.vg_ride`, per-object
    role/animation on `object.vg_object`, per-material region/shading on
    `material.vg_material`. Enum item lists are sourced from the installed
    `openrct2_vehicle_generator` package, so the UI can never offer a value the
    loader would reject.
-2. **Panels** (`panels.py`): draw those properties in the 3D Viewport **OpenRCT2**
-   sidebar tab — `VG_PT_ride` (ride-wide) and `VG_PT_object_view3d` (active
-   object + its materials) — plus the `UIList`s for colour presets, car types,
+2. Panels (`panels.py`). Draw those properties in the 3D Viewport **OpenRCT2**
+   sidebar tab: `VG_PT_ride` (ride-wide) and `VG_PT_object_view3d` (active
+   object and its materials), plus the `UIList`s for colour presets, car types,
    and custom lights.
-3. **Scene adapter** (`scene_to_ride.py`): the `bpy → Mesh` bridge. It bakes each
+3. Scene adapter (`scene_to_ride.py`). The `bpy → Mesh` bridge. It bakes each
    object's world transform into an in-memory `Mesh` (no OBJ files written),
    converts Blender axes to OBJ space, builds the config dict the core expects,
    sorts riders into seat rows, and synthesizes the restraint animation frames
    (from a swing angle or sampled keyframes).
-4. **Operators** (`operators.py`): `vg.test_render` renders a single viewpoint
+4. Operators (`operators.py`). `vg.test_render` renders a single viewpoint
    and loads it into an Image Editor for fast iteration; `vg.export_parkobj`
    renders every sprite on a background thread (spinner in the status bar) and
    writes the `.parkobj`. Both call the same core `build_ride` → render → export
@@ -43,22 +43,22 @@ properties, so the property groups must exist first).
 
 The repo's build scripts place OBJ-space coords into Blender via
 `loc(x, y, z) → (x, -z, y)`. Inverting that, a Blender vertex `(bx, by, bz)`
-maps to OBJ `(bx, bz, -by)` — a proper rotation (det = +1), so triangle winding
+maps to OBJ `(bx, bz, -by)`, a proper rotation (det = +1), so triangle winding
 is preserved. See the module docstring in `scene_to_ride.py` for the basis
 matrix and per-object transform handling.
 
 ## Packaging model
 
-Blender extensions run in an isolated Python environment and install **only** the
+Blender extensions run in an isolated Python environment and install only the
 wheels listed in `blender_manifest.toml`; pip is never consulted at install time.
 So everything the add-on imports must be vendored as a wheel for every
-platform × Python combination Blender ships. Three kinds of wheel are bundled
+platform and Python version Blender ships. Three kinds of wheel are bundled
 under `wheels/`:
 
 | Wheel | Source | Variants |
 |---|---|---|
-| `openrct2_x7_renderer` | PyPI (Embree-vendored native extension) | per platform × CPython 3.11/3.13 |
-| `numpy`, `pillow`, `pyyaml` | PyPI | per platform × CPython 3.11/3.13 |
+| `openrct2_x7_renderer` | PyPI (Embree-vendored native extension) | per platform and CPython 3.11/3.13 |
+| `numpy`, `pillow`, `pyyaml` | PyPI | per platform and CPython 3.11/3.13 |
 | `openrct2_vehiclegenerator` | this repo (`uv build --wheel`, pure Python) | one `py3-none-any` for all targets |
 
 `track_types.json` (read at runtime, shipped in the zip) maps each OpenRCT2 ride

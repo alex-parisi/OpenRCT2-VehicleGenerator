@@ -3,7 +3,7 @@
 Used by both ``collect_wheels.py`` (CI: bundle every-platform wheels) and
 ``build_plugin_local.py`` (dev: build a single-platform zip). Keeping the
 renderer pin, dependency list, and manifest rewriting in one place stops the two
-scripts from drifting -- previously each carried its own copy of
+scripts from drifting; previously each carried its own copy of
 ``RENDERER_VERSION``, the ``pip download`` invocation, and the manifest regex.
 """
 
