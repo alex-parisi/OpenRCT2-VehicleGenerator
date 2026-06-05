@@ -15,9 +15,8 @@ type = "add-on"
 tags = ["Import-Export", "Render"]
 blender_version_min = "4.2.0"
 
-# NOTE: confirm the project's license. GPL is the conventional choice for an
-# add-on that imports `bpy`; the bundled wheels carry Embree + TBB (Apache-2.0),
-# whose license texts must ship alongside.
+# GPL-3.0-or-later, matching the rest of the project. The bundled wheels carry
+# Embree + TBB (Apache-2.0), whose license texts must ship alongside.
 license = ["SPDX:GPL-3.0-or-later"]
 
 # The extension targets these platforms; Blender installs the matching wheel.
