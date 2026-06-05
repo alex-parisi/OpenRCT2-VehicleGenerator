@@ -6,6 +6,7 @@ import json
 import logging
 import math
 import zipfile
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -135,14 +136,35 @@ def _add_model_to_scene(
         builder.add_model(ride.meshes[mf.mesh_index], matrix, translation, mask)
 
 
-def _render_sprites(ride: Ride, context: Context, object_dir: Path) -> list:
+def _render_sprites(
+    ride: Ride,
+    context: Context,
+    object_dir: Path,
+    progress: Callable[[int, int], None] | None = None,
+) -> list:
     """
     Render every sprite for the ride and write a single `images.dat`.
+
+    If ``progress`` is given it is called as ``progress(done, total)`` after each
+    rendered frame, where the unit of work is one ``render_vehicle_frame`` call.
     """
     all_images: list = []
 
     # Three preview entries
     all_images.extend([ride.preview] * 3)
+
+    # One unit of work per rendered frame (car frames plus a full frame set per
+    # rider), so the caller can drive a determinate progress bar.
+    total_steps = sum(
+        frames_for(v.flags) * (1 + len(v.riders)) for v in ride.vehicles
+    )
+    step = 0
+
+    def _tick() -> None:
+        nonlocal step
+        step += 1
+        if progress is not None:
+            progress(step, total_steps)
 
     for i, vehicle in enumerate(ride.vehicles):
         sf = ride.sprite_flags
@@ -166,6 +188,7 @@ def _render_sprites(ride: Ride, context: Context, object_dir: Path) -> list:
                 car_images[base + k] = img
             base += len(frame_imgs)
             scene.end_render()
+            _tick()
 
         for j, rider in enumerate(vehicle.riders):
             log.info("Rendering vehicle %d peep sprites %d", i, j)
@@ -183,6 +206,7 @@ def _render_sprites(ride: Ride, context: Context, object_dir: Path) -> list:
                     car_images[offset + k] = img
                 base += len(frame_imgs)
                 scene.end_render()
+                _tick()
 
         all_images.extend(car_images)
 
@@ -219,9 +243,13 @@ def export_ride_to(
     parkobj_path: Path | str,
     work_dir: Path | str,
     skip_render: bool = False,
+    progress: Callable[[int, int], None] | None = None,
 ) -> None:
     """
     Render and assemble a .parkobj using explicit, caller-chosen paths.
+
+    ``progress``, if given, is forwarded to :func:`_render_sprites` and called
+    as ``progress(done, total)`` as rendering advances.
     """
     parkobj_path = Path(parkobj_path)
     work_dir = Path(work_dir)
@@ -237,7 +265,7 @@ def export_ride_to(
             raise RuntimeError('Property "images" is not an array')
     else:
         _clean_working_dir(work_dir)
-        images_json = _render_sprites(ride, context, work_dir)
+        images_json = _render_sprites(ride, context, work_dir, progress)
 
     ride_json["images"] = images_json
 

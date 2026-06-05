@@ -22,8 +22,7 @@ from openrct2_x7_renderer.ray_trace import Context
 from openrct2_x7_renderer.types import Light
 
 from . import scene_to_ride
-
-_SPINNER_FRAMES = "|/-\\"
+from .progress_overlay import ProgressOverlay
 
 
 def _normalize(v):
@@ -146,14 +145,22 @@ class VG_OT_export_parkobj(Operator):
         self._error: str | None = None
         self._done = False
         self._start_time = time.monotonic()
-        self._spinner_step = 0
+        self._overlay = ProgressOverlay()
         # Read lights on the main thread; the worker must not touch bpy data.
         lights = _lights_from_scene(context)
+
+        def on_progress(done: int, total: int) -> None:
+            # Plain int writes from the worker; the modal timer reads them to
+            # repaint the bar. No lock needed for single-word assignments.
+            self._overlay.done = done
+            self._overlay.total = total
 
         def worker():
             try:
                 ctx = Context(lights=lights, dither=True, upt=ride.units_per_tile)
-                export_ride_to(ride, ctx, self._parkobj, self._work)
+                export_ride_to(
+                    ride, ctx, self._parkobj, self._work, progress=on_progress
+                )
             except Exception:
                 self._error = traceback.format_exc()
             finally:
@@ -162,10 +169,9 @@ class VG_OT_export_parkobj(Operator):
         self._thread = threading.Thread(target=worker, daemon=True)
         self._thread.start()
 
+        self._overlay.add()
+        self._set_status(context)
         wm = context.window_manager
-        wm.progress_begin(0, 1)
-        context.window.cursor_modal_set("WAIT")
-        self._set_status(context, _SPINNER_FRAMES[0], 0)
         self._timer = wm.event_timer_add(0.1, window=context.window)
         wm.modal_handler_add(self)
         return {"RUNNING_MODAL"}
@@ -174,25 +180,25 @@ class VG_OT_export_parkobj(Operator):
         if event.type == "TIMER":
             if self._done:
                 return self._finish(context)
-            self._spinner_step += 1
-            glyph = _SPINNER_FRAMES[self._spinner_step % len(_SPINNER_FRAMES)]
-            elapsed = int(time.monotonic() - self._start_time)
-            self._set_status(context, glyph, elapsed)
+            self._set_status(context)
+            self._overlay.tag_redraw(context)
         return {"PASS_THROUGH"}
 
-    def _set_status(self, context, glyph: str, elapsed: int) -> None:
-        text = f"{glyph} Exporting .parkobj... {elapsed}s"
+    def _set_status(self, context) -> None:
+        elapsed = int(time.monotonic() - self._start_time)
+        if self._overlay.total > 0:
+            pct = int(100 * self._overlay.done / self._overlay.total)
+            text = f"Exporting .parkobj... {pct}% ({elapsed}s)"
+        else:
+            text = f"Exporting .parkobj... ({elapsed}s)"
         context.workspace.status_text_set(text)
-        # status_text_set alone doesn't always trigger a redraw; nudge the
-        # progress widget so the header repaints each tick.
-        context.window_manager.progress_update((self._spinner_step % 20) / 20.0)
 
     def _finish(self, context):
         wm = context.window_manager
         wm.event_timer_remove(self._timer)
-        wm.progress_end()
-        context.window.cursor_modal_restore()
+        self._overlay.remove()
         context.workspace.status_text_set(None)
+        self._overlay.tag_redraw(context)
         self._thread.join()
         if self._error:
             print(self._error)
