@@ -21,6 +21,7 @@ from openrct2_vehicle_generator.exporter import (
 from openrct2_vehicle_generator.loader import build_ride
 from openrct2_vehicle_generator.types import IndexedImage, MeshFrame, Model, Ride, Vehicle
 from openrct2_x7_renderer.mesh import load_mesh
+from openrct2_x7_renderer.remap import REMAP_COLOR_RAMPS
 
 
 class FakeScene:
@@ -393,6 +394,28 @@ def test_export_ride_test_single_view_pngs(tmp_path):
 
     export_ride_test(ride, FakeContext(), test_dir)
     assert (test_dir / "car_0_0.png").exists()
+
+
+def test_export_ride_test_overrides_from_first_preset(tmp_path):
+    # The first colour preset drives the preview's remap recolouring:
+    # region 1 = main, 2 = additional 1, 3 = additional 2.
+    ride = _build(tmp_path)  # default_colors: [["bright_red", "black", "yellow"]]
+    ctx = FakeContext()
+    export_ride_test(ride, ctx, tmp_path / "test")
+    assert ctx.remap_overrides == {
+        1: REMAP_COLOR_RAMPS["bright_red"],
+        2: REMAP_COLOR_RAMPS["black"],
+        3: REMAP_COLOR_RAMPS["yellow"],
+    }
+
+
+def test_export_ride_test_no_presets_leaves_overrides_empty(tmp_path):
+    # With no colour presets the remap windows are left raw (empty overrides).
+    ride = _build(tmp_path)
+    ride.colors = []
+    ctx = FakeContext()
+    export_ride_test(ride, ctx, tmp_path / "test")
+    assert ctx.remap_overrides == {}
 
 
 def test_export_ride_test_restraint_animation_emits_four_frames(tmp_path):

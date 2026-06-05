@@ -15,6 +15,7 @@ from openrct2_x7_renderer.geometry import rotate_x, rotate_y, rotate_z
 from openrct2_x7_renderer.image import write_png
 from openrct2_x7_renderer.images_dat import write_images_dat
 from openrct2_x7_renderer.ray_trace import Context, SceneBuilder
+from openrct2_x7_renderer.remap import REMAP_COLOR_RAMPS, REMAP_WINDOWS
 
 from .constants import (
     CAR_SLOT_ABSENT,
@@ -291,8 +292,31 @@ def export_ride(
     )
 
 
+def _preview_remap_overrides(ride: Ride) -> dict[int, tuple[int, ...]]:
+    """Map the ride's first colour preset onto the renderer's remap regions.
+
+    A preview render normally shows the raw remap windows — the greyscale
+    "company colour" ramps OpenRCT2 repaints at draw time. Substituting the
+    first preset's colours (region 1 = main, 2 = additional 1, 3 = additional 2)
+    lets the preview show the vehicle in its default repaint colours. Returns an
+    empty dict when the ride defines no presets, leaving the windows untouched.
+    """
+    if not ride.colors:
+        return {}
+    preset = ride.colors[0]
+    return {
+        region: REMAP_COLOR_RAMPS[COLOR_NAMES[color_index]]
+        for region, color_index in zip(sorted(REMAP_WINDOWS), preset, strict=False)
+    }
+
+
 def export_ride_test(ride: Ride, context: Context, test_dir: Path | str = "test") -> None:
-    """Single-viewpoint render for fast iteration."""
+    """Single-viewpoint render for fast iteration.
+
+    Recolours the preview using the ride's first colour preset so the remap
+    windows show their repaint colours; with no presets the windows are left raw.
+    """
+    context.remap_overrides = _preview_remap_overrides(ride)
     test_dir = Path(test_dir)
     test_dir.mkdir(parents=True, exist_ok=True)
     for i, vehicle in enumerate(ride.vehicles):
