@@ -12,7 +12,7 @@ from openrct2_x7_renderer.types import (
     Model,
 )
 
-from .constants import MAX_FRAMES, TILE_SIZE
+from .constants import CAR_SLOT_ABSENT, CONFIGURATION_SLOTS, MAX_FRAMES, TILE_SIZE
 
 __all__ = [
     "MAX_FRAMES",
@@ -48,8 +48,10 @@ class Ride:
     version: str = "1.0"
     ride_type: str = ""
 
-    # default, front, second, rear, third  (0xFF means absent).
-    configuration: list[int] = field(default_factory=lambda: [0xFF] * 5)
+    # default, front, second, rear, third  (CAR_SLOT_ABSENT means absent).
+    configuration: list[int] = field(
+        default_factory=lambda: [CAR_SLOT_ABSENT] * CONFIGURATION_SLOTS
+    )
 
     # Model units per tile: the scale that maps OBJ-space units onto one
     # OpenRCT2 tile. Drives both the render projection (sprite size) and the

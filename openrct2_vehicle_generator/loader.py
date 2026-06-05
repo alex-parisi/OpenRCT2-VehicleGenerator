@@ -22,7 +22,9 @@ from openrct2_x7_renderer.config import (
 )
 
 from .constants import (
+    CAR_SLOT_ABSENT,
     COLOR_NAMES,
+    CONFIGURATION_SLOTS,
     RIDE_FLAG_NAMES,
     RUNNING_SOUND_NAMES,
     SECONDARY_SOUND_NAMES,
@@ -227,7 +229,7 @@ def build_ride(config: dict, meshes: list, preview: IndexedImage | None = None) 
     # Configuration: optional object with `default` (defaults to 0), plus
     # optional front/rear. Single-car-type rides can omit it.
     car_config = root.get("configuration", {"default": 0})
-    ride.configuration = [0xFF] * 5
+    ride.configuration = [CAR_SLOT_ABSENT] * CONFIGURATION_SLOTS
     default = car_config.get("default")
     if not isinstance(default, int) or isinstance(default, bool):
         raise LoadError('Property "default" not found or is not an integer')

@@ -25,7 +25,7 @@ from openrct2_x7_renderer.geometry import rotate_x, rotate_y, rotate_z
 from openrct2_x7_renderer.ray_trace import FinalizedScene
 from openrct2_x7_renderer.types import IndexedImage
 
-from .constants import SpriteFlag, VehicleFlag
+from .constants import MAX_FRAMES, SpriteFlag, VehicleFlag
 
 log = logging.getLogger(__name__)
 
@@ -294,8 +294,12 @@ def _build_corkscrew_rotations() -> list[_Rot]:
 _CORKSCREW_ROT = _build_corkscrew_rotations()
 
 
-_RESTRAINT_FRAMES = 12
+# Each restraint animation frame renders this many sprites (one per direction);
+# it's also the object.json `restraintAnimation` count. Frame 0 is the base car,
+# so the extra sprites a restraint animation adds are the remaining MAX_FRAMES-1
+# frames at _RESTRAINT_PER_FRAME each.
 _RESTRAINT_PER_FRAME = 4
+_RESTRAINT_FRAMES = (MAX_FRAMES - 1) * _RESTRAINT_PER_FRAME
 
 
 # One render group: a rotation table plus the object.json `spriteGroups` keys it
@@ -508,7 +512,7 @@ def sprite_group_counts(sprite_flags: int, vehicle_flags: int) -> dict[str, int]
         for key, count in group.object_groups:
             out[key] = count
     if vehicle_flags & VehicleFlag.RESTRAINT_ANIMATION:
-        out["restraintAnimation"] = 4
+        out["restraintAnimation"] = _RESTRAINT_PER_FRAME
     return out
 
 

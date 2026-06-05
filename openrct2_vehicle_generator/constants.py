@@ -32,6 +32,8 @@ __all__ = [
     "RunningSound",
     "SecondarySound",
     "CarIndex",
+    "CONFIGURATION_SLOTS",
+    "CAR_SLOT_ABSENT",
     "Category",
     "SPRITE_GROUP_NAMES",
     "RIDE_FLAG_NAMES",
@@ -108,6 +110,12 @@ class CarIndex(IntEnum):
     SECOND = 2
     REAR = 3
     THIRD = 4
+
+
+# The `configuration` list always has one slot per CarIndex member, and an unset
+# slot is marked absent with this sentinel (the engine's "no car" value).
+CONFIGURATION_SLOTS = len(CarIndex)
+CAR_SLOT_ABSENT = 0xFF
 
 
 class Category(IntEnum):

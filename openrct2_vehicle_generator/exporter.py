@@ -16,6 +16,7 @@ from openrct2_x7_renderer.images_dat import write_images_dat
 from openrct2_x7_renderer.ray_trace import Context, SceneBuilder
 
 from .constants import (
+    CAR_SLOT_ABSENT,
     CATEGORY_NAMES,
     COLOR_NAMES,
     FRICTION_SOUND_IDS,
@@ -49,10 +50,10 @@ def build_ride_json(ride: Ride) -> dict[str, Any]:
         "defaultCar": ride.configuration[CarIndex.DEFAULT],
     }
     front = ride.configuration[CarIndex.FRONT]
-    if front != 0xFF:
+    if front != CAR_SLOT_ABSENT:
         properties["headCars"] = front
     rear = ride.configuration[CarIndex.REAR]
-    if rear != 0xFF:
+    if rear != CAR_SLOT_ABSENT:
         properties["tailCars"] = rear
 
     properties["buildMenuPriority"] = ride.build_menu_priority
