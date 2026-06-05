@@ -32,7 +32,7 @@ from .constants import (
     CarIndex,
     Category,
     SpriteFlag,
-    VehicleFlag,
+    frames_for,
 )
 from .sprite_renderer import count_sprites
 from .types import MAX_FRAMES, IndexedImage, MeshFrame, Model, Ride, Vehicle
@@ -59,6 +59,43 @@ def _flag_bits(value: Any, names: list[str], prop: str, label: str) -> int:
     return flags
 
 
+def _frame_count_error(key: str, count: int, num_frames: int) -> LoadError:
+    return LoadError(
+        f'Number of elements in "{key}" ({count}) does not match '
+        f"number of frames ({num_frames})"
+    )
+
+
+def _frame_mesh_indices(raw: Any, num_frames: int, num_meshes: int) -> list[int]:
+    """Resolve `mesh_index` to one int per frame: a single value is broadcast
+    across all frames, otherwise the count must equal `num_frames`."""
+    arr = as_array_or_wrap(raw)
+    if len(arr) != 1 and len(arr) != num_frames:
+        raise _frame_count_error("mesh_index", len(arr), num_frames)
+    indices: list[int] = []
+    for mi in arr:
+        if not isinstance(mi, int) or isinstance(mi, bool):
+            raise LoadError('Property "mesh_index" not found or is not an integer')
+        if mi >= num_meshes or mi < -1:
+            raise LoadError(f"Mesh index {mi} is out of bounds")
+        indices.append(int(mi))
+    return indices * num_frames if len(indices) == 1 else indices
+
+
+def _frame_vectors(prop: Any, num_frames: int, key: str) -> list[Any]:
+    """Resolve `position`/`orientation` to one vector per frame: a single
+    `[x, y, z]` is broadcast across all frames, otherwise it must be a list of
+    `num_frames` vectors."""
+    if not isinstance(prop, list):
+        raise LoadError(f'Property "{key}" is not an array')
+    if len(prop) == 3:
+        vec = read_vector3(prop)
+        return [vec.copy() for _ in range(num_frames)]
+    if len(prop) == num_frames:
+        return [read_vector3(val) for val in prop]
+    raise _frame_count_error(key, len(prop), num_frames)
+
+
 def _load_model(value: Any, num_meshes: int, num_frames: int) -> Model:
     if value is None:
         raise LoadError('Property "model" not found')
@@ -68,61 +105,29 @@ def _load_model(value: Any, num_meshes: int, num_frames: int) -> Model:
         if not isinstance(elem, dict):
             raise LoadError('Property "model" is not an object')
 
-        # MeshFrame is immutable, so accumulate per-frame fields first and build
-        # the frames once at the end. Slots 0..MAX_FRAMES; frames >= num_frames
-        # are unused and keep the MeshFrame defaults (mesh_index -1, zero vecs).
-        mesh_indices = [-1] * MAX_FRAMES
-        vectors: dict[str, list[Any]] = {
-            "position": [None] * MAX_FRAMES,
-            "orientation": [None] * MAX_FRAMES,
-        }
-
         mesh_idx_raw = elem.get("mesh_index")
         if mesh_idx_raw is None:
             raise LoadError('Property "mesh_index" not found')
-        mesh_arr = as_array_or_wrap(mesh_idx_raw)
-        mesh_count = len(mesh_arr)
-        if mesh_count != 1 and mesh_count != num_frames:
-            raise LoadError(
-                f'Number of elements in "mesh_index" ({mesh_count}) '
-                f"does not match number of frames ({num_frames})"
-            )
-        for j, mi in enumerate(mesh_arr):
-            if not isinstance(mi, int) or isinstance(mi, bool):
-                raise LoadError('Property "mesh_index" not found or is not an integer')
-            if mi >= num_meshes or mi < -1:
-                raise LoadError(f"Mesh index {mi} is out of bounds")
-            mesh_indices[j] = int(mi)
-        if mesh_count < num_frames:
-            for j in range(num_frames):
-                mesh_indices[j] = mesh_indices[0]
+        mesh_indices = _frame_mesh_indices(mesh_idx_raw, num_frames, num_meshes)
 
-        for key in ("position", "orientation"):
-            prop = elem.get(key)
-            if prop is None:
-                continue  # MeshFrame defaults to a zero vector
-            if not isinstance(prop, list):
-                raise LoadError(f'Property "{key}" is not an array')
-            target = vectors[key]
-            if len(prop) == 3:
-                vec = read_vector3(prop)
-                for j in range(num_frames):
-                    target[j] = vec.copy()
-            elif len(prop) == num_frames:
-                for j, val in enumerate(prop):
-                    target[j] = read_vector3(val)
-            else:
-                raise LoadError(
-                    f'Number of elements in "{key}" ({len(prop)}) does not match '
-                    f"number of frames ({num_frames})"
-                )
+        # None => omit the kwarg so MeshFrame falls back to its zero-vector default.
+        vectors = {
+            key: _frame_vectors(prop, num_frames, key) if (prop := elem.get(key)) is not None
+            else None
+            for key in ("position", "orientation")
+        }
 
+        # MeshFrame is immutable. Build the num_frames active frames, then pad the
+        # unused slots (num_frames..MAX_FRAMES) with the MeshFrame default.
         frames: list[MeshFrame] = []
         for j in range(MAX_FRAMES):
+            if j >= num_frames:
+                frames.append(MeshFrame())
+                continue
             kwargs: dict[str, Any] = {"mesh_index": mesh_indices[j]}
-            if vectors["position"][j] is not None:
+            if vectors["position"] is not None:
                 kwargs["position"] = vectors["position"][j]
-            if vectors["orientation"][j] is not None:
+            if vectors["orientation"] is not None:
                 kwargs["orientation"] = vectors["orientation"][j]
             frames.append(MeshFrame(**kwargs))
         meshes_out.append(frames)
@@ -137,7 +142,7 @@ def _load_vehicle(value: dict, ride: Ride) -> Vehicle:
     v.effect_visual = optional_int(value, "effect_visual", 1)
     v.flags = _flag_bits(value.get("flags", []), VEHICLE_FLAG_NAMES, "flags", "flag")
 
-    num_frames = 4 if (v.flags & VehicleFlag.RESTRAINT_ANIMATION) else 1
+    num_frames = frames_for(v.flags)
     num_meshes = len(ride.meshes)
     v.model = _load_model(value.get("model"), num_meshes, num_frames)
 
@@ -220,25 +225,28 @@ def build_ride(config: dict, meshes: list, preview: IndexedImage | None = None) 
     ride.max_cars_per_train = require_int(root, "max_cars_per_train")
 
     # Configuration: optional object with `default` (defaults to 0), plus
-    # optional front/second/third/rear. Single-car-type rides can omit it.
+    # optional front/rear. Single-car-type rides can omit it.
     car_config = root.get("configuration", {"default": 0})
     ride.configuration = [0xFF] * 5
     default = car_config.get("default")
     if not isinstance(default, int) or isinstance(default, bool):
         raise LoadError('Property "default" not found or is not an integer')
     ride.configuration[CarIndex.DEFAULT] = int(default)
+    # `second`/`third` map to engine slots the exporter doesn't emit yet, so
+    # reject them loudly rather than accepting and silently dropping them.
+    for unsupported in ("second", "third"):
+        if car_config.get(unsupported) is not None:
+            raise LoadError(f'Property "{unsupported}" is not yet supported')
     for key, idx in [
         ("front", CarIndex.FRONT),
-        ("second", CarIndex.SECOND),
-        ("third", CarIndex.THIRD),
         ("rear", CarIndex.REAR),
     ]:
-        v = car_config.get(key)
-        if v is None:
+        slot = car_config.get(key)
+        if slot is None:
             continue
-        if not isinstance(v, int) or isinstance(v, bool):
+        if not isinstance(slot, int) or isinstance(slot, bool):
             raise LoadError(f'Property "{key}" is not an integer')
-        ride.configuration[idx] = int(v)
+        ride.configuration[idx] = int(slot)
 
     # Colors.
     raw_colors = root.get("default_colors")

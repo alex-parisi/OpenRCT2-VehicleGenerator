@@ -28,6 +28,7 @@ __all__ = [
     "SpriteFlag",
     "RideFlag",
     "VehicleFlag",
+    "frames_for",
     "RunningSound",
     "SecondarySound",
     "CarIndex",
@@ -72,6 +73,13 @@ class VehicleFlag(IntFlag):
     TERTIARY_REMAP = auto()
     RIDERS_SCREAM = auto()
     RESTRAINT_ANIMATION = auto()
+
+
+def frames_for(vehicle_flags: int) -> int:
+    """Animation frames a vehicle renders: MAX_FRAMES when the restraint
+    animation flag is set, else 1. Single source for the loader and exporter so
+    the allocated, rendered, and declared frame counts can't drift."""
+    return MAX_FRAMES if (vehicle_flags & VehicleFlag.RESTRAINT_ANIMATION) else 1
 
 
 class RunningSound(IntEnum):

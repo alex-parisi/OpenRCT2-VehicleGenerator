@@ -38,7 +38,9 @@ ADDONS = {"vehicle": "vehicle_renderer_addon"}
 # External renderer: PyPI dist name, wheel-filename prefix, pinned version.
 RENDERER_DIST = "openrct2-x7-renderer"
 RENDERER_PREFIX = "openrct2_x7_renderer"
-RENDERER_VERSION = "0.1.0"
+# Keep in step with collect_wheels.py's RENDERER_VERSION and the floor in
+# pyproject.toml's `openrct2-x7-renderer>=...` dependency.
+RENDERER_VERSION = "0.2.0"
 DEPS = ("numpy", "pillow", "pyyaml")
 
 

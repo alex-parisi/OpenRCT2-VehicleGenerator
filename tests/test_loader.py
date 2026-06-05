@@ -330,12 +330,20 @@ def test_sloped_banked_turn_implies_transitions(tmp_path):
     assert ride.sprite_flags & SpriteFlag.BANKED_SLOPE_TRANSITION
 
 
-def test_full_configuration_maps_all_car_slots(tmp_path):
+def test_front_rear_configuration_maps_car_slots(tmp_path):
     ride = load_ride(
         _make_ride(
             tmp_path,
-            configuration={"default": 0, "front": 1, "second": 2, "third": 3, "rear": 4},
+            configuration={"default": 0, "front": 1, "rear": 4},
         )
     )
     # configuration order is [default, front, second, rear, third].
-    assert ride.configuration == [0, 1, 2, 4, 3]
+    assert ride.configuration == [0, 1, 0xFF, 4, 0xFF]
+
+
+@pytest.mark.parametrize("slot", ["second", "third"])
+def test_unsupported_configuration_slots_rejected(tmp_path, slot):
+    # `second`/`third` map to engine slots the exporter can't emit yet, so the
+    # loader rejects them instead of silently dropping the value.
+    with pytest.raises(LoadError, match="not yet supported"):
+        load_ride(_make_ride(tmp_path, configuration={"default": 0, slot: 2}))

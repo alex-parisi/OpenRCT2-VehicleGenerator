@@ -16,8 +16,16 @@ def _args(input_path, test=False, skip_render=False):
     return argparse.Namespace(input=input_path, test=test, skip_render=skip_render)
 
 
+def _patch_build_ride(monkeypatch):
+    monkeypatch.setattr(cli, "load_meshes", lambda root: [])
+    monkeypatch.setattr(cli, "load_preview", lambda root: None)
+    monkeypatch.setattr(
+        cli, "build_ride", lambda root, meshes, preview: types.SimpleNamespace(units_per_tile=32.0)
+    )
+
+
 def _patch_common(monkeypatch, calls):
-    monkeypatch.setattr(cli, "load_ride", lambda path: types.SimpleNamespace(units_per_tile=32.0))
+    _patch_build_ride(monkeypatch)
     monkeypatch.setattr(
         cli, "make_context", lambda lights, upt, test: ("ctx", upt, test)
     )
@@ -80,7 +88,7 @@ def test_main_end_to_end_through_run_cli(monkeypatch, tmp_path):
     cfg = tmp_path / "ride.json"
     cfg.write_text("{}")
 
-    monkeypatch.setattr(cli, "load_ride", lambda path: types.SimpleNamespace(units_per_tile=32.0))
+    _patch_build_ride(monkeypatch)
     monkeypatch.setattr(cli, "make_context", lambda lights, upt, test: "ctx")
     monkeypatch.setattr(cli, "output_directory_of", lambda root: tmp_path)
 

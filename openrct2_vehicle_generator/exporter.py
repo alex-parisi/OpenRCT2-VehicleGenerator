@@ -23,6 +23,7 @@ from .constants import (
     RideFlag,
     SpriteFlag,
     VehicleFlag,
+    frames_for,
 )
 from .sprite_renderer import render_vehicle_frame
 from .types import Model, Ride
@@ -206,7 +207,7 @@ def _render_sprites(ride: Ride, context: Context, object_dir: Path) -> list:
     for i, vehicle in enumerate(ride.vehicles):
         sf = ride.sprite_flags
         vf = vehicle.flags
-        num_frames = 4 if (vf & VehicleFlag.RESTRAINT_ANIMATION) else 1
+        num_frames = frames_for(vf)
         # Set by the loader via count_sprites; reused here so the declared count
         # and the rendered set come from a single computation.
         num_car_images = vehicle.num_sprites
@@ -324,8 +325,7 @@ def export_ride_test(ride: Ride, context: Context, test_dir: Path | str = "test"
     test_dir = Path(test_dir)
     test_dir.mkdir(parents=True, exist_ok=True)
     for i, vehicle in enumerate(ride.vehicles):
-        vf = vehicle.flags
-        num_frames = 4 if (vf & VehicleFlag.RESTRAINT_ANIMATION) else 1
+        num_frames = frames_for(vehicle.flags)
         for j in range(num_frames):
             log.info("Rendering vehicle %d frame %d", i, j)
             builder = context.begin_render()
