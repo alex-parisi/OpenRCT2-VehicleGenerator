@@ -104,7 +104,10 @@ def build_ride_json(ride: Ride) -> dict[str, Any]:
         for rider in vehicle.riders:
             pos_x = float(rider.meshes[0][0].position[0])
             position = int(round(32.0 * pos_x / ride.units_per_tile))
-            if vehicle.num_riders > 1:
+            # A 2-across row emits a left/right pair; a single-seat row emits one
+            # entry. Key off this row's own width, not the car's total seat count,
+            # so a car with several single-seat rows doesn't double its positions.
+            if len(rider.meshes) > 1:
                 loading.append(position - 1)
                 loading.append(position + 1)
             else:

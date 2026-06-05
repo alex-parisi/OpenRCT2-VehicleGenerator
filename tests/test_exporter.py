@@ -188,6 +188,27 @@ def test_build_ride_json_loading_positions_single_rider(tmp_path):
     assert len(car["loadingPositions"]) == 1
 
 
+def test_build_ride_json_loading_positions_multi_row_single_seat(tmp_path):
+    # Several single-seat rows (single-file seating): each row emits exactly one
+    # loading position, so the count tracks numSeats rather than doubling. The
+    # row width -- not the car's total seat count -- decides the left/right pair.
+    vehicle = {
+        "model": {"mesh_index": 0},
+        "mass": 100,
+        "spacing": 2.0,
+        "draw_order": 1,
+        "riders": [
+            [{"mesh_index": 0, "position": [1.0, 0, 0.0]}],
+            [{"mesh_index": 0, "position": [-1.0, 0, 0.0]}],
+        ],
+    }
+    ride = _build(tmp_path, vehicles=[vehicle])
+    car = build_ride_json(ride)["properties"]["cars"][0]
+    assert car["numSeats"] == 2
+    assert car["numSeatRows"] == 2
+    assert len(car["loadingPositions"]) == car["numSeats"]
+
+
 def test_build_ride_json_unknown_running_sound_friction_falls_back_to_zero():
     # The else branch in build_ride_json: a running_sound index past the
     # FRICTION_SOUND_IDS table maps to friction 0. The loader can't emit this
