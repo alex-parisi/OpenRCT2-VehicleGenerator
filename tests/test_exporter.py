@@ -262,6 +262,24 @@ def test_export_ride_to_writes_parkobj(tmp_path):
     assert (work / "images.dat").exists()
 
 
+def test_export_ride_to_reports_progress(tmp_path):
+    # A progress callback is invoked once per rendered frame and ends at total.
+    ride = _build(tmp_path)
+    ctx = FakeContext()
+    calls: list[tuple[int, int]] = []
+
+    def _progress(done: int, total: int) -> None:
+        calls.append((done, total))
+
+    export_ride_to(ride, ctx, tmp_path / "p.parkobj", tmp_path / "w", progress=_progress)
+
+    # 32 flat sprites for the single car, no riders -> 32 ticks, monotonic to total.
+    assert calls
+    total = calls[-1][1]
+    assert [d for d, _ in calls] == list(range(1, total + 1))
+    assert calls[-1] == (total, total)
+
+
 def test_export_ride_to_renders_riders_with_masks(tmp_path):
     # Two rider rows exercise the peep-sprite loop, the prior-row background
     # pass (rows < j are added at mask=1), and the mask=0 subject pass.
