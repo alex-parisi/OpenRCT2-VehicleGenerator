@@ -31,28 +31,25 @@ from __future__ import annotations
 
 import argparse
 import importlib.metadata as md
-import re
 import subprocess
 import sys
-from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent
-ADDONS = {"vehicle": "vehicle_renderer_addon"}
+from _buildlib import (
+    ADDONS,
+    DEPS,
+    FRONTEND_PREFIX,
+    RENDERER_PREFIX,
+    REPO,
+    pip_download_cmd,
+    renderer_spec,
+    run,
+    set_toml_array,
+    wheels_block,
+)
+
 ADDON = REPO / ADDONS["vehicle"]
 WHEELS = ADDON / "wheels"
 MANIFEST = ADDON / "blender_manifest.toml"
-
-# External renderer: PyPI dist name, wheel-filename prefix, and the pinned
-# version to bundle. Keep RENDERER_VERSION in step with the floor in
-# pyproject.toml's `openrct2-x7-renderer>=...` dependency.
-RENDERER_DIST = "openrct2-x7-renderer"
-RENDERER_PREFIX = "openrct2_x7_renderer"
-RENDERER_VERSION = "0.2.0"
-
-# This repo's pure-Python front-end wheel (built + placed by the caller).
-FRONTEND_PREFIX = "openrct2_vehiclegenerator"
-
-DEPS = ("numpy", "pillow", "pyyaml")
 
 # (python version, abi tag) for each interpreter Blender ships: 3.11 (4.2/4.5
 # LTS), 3.13 (5.x).
@@ -86,9 +83,7 @@ def ensure_pip() -> None:
 def download_specs() -> list[str]:
     # Renderer pinned to the bundled release; deps pinned to the versions
     # resolved in this env so they match what the renderer was built against.
-    return [f"{RENDERER_DIST}=={RENDERER_VERSION}"] + [
-        f"{name}=={md.version(name)}" for name in DEPS
-    ]
+    return [renderer_spec()] + [f"{name}=={md.version(name)}" for name in DEPS]
 
 
 def is_managed_wheel(name: str) -> bool:
@@ -105,39 +100,24 @@ def clear_managed_wheels() -> None:
 
 def download_wheels() -> None:
     specs = download_specs()
+    pip_prefix = [sys.executable, "-m", "pip"]
     for py, abi in PYTHONS:
         for _label, plat_tags in TARGETS:
-            cmd = [
-                sys.executable,
-                "-m",
-                "pip",
-                "download",
-                "--only-binary=:all:",
-                "--no-deps",
-                "--python-version",
-                py,
-                "--implementation",
-                "cp",
-                "--abi",
-                abi,
-                "-d",
-                str(WHEELS),
-            ]
-            for tag in plat_tags:
-                cmd += ["--platform", tag]
-            cmd += specs
-            print("+", " ".join(cmd))
-            subprocess.run(cmd, check=True)
+            run(
+                pip_download_cmd(
+                    pip_prefix,
+                    dest=WHEELS,
+                    py_version=py,
+                    abi=abi,
+                    platform_tags=plat_tags,
+                    specs=specs,
+                )
+            )
 
 
 def write_manifest(wheel_names: list[str]) -> None:
-    entries = sorted(set(wheel_names))
-    block = "\n".join(["wheels = ["] + [f'    "./wheels/{name}",' for name in entries] + ["]"])
     text = MANIFEST.read_text(encoding="utf-8")
-    new_text, n = re.subn(r"wheels = \[.*?\]", block, text, count=1, flags=re.DOTALL)
-    if n != 1:
-        raise SystemExit("Could not find a 'wheels = [...]' block in the manifest")
-    MANIFEST.write_text(new_text, encoding="utf-8")
+    MANIFEST.write_text(set_toml_array(text, "wheels", wheels_block(wheel_names)), encoding="utf-8")
 
 
 def main() -> None:

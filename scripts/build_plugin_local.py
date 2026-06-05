@@ -32,28 +32,18 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent
-ADDONS = {"vehicle": "vehicle_renderer_addon"}
-
-# External renderer: PyPI dist name, wheel-filename prefix, pinned version.
-RENDERER_DIST = "openrct2-x7-renderer"
-RENDERER_PREFIX = "openrct2_x7_renderer"
-# Keep in step with collect_wheels.py's RENDERER_VERSION and the floor in
-# pyproject.toml's `openrct2-x7-renderer>=...` dependency.
-RENDERER_VERSION = "0.2.0"
-DEPS = ("numpy", "pillow", "pyyaml")
-
-
-def run(cmd: list[str], *, capture: bool = False) -> str:
-    """Run a command, echoing it; raise on failure. Return stdout if captured."""
-    print("+", " ".join(cmd))
-    res = subprocess.run(
-        cmd,
-        check=True,
-        text=True,
-        stdout=subprocess.PIPE if capture else None,
-    )
-    return res.stdout if capture else ""
+from _buildlib import (
+    ADDONS,
+    DEPS,
+    FRONTEND_PREFIX,
+    REPO,
+    one_renderer_wheel,
+    pip_download_cmd,
+    renderer_spec,
+    run,
+    set_toml_array,
+    wheels_block,
+)
 
 
 def blender_python_tag() -> tuple[str, str]:
@@ -116,17 +106,10 @@ def dep_specs() -> list[str]:
     return out.split()
 
 
-def one_renderer_wheel(d: Path) -> Path:
-    wheels = list(d.glob(f"{RENDERER_PREFIX}-*.whl"))
-    if len(wheels) != 1:
-        raise SystemExit(f"Expected one renderer wheel in {d}, found {wheels}")
-    return wheels[0]
-
-
 def build_frontend_wheel(out_dir: Path) -> Path:
     """Build this repo's pure-Python front-end wheel (py3-none-any)."""
     run(["uv", "build", "--wheel", "--out-dir", str(out_dir)])
-    wheels = list(out_dir.glob("openrct2_vehiclegenerator-*.whl"))
+    wheels = list(out_dir.glob(f"{FRONTEND_PREFIX}-*.whl"))
     if len(wheels) != 1:
         raise SystemExit(f"Expected one front-end wheel in {out_dir}, found {wheels}")
     return wheels[0]
@@ -134,31 +117,16 @@ def build_frontend_wheel(out_dir: Path) -> Path:
 
 def download_pkgs(out_dir: Path, py_version: str, abi: str, pip_platforms: list[str]) -> None:
     """Download the renderer wheel + deps from PyPI for the target platform/Python."""
-    cmd = [
-        "uv",
-        "run",
-        "--with",
-        "pip",
-        "python",
-        "-m",
-        "pip",
-        "download",
-        "--only-binary=:all:",
-        "--no-deps",
-        "--python-version",
-        py_version,
-        "--implementation",
-        "cp",
-        "--abi",
-        abi,
-        "-d",
-        str(out_dir),
-    ]
-    for tag in pip_platforms:
-        cmd += ["--platform", tag]
-    cmd += [f"{RENDERER_DIST}=={RENDERER_VERSION}"]
-    cmd += dep_specs()
-    run(cmd)
+    run(
+        pip_download_cmd(
+            ["uv", "run", "--with", "pip", "python", "-m", "pip"],
+            dest=out_dir,
+            py_version=py_version,
+            abi=abi,
+            platform_tags=pip_platforms,
+            specs=[renderer_spec(), *dep_specs()],
+        )
+    )
 
 
 def stage_addon(stage: Path, wheels_src: Path, manifest_platform: str, addon_dir: Path) -> None:
@@ -171,20 +139,12 @@ def stage_addon(stage: Path, wheels_src: Path, manifest_platform: str, addon_dir
     for whl in wheels_src.glob("*.whl"):
         shutil.copy2(whl, stage_wheels / whl.name)
 
-    names = sorted(p.name for p in stage_wheels.glob("*.whl"))
-    wheels_block = "\n".join(["wheels = ["] + [f'    "./wheels/{n}",' for n in names] + ["]"])
-    text = (stage / "blender_manifest.toml").read_text(encoding="utf-8")
-    text, n1 = re.subn(
-        r"platforms = \[.*?\]",
-        f'platforms = ["{manifest_platform}"]',
-        text,
-        count=1,
-        flags=re.DOTALL,
-    )
-    text, n2 = re.subn(r"wheels = \[.*?\]", wheels_block, text, count=1, flags=re.DOTALL)
-    if n1 != 1 or n2 != 1:
-        raise SystemExit("Could not rewrite 'platforms'/'wheels' in the manifest.")
-    (stage / "blender_manifest.toml").write_text(text, encoding="utf-8")
+    names = [p.name for p in stage_wheels.glob("*.whl")]
+    manifest = stage / "blender_manifest.toml"
+    text = manifest.read_text(encoding="utf-8")
+    text = set_toml_array(text, "platforms", f'platforms = ["{manifest_platform}"]')
+    text = set_toml_array(text, "wheels", wheels_block(names))
+    manifest.write_text(text, encoding="utf-8")
 
 
 def verify_wheel(wheel: Path) -> None:
