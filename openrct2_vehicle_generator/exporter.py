@@ -16,6 +16,7 @@ from openrct2_x7_renderer.image import write_png
 from openrct2_x7_renderer.images_dat import write_images_dat
 from openrct2_x7_renderer.ray_trace import Context, SceneBuilder
 from openrct2_x7_renderer.remap import REMAP_COLOR_RAMPS, REMAP_WINDOWS
+from openrct2_x7_renderer.types import IndexedImage
 
 from .constants import (
     CAR_SLOT_ABSENT,
@@ -310,15 +311,55 @@ def _preview_remap_overrides(ride: Ride) -> dict[int, tuple[int, ...]]:
     }
 
 
-def export_ride_test(ride: Ride, context: Context, test_dir: Path | str = "test") -> None:
-    """Single-viewpoint render for fast iteration.
+def combine_indexed_images(images: list[IndexedImage], columns: int = 2) -> IndexedImage:
+    """Tile IndexedImages into a single grid image, aligned by draw offset.
 
-    Recolours the preview using the ride's first colour preset so the remap
-    windows show their repaint colours; with no presets the windows are left raw.
+    Each cell spans the union of every image's draw-offset bounding box, so a
+    shared sprite anchor lands at the same spot in every cell and the rotated
+    views line up. Cells fill left-to-right, top-to-bottom over a transparent
+    (palette index 0) background; ``columns`` is capped at the image count so a
+    single image doesn't leave a blank cell. Used to show all four rotated
+    preview directions in one image.
+    """
+    if not images:
+        return IndexedImage.blank(1, 1)
+    columns = max(1, min(columns, len(images)))
+    left = min(im.x_offset for im in images)
+    top = min(im.y_offset for im in images)
+    cell_w = max(im.x_offset + im.width for im in images) - left
+    cell_h = max(im.y_offset + im.height for im in images) - top
+    rows = math.ceil(len(images) / columns)
+    canvas = np.zeros((rows * cell_h, columns * cell_w), dtype=np.uint8)
+    for idx, im in enumerate(images):
+        row, col = divmod(idx, columns)
+        x = col * cell_w + (im.x_offset - left)
+        y = row * cell_h + (im.y_offset - top)
+        canvas[y : y + im.height, x : x + im.width] = im.pixels
+    return IndexedImage(
+        width=canvas.shape[1],
+        height=canvas.shape[0],
+        x_offset=0,
+        y_offset=0,
+        pixels=canvas,
+    )
+
+
+def export_ride_test(ride: Ride, context: Context, test_dir: Path | str = "test") -> None:
+    """Four-direction render for fast iteration.
+
+    Renders each vehicle frame at the four park-view rotations and tiles them
+    into one 2x2 preview per frame, so the test sprite shows every direction the
+    car is displayed at. Recolours the preview using the ride's first colour
+    preset so the remap windows show their repaint colours; with no presets the
+    windows are left raw.
     """
     context.remap_overrides = _preview_remap_overrides(ride)
     test_dir = Path(test_dir)
     test_dir.mkdir(parents=True, exist_ok=True)
+    # The first view (yaw = pi) matches the old single-direction preview; the
+    # other three step a quarter turn each — the four rotations OpenRCT2 cycles
+    # through as the park view is rotated.
+    yaws = [math.pi + d * math.pi / 2 for d in range(4)]
     for i, vehicle in enumerate(ride.vehicles):
         num_frames = frames_for(vehicle.flags)
         for j in range(num_frames):
@@ -328,6 +369,6 @@ def export_ride_test(ride: Ride, context: Context, test_dir: Path | str = "test"
             for rider in vehicle.riders:
                 _add_model_to_scene(ride, builder, rider, j, 0)
             scene = builder.finalize()
-            img = scene.render_view(rotate_y(math.pi))
+            views = [scene.render_view(rotate_y(yaw)) for yaw in yaws]
             scene.end_render()
-            write_png(img, test_dir / f"car_{i}_{j}.png")
+            write_png(combine_indexed_images(views, columns=2), test_dir / f"car_{i}_{j}.png")
