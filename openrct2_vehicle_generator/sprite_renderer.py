@@ -1,5 +1,15 @@
 """
-Sprite-group rotation tables, count_sprites, and per-frame dispatch.
+Sprite-group registry: rotation tables, object.json spriteGroups, count_sprites,
+and per-frame dispatch.
+
+Each sprite group is described once, in `_BASE_GROUPS` (plus the conditional
+zero-g/dive-loop/corkscrew entries built in `_base_render_plan`), pairing its
+rotation table with the object.json `spriteGroups` keys it declares. Everything
+downstream derives from that single plan: `render_vehicle_frame` renders the
+rotation tables, `count_sprites` sums their frames, and `sprite_group_counts`
+emits the matching object.json block -- so the rendered set, the declared sprite
+count, and the object.json declaration can't drift apart.
+
 Ported from X7's rendering engine
 https://github.com/X123M3-256/RCTGen
 """
@@ -288,45 +298,143 @@ _RESTRAINT_FRAMES = 12
 _RESTRAINT_PER_FRAME = 4
 
 
-# Sprite groups that map one flag -> one rotation table, in the exact order
-# they're emitted into images.dat. Order is significant: it fixes the sprite
-# image indices. ZERO_G_ROLL / DIVE_LOOP / CORKSCREW are resolved separately by
-# _base_render_plan because zero-g and dive loops share the sb22 rotations.
-_BASE_GROUPS: list[tuple[SpriteFlag, str, list[_Rot]]] = [
-    (SpriteFlag.FLAT_SLOPE, "Rendering flat sprites", _FLAT_SLOPE_ROT),
-    (SpriteFlag.GENTLE_SLOPE, "Rendering gentle sprites", _GENTLE_SLOPE_ROT),
-    (SpriteFlag.STEEP_SLOPE, "Rendering steep sprites", _STEEP_SLOPE_ROT),
-    (SpriteFlag.VERTICAL_SLOPE, "Rendering vertical sprites", _VERTICAL_SLOPE_ROT),
-    (SpriteFlag.DIAGONAL_SLOPE, "Rendering diagonal sprites", _DIAGONAL_SLOPE_ROT),
-    (SpriteFlag.BANKING, "Rendering banked sprites", _BANKING_ROT),
-    (SpriteFlag.INLINE_TWIST, "Rendering inline twist sprites", _INLINE_TWIST_ROT),
+# One render group: a rotation table plus the object.json `spriteGroups` keys it
+# declares (key -> rotation-count, OpenRCT2's per-direction frame count, which is
+# a separate quantity from the total frames the table renders). Keeping both on
+# one record is what lets rendering, counting, and the object.json declaration
+# share a single source.
+@dataclass(frozen=True)
+class _RenderGroup:
+    log_message: str
+    rotations: list[_Rot]
+    object_groups: tuple[tuple[str, int], ...]
+
+
+# Sprite groups that map one flag -> one render group, in the exact order they're
+# emitted into images.dat and object.json. Order is significant: it fixes the
+# sprite image indices. ZERO_G_ROLL / DIVE_LOOP / CORKSCREW are resolved
+# separately by _base_render_plan because zero-g and dive loops share the sb22
+# rotations.
+_BASE_GROUPS: list[tuple[SpriteFlag, _RenderGroup]] = [
+    (
+        SpriteFlag.FLAT_SLOPE,
+        _RenderGroup("Rendering flat sprites", _FLAT_SLOPE_ROT, (("slopeFlat", 32),)),
+    ),
+    (
+        SpriteFlag.GENTLE_SLOPE,
+        _RenderGroup(
+            "Rendering gentle sprites",
+            _GENTLE_SLOPE_ROT,
+            (("slopes12", 4), ("slopes25", 32)),
+        ),
+    ),
+    (
+        SpriteFlag.STEEP_SLOPE,
+        _RenderGroup(
+            "Rendering steep sprites",
+            _STEEP_SLOPE_ROT,
+            (("slopes42", 8), ("slopes60", 32)),
+        ),
+    ),
+    (
+        SpriteFlag.VERTICAL_SLOPE,
+        _RenderGroup(
+            "Rendering vertical sprites",
+            _VERTICAL_SLOPE_ROT,
+            (("slopes75", 4), ("slopes90", 32), ("slopesLoop", 4), ("slopeInverted", 4)),
+        ),
+    ),
+    (
+        SpriteFlag.DIAGONAL_SLOPE,
+        _RenderGroup(
+            "Rendering diagonal sprites",
+            _DIAGONAL_SLOPE_ROT,
+            (("slopes8", 4), ("slopes16", 4), ("slopes50", 4)),
+        ),
+    ),
+    (
+        SpriteFlag.BANKING,
+        _RenderGroup(
+            "Rendering banked sprites",
+            _BANKING_ROT,
+            (("flatBanked22", 8), ("flatBanked45", 32)),
+        ),
+    ),
+    (
+        SpriteFlag.INLINE_TWIST,
+        _RenderGroup(
+            "Rendering inline twist sprites",
+            _INLINE_TWIST_ROT,
+            (("flatBanked67", 4), ("flatBanked90", 4), ("inlineTwists", 4)),
+        ),
+    ),
     (
         SpriteFlag.SLOPE_BANK_TRANSITION,
-        "Rendering slope-bank transition sprites",
-        _SLOPE_BANK_T_ROT,
+        _RenderGroup(
+            "Rendering slope-bank transition sprites",
+            _SLOPE_BANK_T_ROT,
+            (("slopes12Banked22", 32),),
+        ),
     ),
     (
         SpriteFlag.DIAGONAL_BANK_TRANSITION,
-        "Rendering diagonal slope-bank transition sprites",
-        _DIAG_BANK_T_ROT,
+        _RenderGroup(
+            "Rendering diagonal slope-bank transition sprites",
+            _DIAG_BANK_T_ROT,
+            (("slopes8Banked22", 4),),
+        ),
     ),
     (
         SpriteFlag.SLOPED_BANK_TRANSITION,
-        "Rendering sloped bank transition sprites",
-        _SLOPED_BANK_T_ROT,
+        _RenderGroup(
+            "Rendering sloped bank transition sprites",
+            _SLOPED_BANK_T_ROT,
+            (("slopes25Banked22", 4),),
+        ),
     ),
     (
         SpriteFlag.DIAGONAL_SLOPED_BANK_TRANSITION,
-        "Rendering diagonal sloped bank transition sprites",
-        _DIAG_SLOPED_BANK_T_ROT,
+        _RenderGroup(
+            "Rendering diagonal sloped bank transition sprites",
+            _DIAG_SLOPED_BANK_T_ROT,
+            (("slopes8Banked45", 4), ("slopes16Banked22", 4), ("slopes16Banked45", 4)),
+        ),
     ),
-    (SpriteFlag.SLOPED_BANKED_TURN, "Rendering sloped banked sprites", _SLOPED_BANKED_TURN_ROT),
+    (
+        SpriteFlag.SLOPED_BANKED_TURN,
+        _RenderGroup(
+            "Rendering sloped banked sprites",
+            _SLOPED_BANKED_TURN_ROT,
+            (("slopes25Banked45", 32),),
+        ),
+    ),
     (
         SpriteFlag.BANKED_SLOPE_TRANSITION,
-        "Rendering banked slope transition sprites",
-        _BANKED_SLOPE_T_ROT,
+        _RenderGroup(
+            "Rendering banked slope transition sprites",
+            _BANKED_SLOPE_T_ROT,
+            (("slopes12Banked45", 4),),
+        ),
     ),
 ]
+
+# The seven object.json keys the zero-g base rotations declare (all 4-frame); the
+# shared sb22 group is appended separately because its frame count depends on
+# whether a dive loop is present.
+_ZERO_G_BASE_OBJECT_GROUPS: tuple[tuple[str, int], ...] = (
+    ("slopes25Banked67", 4),
+    ("slopes25Banked90", 4),
+    ("slopes25InlineTwists", 4),
+    ("slopes42Banked22", 4),
+    ("slopes42Banked45", 4),
+    ("slopes42Banked67", 4),
+    ("slopes42Banked90", 4),
+)
+_DIVE_LOOP_OBJECT_GROUPS: tuple[tuple[str, int], ...] = (
+    ("slopes50Banked45", 8),
+    ("slopes50Banked67", 8),
+    ("slopes50Banked90", 8),
+)
 
 
 def _frames(rots: list[_Rot]) -> int:
@@ -334,32 +442,49 @@ def _frames(rots: list[_Rot]) -> int:
     return sum(r.num_frames for r in rots)
 
 
-def _base_render_plan(sprite_flags: int) -> list[tuple[str, list[_Rot]]]:
-    """The ordered (log message, rotation table) groups rendered for frame 0.
+def _base_render_plan(sprite_flags: int) -> list[_RenderGroup]:
+    """The ordered render groups produced for frame 0.
 
-    Single source of truth for both rendering and counting: `render_vehicle_frame`
-    renders each table and `count_sprites` sums their frames, so the declared
-    sprite count can't drift from the rendered set.
+    Single source of truth for rendering, counting, and object.json emission:
+    `render_vehicle_frame` renders each group's rotations, `count_sprites` sums
+    their frames, and `sprite_group_counts` flattens their object.json keys, so
+    none of the three can drift from the others.
     """
     sf = sprite_flags
-    plan: list[tuple[str, list[_Rot]]] = []
-    for flag, msg, rots in _BASE_GROUPS:
+    plan: list[_RenderGroup] = []
+    for flag, group in _BASE_GROUPS:
         if sf & flag:
-            plan.append((msg, rots))
+            plan.append(group)
     if sf & SpriteFlag.ZERO_G_ROLL:
-        # Dive loops upgrade the shared sb22 rotations from 4 to 8 frames.
-        sb22 = _ZERO_G_SB22_8 if (sf & SpriteFlag.DIVE_LOOP) else _ZERO_G_SB22_4
-        plan.append(("Rendering zero G roll sprites", _ZERO_G_BASE_ROT))
-        plan.append(("Rendering zero G roll sb22 sprites", sb22))
+        # Dive loops upgrade the shared sb22 rotations from 4 to 8 frames; the
+        # object.json slopes60Banked22 count tracks that same upgrade.
+        dive = bool(sf & SpriteFlag.DIVE_LOOP)
+        sb22 = _ZERO_G_SB22_8 if dive else _ZERO_G_SB22_4
+        plan.append(
+            _RenderGroup(
+                "Rendering zero G roll sprites", _ZERO_G_BASE_ROT, _ZERO_G_BASE_OBJECT_GROUPS
+            )
+        )
+        plan.append(
+            _RenderGroup(
+                "Rendering zero G roll sb22 sprites",
+                sb22,
+                (("slopes60Banked22", 8 if dive else 4),),
+            )
+        )
     if sf & SpriteFlag.DIVE_LOOP:
-        plan.append(("Rendering dive loop sprites", _DIVE_LOOP_ROT))
+        plan.append(
+            _RenderGroup("Rendering dive loop sprites", _DIVE_LOOP_ROT, _DIVE_LOOP_OBJECT_GROUPS)
+        )
     if sf & SpriteFlag.CORKSCREW:
-        plan.append(("Rendering corkscrew sprites", _CORKSCREW_ROT))
+        plan.append(
+            _RenderGroup("Rendering corkscrew sprites", _CORKSCREW_ROT, (("corkscrews", 4),))
+        )
     return plan
 
 
 def count_sprites(sprite_flags: int, vehicle_flags: int) -> int:
-    n = sum(_frames(rots) for _msg, rots in _base_render_plan(sprite_flags))
+    n = sum(_frames(g.rotations) for g in _base_render_plan(sprite_flags))
     # A dive loop's declared count includes the sb22 8-frame upgrade even when
     # ZERO_G_ROLL is absent (the engine reserves those slots). The loader always
     # implies ZERO_G_ROLL for DIVE_LOOP, so this only affects the documented
@@ -369,6 +494,22 @@ def count_sprites(sprite_flags: int, vehicle_flags: int) -> int:
     if vehicle_flags & VehicleFlag.RESTRAINT_ANIMATION:
         n += _RESTRAINT_FRAMES
     return n
+
+
+def sprite_group_counts(sprite_flags: int, vehicle_flags: int) -> dict[str, int]:
+    """The object.json `spriteGroups` block for a car.
+
+    Derived from the same render plan as `count_sprites`, so the declared groups
+    always match the rendered set. Insertion order follows the plan (flag/bit
+    order), fixing the order of keys in object.json.
+    """
+    out: dict[str, int] = {}
+    for group in _base_render_plan(sprite_flags):
+        for key, count in group.object_groups:
+            out[key] = count
+    if vehicle_flags & VehicleFlag.RESTRAINT_ANIMATION:
+        out["restraintAnimation"] = 4
+    return out
 
 
 def _rotation_views(rot: _Rot) -> list[np.ndarray]:
@@ -394,9 +535,9 @@ def _frame_views(sprite_flags: int, frame: int) -> list[np.ndarray]:
         return _rotation_views(_Rot(_RESTRAINT_PER_FRAME, 0, 0, 0))
 
     views: list[np.ndarray] = []
-    for msg, rots in _base_render_plan(sprite_flags):
-        log.info(msg)
-        for r in rots:
+    for group in _base_render_plan(sprite_flags):
+        log.info(group.log_message)
+        for r in group.rotations:
             views.extend(_rotation_views(r))
     return views
 

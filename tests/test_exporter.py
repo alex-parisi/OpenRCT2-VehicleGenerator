@@ -210,7 +210,7 @@ def test_build_ride_json_friction_lookup_for_known_sound(tmp_path):
 
 
 def test_build_ride_json_sprite_groups_all_flags(tmp_path):
-    # sprites="all" walks every branch of _emit_sprite_groups; restraint
+    # sprites="all" walks every branch of sprite_group_counts; restraint
     # animation adds the restraintAnimation group. DIVE_LOOP is on, so the
     # sb22 upgrade picks the 8-frame slopes60Banked22.
     vehicle = {

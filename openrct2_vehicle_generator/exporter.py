@@ -21,74 +21,13 @@ from .constants import (
     FRICTION_SOUND_IDS,
     CarIndex,
     RideFlag,
-    SpriteFlag,
     VehicleFlag,
     frames_for,
 )
-from .sprite_renderer import render_vehicle_frame
+from .sprite_renderer import render_vehicle_frame, sprite_group_counts
 from .types import Model, Ride
 
 log = logging.getLogger(__name__)
-
-
-def _emit_sprite_groups(sf: int, vf: int) -> dict[str, int]:
-    out: dict[str, int] = {}
-    if sf & SpriteFlag.FLAT_SLOPE:
-        out["slopeFlat"] = 32
-    if sf & SpriteFlag.GENTLE_SLOPE:
-        out["slopes12"] = 4
-        out["slopes25"] = 32
-    if sf & SpriteFlag.STEEP_SLOPE:
-        out["slopes42"] = 8
-        out["slopes60"] = 32
-    if sf & SpriteFlag.VERTICAL_SLOPE:
-        out["slopes75"] = 4
-        out["slopes90"] = 32
-        out["slopesLoop"] = 4
-        out["slopeInverted"] = 4
-    if sf & SpriteFlag.DIAGONAL_SLOPE:
-        out["slopes8"] = 4
-        out["slopes16"] = 4
-        out["slopes50"] = 4
-    if sf & SpriteFlag.BANKING:
-        out["flatBanked22"] = 8
-        out["flatBanked45"] = 32
-    if sf & SpriteFlag.INLINE_TWIST:
-        out["flatBanked67"] = 4
-        out["flatBanked90"] = 4
-        out["inlineTwists"] = 4
-    if sf & SpriteFlag.SLOPE_BANK_TRANSITION:
-        out["slopes12Banked22"] = 32
-    if sf & SpriteFlag.DIAGONAL_BANK_TRANSITION:
-        out["slopes8Banked22"] = 4
-    if sf & SpriteFlag.SLOPED_BANK_TRANSITION:
-        out["slopes25Banked22"] = 4
-    if sf & SpriteFlag.DIAGONAL_SLOPED_BANK_TRANSITION:
-        out["slopes8Banked45"] = 4
-        out["slopes16Banked22"] = 4
-        out["slopes16Banked45"] = 4
-    if sf & SpriteFlag.SLOPED_BANKED_TURN:
-        out["slopes25Banked45"] = 32
-    if sf & SpriteFlag.BANKED_SLOPE_TRANSITION:
-        out["slopes12Banked45"] = 4
-    if sf & SpriteFlag.ZERO_G_ROLL:
-        out["slopes25Banked67"] = 4
-        out["slopes25Banked90"] = 4
-        out["slopes25InlineTwists"] = 4
-        out["slopes42Banked22"] = 4
-        out["slopes42Banked45"] = 4
-        out["slopes42Banked67"] = 4
-        out["slopes42Banked90"] = 4
-        out["slopes60Banked22"] = 8 if (sf & SpriteFlag.DIVE_LOOP) else 4
-    if sf & SpriteFlag.DIVE_LOOP:
-        out["slopes50Banked45"] = 8
-        out["slopes50Banked67"] = 8
-        out["slopes50Banked90"] = 8
-    if sf & SpriteFlag.CORKSCREW:
-        out["corkscrews"] = 4
-    if vf & VehicleFlag.RESTRAINT_ANIMATION:
-        out["restraintAnimation"] = 4
-    return out
 
 
 def build_ride_json(ride: Ride) -> dict[str, Any]:
@@ -149,7 +88,7 @@ def build_ride_json(ride: Ride) -> dict[str, Any]:
         car["effectVisual"] = vehicle.effect_visual
         car["drawOrder"] = vehicle.draw_order
 
-        car["spriteGroups"] = _emit_sprite_groups(ride.sprite_flags, vehicle.flags)
+        car["spriteGroups"] = sprite_group_counts(ride.sprite_flags, vehicle.flags)
 
         vf = vehicle.flags
         if vf & VehicleFlag.SECONDARY_REMAP:
