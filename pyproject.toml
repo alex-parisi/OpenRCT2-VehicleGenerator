@@ -50,7 +50,7 @@ target-version = "py311"
 src = ["openrct2_vehicle_generator", "scripts", "tests"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "W"]
+select = ["E", "F", "I", "UP", "B", "W", "N"]
 
 [tool.mypy]
 python_version = "3.11"
