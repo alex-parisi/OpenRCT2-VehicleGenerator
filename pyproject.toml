@@ -52,6 +52,12 @@ src = ["openrct2_vehicle_generator", "scripts", "tests"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "W", "N"]
 
+[tool.ruff.lint.per-file-ignores]
+# Blender mandates operator/UIList/panel class names like `VG_OT_name`,
+# `VG_UL_name`, `VG_PT_name` (and matching bpy var names), which trip
+# pep8-naming. They can't be renamed without breaking add-on registration.
+"vehicle_renderer_addon/*" = ["N801", "N802", "N806"]
+
 [tool.mypy]
 python_version = "3.11"
 files = ["openrct2_vehicle_generator"]

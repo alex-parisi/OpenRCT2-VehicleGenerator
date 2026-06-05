@@ -234,7 +234,7 @@ uv sync --group dev   # install the package + dev tools (pytest, ruff, mypy, yam
 
 ```bash
 uv run pytest             # unit tests; coverage of openrct2_vehicle_generator on by default
-uv run ruff check .       # lint (E, F, I, UP, B, W)
+uv run ruff check .       # lint (E, F, I, UP, B, W, N)
 uv run mypy               # type-check openrct2_vehicle_generator
 uv run yamllint examples  # validate the example configs
 ```
