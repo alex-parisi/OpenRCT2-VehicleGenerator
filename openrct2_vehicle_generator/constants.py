@@ -1,7 +1,7 @@
 """
 Vehicle-specific constants. Shared rendering primitives (TILE_SIZE and the
-LightType/MaterialFlag/MeshFlag enums) live in openrct2_x7_renderer.constants
-and are re-exported here for convenience.
+MaterialFlag enum) live in openrct2_x7_renderer.constants and are re-exported
+here for convenience.
 
 Ported from X7's rendering engine
 https://github.com/X123M3-256/RCTGen
@@ -11,9 +11,7 @@ from enum import IntEnum, IntFlag, auto
 
 from openrct2_x7_renderer.constants import (
     TILE_SIZE,
-    LightType,
     MaterialFlag,
-    MeshFlag,
 )
 
 # Max animation frames per mesh placement (the restraint-animation frame count).
@@ -24,15 +22,12 @@ MAX_FRAMES = 4
 __all__ = [
     # Re-exported shared rendering primitives.
     "TILE_SIZE",
-    "LightType",
     "MaterialFlag",
-    "MeshFlag",
     "MAX_FRAMES",
     # Vehicle-specific.
     "SpriteFlag",
     "RideFlag",
     "VehicleFlag",
-    "CarEntryAnimation",
     "RunningSound",
     "SecondarySound",
     "CarIndex",
@@ -79,18 +74,6 @@ class VehicleFlag(IntFlag):
     RESTRAINT_ANIMATION = auto()
 
 
-class CarEntryAnimation(IntEnum):
-    # Values mirror OpenRCT2's CarEntryAnimation enum (CarEntry.h).
-    NONE = 0
-    SIMPLE_VEHICLE = 1
-    STEAM_LOCOMOTIVE = 2
-    SWAN_BOAT = 3
-    MONORAIL_CYCLE = 4
-    MULTI_DIMENSION = 5
-    OBSERVATION_TOWER = 6
-    ANIMAL_FLYING = 7
-
-
 class RunningSound(IntEnum):
     WOODEN_OLD = 1
     WOODEN_MODERN = 54
@@ -128,52 +111,79 @@ class Category(IntEnum):
     SHOP = 5
 
 
-# Mirror order/values in Constants.hpp.
+# Config-name <-> enum mappings. Each name is bound to a specific enum member,
+# and the public `*_NAMES` lists are *derived* by iterating the enum, so the
+# loader's `names.index(tag)` always yields the matching bit/value. Reordering or
+# extending an enum reorders its names automatically; a member with no name entry
+# fails loudly at import (KeyError) instead of silently misaligning. Names mirror
+# Constants.hpp.
 
-SPRITE_GROUP_NAMES = [
-    "flat",
-    "gentle_slopes",
-    "steep_slopes",
-    "vertical_slopes",
-    "diagonals",
-    "banked_turns",
-    "inline_twists",
-    "slope_bank_transition",
-    "diagonal_bank_transition",
-    "sloped_bank_transition",
-    "banked_sloped_turns",
-    "banked_slope_transition",
-    "corkscrews",
-    "zero_g_rolls",
-    "diagonal_sloped_bank_transition",
-    "dive_loops",
+# A flag's bit position is its index in the derived list (the loader does
+# `1 << names.index(tag)`), so the names follow the enum's bit order.
+_SPRITE_GROUP_NAME: dict[SpriteFlag, str] = {
+    SpriteFlag.FLAT_SLOPE: "flat",
+    SpriteFlag.GENTLE_SLOPE: "gentle_slopes",
+    SpriteFlag.STEEP_SLOPE: "steep_slopes",
+    SpriteFlag.VERTICAL_SLOPE: "vertical_slopes",
+    SpriteFlag.DIAGONAL_SLOPE: "diagonals",
+    SpriteFlag.BANKING: "banked_turns",
+    SpriteFlag.INLINE_TWIST: "inline_twists",
+    SpriteFlag.SLOPE_BANK_TRANSITION: "slope_bank_transition",
+    SpriteFlag.DIAGONAL_BANK_TRANSITION: "diagonal_bank_transition",
+    SpriteFlag.SLOPED_BANK_TRANSITION: "sloped_bank_transition",
+    SpriteFlag.SLOPED_BANKED_TURN: "banked_sloped_turns",
+    SpriteFlag.BANKED_SLOPE_TRANSITION: "banked_slope_transition",
+    SpriteFlag.CORKSCREW: "corkscrews",
+    SpriteFlag.ZERO_G_ROLL: "zero_g_rolls",
+    SpriteFlag.DIAGONAL_SLOPED_BANK_TRANSITION: "diagonal_sloped_bank_transition",
+    SpriteFlag.DIVE_LOOP: "dive_loops",
+}
+SPRITE_GROUP_NAMES = [_SPRITE_GROUP_NAME[f] for f in SpriteFlag]
+
+_RIDE_FLAG_NAME: dict[RideFlag, str] = {
+    RideFlag.NO_COLLISION_CRASHES: "no_collision_crashes",
+    RideFlag.RIDER_CONTROLS_SPEED: "rider_controls_speed",
+}
+RIDE_FLAG_NAMES = [_RIDE_FLAG_NAME[f] for f in RideFlag]
+
+_VEHICLE_FLAG_NAME: dict[VehicleFlag, str] = {
+    VehicleFlag.SECONDARY_REMAP: "secondary_remap",
+    VehicleFlag.TERTIARY_REMAP: "tertiary_remap",
+    VehicleFlag.RIDERS_SCREAM: "riders_scream",
+    VehicleFlag.RESTRAINT_ANIMATION: "restraint_animation",
+}
+VEHICLE_FLAG_NAMES = [_VEHICLE_FLAG_NAME[f] for f in VehicleFlag]
+
+# One ordered table pairs each running-sound config name with its engine sound
+# id. The loader maps a config name to its index in RUNNING_SOUND_NAMES; the
+# exporter looks that same index up in FRICTION_SOUND_IDS. Deriving both from one
+# table keeps them aligned. (kRunningSoundValues order, incl. waterslide; the
+# engine value is appended by ProjectExporter.cpp.)
+_RUNNING_SOUNDS: list[tuple[str, RunningSound]] = [
+    ("wooden_old", RunningSound.WOODEN_OLD),
+    ("wooden", RunningSound.WOODEN_MODERN),
+    ("steel", RunningSound.STEEL),
+    ("steel_smooth", RunningSound.STEEL_SMOOTH),
+    ("waterslide", RunningSound.WATERSLIDE),
+    ("train", RunningSound.TRAIN),
+    ("engine", RunningSound.ENGINE),
 ]
+RUNNING_SOUND_NAMES = [name for name, _ in _RUNNING_SOUNDS]
+FRICTION_SOUND_IDS = [sound.value for _, sound in _RUNNING_SOUNDS]
 
-RIDE_FLAG_NAMES = ["no_collision_crashes", "rider_controls_speed"]
-
-VEHICLE_FLAG_NAMES = [
-    "secondary_remap",
-    "tertiary_remap",
-    "riders_scream",
-    "restraint_animation",
+# A name's index here is written directly as object.json `soundRange`, so each
+# name must sit at its SecondarySound value; ordering by value guarantees it.
+# (NONE is intentionally excluded -- it isn't selectable from config.)
+_SECONDARY_SOUND_NAME: dict[SecondarySound, str] = {
+    SecondarySound.SCREAMS1: "scream1",
+    SecondarySound.SCREAMS2: "scream2",
+    SecondarySound.SCREAMS3: "scream3",
+    SecondarySound.WHISTLE: "whistle",
+    SecondarySound.BELL: "bell",
+}
+SECONDARY_SOUND_NAMES = [
+    _SECONDARY_SOUND_NAME[s] for s in sorted(_SECONDARY_SOUND_NAME, key=lambda m: m.value)
 ]
-
-# Must stay index-aligned with FRICTION_SOUND_IDS below: the loader maps a
-# config name to its index here and the exporter looks that index up in
-# FRICTION_SOUND_IDS. (kRunningSoundValues order, incl. waterslide.)
-RUNNING_SOUND_NAMES = [
-    "wooden_old",
-    "wooden",
-    "steel",
-    "steel_smooth",
-    "waterslide",
-    "train",
-    "engine",
-]
-
-# Index-aligned with the SecondarySound enum values (the index is written
-# directly as object.json `soundRange`), so "whistle" (3) must precede "bell" (4).
-SECONDARY_SOUND_NAMES = ["scream1", "scream2", "scream3", "whistle", "bell"]
 
 COLOR_NAMES = [
     "black",
@@ -210,19 +220,14 @@ COLOR_NAMES = [
     "light_pink",
 ]
 
-# Indexed by the Category enum value (NOT a free-standing order). Must stay
-# aligned with the Category IntEnum above so CATEGORY_NAMES[Category.X] is the
-# OpenRCT2 object.json category string for X.
-CATEGORY_NAMES = ["transport", "gentle", "rollercoaster", "thrill", "water", "shop"]
-
-# friction_sound_id table, indexed by running_sound enum index (Constants.hpp
-# kRunningSoundValues + the engine value appended by ProjectExporter.cpp).
-FRICTION_SOUND_IDS = [
-    RunningSound.WOODEN_OLD.value,
-    RunningSound.WOODEN_MODERN.value,
-    RunningSound.STEEL.value,
-    RunningSound.STEEL_SMOOTH.value,
-    RunningSound.WATERSLIDE.value,
-    RunningSound.TRAIN.value,
-    RunningSound.ENGINE.value,
-]
+# Indexed by Category value: CATEGORY_NAMES[Category.X] is X's object.json
+# category string. Derived in value order from the enum so it can't drift.
+_CATEGORY_NAME: dict[Category, str] = {
+    Category.TRANSPORT_RIDE: "transport",
+    Category.GENTLE_RIDE: "gentle",
+    Category.ROLLERCOASTER: "rollercoaster",
+    Category.THRILL_RIDE: "thrill",
+    Category.WATER_RIDE: "water",
+    Category.SHOP: "shop",
+}
+CATEGORY_NAMES = [_CATEGORY_NAME[c] for c in sorted(_CATEGORY_NAME, key=lambda m: m.value)]

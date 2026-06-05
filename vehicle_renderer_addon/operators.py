@@ -33,7 +33,8 @@ def _normalize(v):
 
 
 def _default_lights() -> list[Light]:
-    # Same hand-tuned rig as the CLI's __main__._default_lights.
+    # Hand-tuned rig matching the CLI's built-in default lighting
+    # (openrct2_x7_renderer.cli), used when the scene defines no custom lights.
     return [
         Light(LightType.DIFFUSE, 0, _normalize([0.0, -1.0, 0.0]), 0.1),
         Light(LightType.DIFFUSE, 0, _normalize([0.0, 0.5, -1.0]), 0.8),

@@ -5,7 +5,6 @@ calls on and preserve sprite order. We stub the scene so they run anywhere.
 """
 
 import numpy as np
-import pytest
 from openrct2_vehicle_generator import sprite_renderer
 from openrct2_vehicle_generator.sprite_renderer import _render_views, _render_workers
 from openrct2_vehicle_generator.types import IndexedImage

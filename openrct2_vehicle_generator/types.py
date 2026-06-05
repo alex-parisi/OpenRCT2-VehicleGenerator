@@ -1,6 +1,6 @@
 """
 Vehicle-specific dataclasses. Shared rendering primitives (MeshFrame, Model,
-IndexedImage, Light, MAX_FRAMES) live in openrct2_x7_renderer.types.
+IndexedImage, MAX_FRAMES) live in openrct2_x7_renderer.types.
 """
 
 from dataclasses import dataclass, field
@@ -8,7 +8,6 @@ from typing import Any
 
 from openrct2_x7_renderer.types import (
     IndexedImage,
-    Light,
     MeshFrame,
     Model,
 )
@@ -18,7 +17,6 @@ from .constants import MAX_FRAMES, TILE_SIZE
 __all__ = [
     "MAX_FRAMES",
     "IndexedImage",
-    "Light",
     "MeshFrame",
     "Model",
     "Vehicle",
@@ -69,7 +67,6 @@ class Ride:
     running_sound: int = 0
     secondary_sound: int = 0
     sprite_flags: int = 0
-    num_sprites: int = 0
 
     colors: list[list[int]] = field(default_factory=list)
     meshes: list[Any] = field(default_factory=list)  # list[Mesh]

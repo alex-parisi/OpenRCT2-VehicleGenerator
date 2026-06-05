@@ -2,8 +2,10 @@
 """
 One-time extraction of track type → vehicle sprite requirements from objects-master.
 
-Run this whenever objects-master is updated:
-    python build_track_types.py ~/Downloads/objects-master track_types.json
+Run this whenever objects-master is updated; write to the add-on's bundled copy
+(the single source of truth, read at runtime and shipped in the extension zip):
+    python build_track_types.py ~/Downloads/objects-master \
+        vehicle_renderer_addon/track_types.json
 """
 
 import json

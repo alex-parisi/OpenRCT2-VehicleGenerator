@@ -259,11 +259,9 @@ def build_ride(config: dict, meshes: list, preview: IndexedImage | None = None) 
     vehicles = root.get("vehicles")
     if not isinstance(vehicles, list):
         raise LoadError('Property "vehicles" does not exist or is not an array')
-    ride.num_sprites = 3
     for vj in vehicles:
         veh = _load_vehicle(vj, ride)
         veh.num_sprites = count_sprites(ride.sprite_flags, veh.flags)
-        ride.num_sprites += veh.num_sprites
         ride.vehicles.append(veh)
 
     ride.category = int(Category.ROLLERCOASTER)

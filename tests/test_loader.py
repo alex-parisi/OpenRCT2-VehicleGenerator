@@ -202,7 +202,6 @@ def test_build_ride_matches_load_ride(tmp_path):
     assert via_build.id == via_load.id
     assert via_build.ride_type == via_load.ride_type
     assert via_build.sprite_flags == via_load.sprite_flags
-    assert via_build.num_sprites == via_load.num_sprites
     assert len(via_build.meshes) == len(via_load.meshes) == 1
     assert len(via_build.vehicles) == len(via_load.vehicles) == 1
     assert via_build.vehicles[0].num_sprites == via_load.vehicles[0].num_sprites
