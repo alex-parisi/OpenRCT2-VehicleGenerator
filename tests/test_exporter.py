@@ -10,10 +10,12 @@ runs for real against tmp_path.
 import json
 import zipfile
 
+import numpy as np
 import pytest
 from openrct2_vehicle_generator.constants import CarIndex, Category, RunningSound
 from openrct2_vehicle_generator.exporter import (
     build_ride_json,
+    combine_indexed_images,
     export_ride,
     export_ride_test,
     export_ride_to,
@@ -394,6 +396,55 @@ def test_export_ride_test_single_view_pngs(tmp_path):
 
     export_ride_test(ride, FakeContext(), test_dir)
     assert (test_dir / "car_0_0.png").exists()
+
+
+def test_export_ride_test_tiles_four_directions(tmp_path):
+    # Each preview PNG is a 2x2 grid of the four park-view rotations; with the
+    # 1x1 fake renders that's a 2x2 image.
+    from openrct2_x7_renderer.image import read_png
+
+    ride = _build(tmp_path)
+    test_dir = tmp_path / "test"
+    export_ride_test(ride, FakeContext(), test_dir)
+    img = read_png(test_dir / "car_0_0.png")
+    assert (img.width, img.height) == (2, 2)
+
+
+def test_combine_indexed_images_grid_layout_and_alignment():
+    # Four distinct 1x1 sprites tile into a 2x2 grid, in row-major order.
+    imgs = [
+        IndexedImage(1, 1, 0, 0, np.full((1, 1), v, dtype=np.uint8))
+        for v in (10, 20, 30, 40)
+    ]
+    out = combine_indexed_images(imgs, columns=2)
+    assert (out.width, out.height) == (2, 2)
+    assert out.pixels.tolist() == [[10, 20], [30, 40]]
+
+
+def test_combine_indexed_images_aligns_by_offset():
+    # Differing draw offsets share a common anchor: the union bbox is the cell,
+    # and each sprite lands at (offset - min_offset) within its cell.
+    a = IndexedImage(1, 1, 0, 0, np.full((1, 1), 10, dtype=np.uint8))
+    b = IndexedImage(1, 1, 1, 1, np.full((1, 1), 20, dtype=np.uint8))
+    out = combine_indexed_images([a, b], columns=2)
+    # Cell is 2x2 (union of offsets 0..1 in x and y); a at top-left, b at
+    # bottom-right of its own cell one column over.
+    assert (out.width, out.height) == (4, 2)
+    assert out.pixels[0, 0] == 10
+    assert out.pixels[1, 3] == 20
+
+
+def test_combine_indexed_images_single_image_no_blank_cell():
+    one = IndexedImage(1, 1, 0, 0, np.full((1, 1), 7, dtype=np.uint8))
+    out = combine_indexed_images([one], columns=2)
+    assert (out.width, out.height) == (1, 1)
+
+
+def test_combine_indexed_images_empty_returns_blank():
+    # No images yields a 1x1 transparent placeholder rather than failing.
+    out = combine_indexed_images([])
+    assert (out.width, out.height) == (1, 1)
+    assert out.pixels.tolist() == [[0]]
 
 
 def test_export_ride_test_overrides_from_first_preset(tmp_path):
