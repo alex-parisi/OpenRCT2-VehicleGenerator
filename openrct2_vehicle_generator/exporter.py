@@ -2,19 +2,19 @@
 Build object.json and assemble the .parkobj ZIP.
 """
 
-import json
 import logging
 import math
-import zipfile
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import numpy as np
-from openrct2_x7_renderer.geometry import rotate_x, rotate_y, rotate_z
+from openrct2_object_common.objectjson import object_json_header
+from openrct2_object_common.parkobj import assemble_parkobj, write_images_dat_lgx
+from openrct2_object_common.placement import add_model_to_scene
+from openrct2_x7_renderer.geometry import rotate_y
 from openrct2_x7_renderer.image import write_png
-from openrct2_x7_renderer.images_dat import write_images_dat
-from openrct2_x7_renderer.ray_trace import Context, SceneBuilder
+from openrct2_x7_renderer.ray_trace import Context
 from openrct2_x7_renderer.remap import REMAP_COLOR_RAMPS, REMAP_WINDOWS
 from openrct2_x7_renderer.types import IndexedImage
 
@@ -29,19 +29,19 @@ from .constants import (
     frames_for,
 )
 from .sprite_renderer import render_vehicle_frame, sprite_group_counts
-from .types import Model, Ride
+from .types import Ride
 
 log = logging.getLogger(__name__)
 
 
 def build_ride_json(ride: Ride) -> dict[str, Any]:
-    out: dict[str, Any] = {"id": ride.id}
-    if ride.original_id:
-        out["originalId"] = ride.original_id
-    out["version"] = ride.version
-
-    out["authors"] = list(ride.authors)
-    out["objectType"] = "ride"
+    out = object_json_header(
+        ride.id,
+        object_type="ride",
+        original_id=ride.original_id,
+        version=ride.version,
+        authors=ride.authors,
+    )
 
     properties: dict[str, Any] = {
         "type": [ride.ride_type],
@@ -128,19 +128,6 @@ def build_ride_json(ride: Ride) -> dict[str, Any]:
     return out
 
 
-def _add_model_to_scene(
-    ride: Ride, builder: SceneBuilder, model: Model, frame: int, mask: int
-) -> None:
-    for mesh_frames in model.meshes:
-        mf = mesh_frames[frame]
-        if mf.mesh_index == -1:
-            continue
-        rx, ry, rz = mf.orientation * math.pi / 180.0
-        matrix = rotate_y(rx) @ rotate_z(ry) @ rotate_x(rz)
-        translation = mf.position.astype(np.float64)
-        builder.add_model(ride.meshes[mf.mesh_index], matrix, translation, mask)
-
-
 def _render_sprites(
     ride: Ride,
     context: Context,
@@ -186,7 +173,7 @@ def _render_sprites(
         base = 0
         for frame in range(num_frames):
             builder = context.begin_render()
-            _add_model_to_scene(ride, builder, vehicle.model, frame, 0)
+            add_model_to_scene(builder, ride.meshes, vehicle.model, frame=frame, mask=0)
             scene = builder.finalize()
             frame_imgs = render_vehicle_frame(scene, sf, frame)
             for k, img in enumerate(frame_imgs):
@@ -200,10 +187,10 @@ def _render_sprites(
             base = 0
             for frame in range(num_frames):
                 builder = context.begin_render()
-                _add_model_to_scene(ride, builder, vehicle.model, frame, 1)
+                add_model_to_scene(builder, ride.meshes, vehicle.model, frame=frame, mask=1)
                 for k in range(j):
-                    _add_model_to_scene(ride, builder, vehicle.riders[k], frame, 1)
-                _add_model_to_scene(ride, builder, rider, frame, 0)
+                    add_model_to_scene(builder, ride.meshes, vehicle.riders[k], frame=frame, mask=1)
+                add_model_to_scene(builder, ride.meshes, rider, frame=frame, mask=0)
                 scene = builder.finalize()
                 frame_imgs = render_vehicle_frame(scene, sf, frame)
                 offset = (j + 1) * num_car_images + base
@@ -215,21 +202,7 @@ def _render_sprites(
 
         all_images.extend(car_images)
 
-    out_path = object_dir / "images.dat"
-    write_images_dat(all_images, out_path)
-    log.info(
-        "wrote %s (%d sprites, %.1f KB)",
-        out_path,
-        len(all_images),
-        out_path.stat().st_size / 1024,
-    )
-    return [f"$LGX:images.dat[0..{len(all_images) - 1}]"]
-
-
-def _make_parkobj(object_dir: Path, output_path: Path) -> None:
-    with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        zf.write(object_dir / "object.json", "object.json")
-        zf.write(object_dir / "images.dat", "images.dat")
+    return write_images_dat_lgx(all_images, object_dir)
 
 
 def _clean_working_dir(object_dir: Path) -> None:
@@ -256,28 +229,19 @@ def export_ride_to(
     ``progress``, if given, is forwarded to :func:`_render_sprites` and called
     as ``progress(done, total)`` as rendering advances.
     """
-    parkobj_path = Path(parkobj_path)
-    work_dir = Path(work_dir)
-    work_dir.mkdir(parents=True, exist_ok=True)
+    def _render(wd: Path) -> list[str]:
+        # Sweep stale per-PNG output from older runs (assemble_parkobj has
+        # already removed object.json / images.dat before calling this).
+        _clean_working_dir(wd)
+        return _render_sprites(ride, context, wd, progress)
 
-    ride_json = build_ride_json(ride)
-
-    if skip_render:
-        # Re-use the images array from a previous run.
-        prev = json.loads((work_dir / "object.json").read_text())
-        images_json = prev.get("images")
-        if not isinstance(images_json, list):
-            raise RuntimeError('Property "images" is not an array')
-    else:
-        _clean_working_dir(work_dir)
-        images_json = _render_sprites(ride, context, work_dir, progress)
-
-    ride_json["images"] = images_json
-
-    (work_dir / "object.json").write_text(json.dumps(ride_json, indent=4))
-
-    parkobj_path.parent.mkdir(parents=True, exist_ok=True)
-    _make_parkobj(work_dir, parkobj_path)
+    assemble_parkobj(
+        build_ride_json(ride),
+        Path(parkobj_path),
+        Path(work_dir),
+        _render,
+        skip_render=skip_render,
+    )
 
 
 def export_ride(
@@ -365,9 +329,9 @@ def export_ride_test(ride: Ride, context: Context, test_dir: Path | str = "test"
         for j in range(num_frames):
             log.info("Rendering vehicle %d frame %d", i, j)
             builder = context.begin_render()
-            _add_model_to_scene(ride, builder, vehicle.model, j, 0)
+            add_model_to_scene(builder, ride.meshes, vehicle.model, frame=j, mask=0)
             for rider in vehicle.riders:
-                _add_model_to_scene(ride, builder, rider, j, 0)
+                add_model_to_scene(builder, ride.meshes, rider, frame=j, mask=0)
             scene = builder.finalize()
             views = [scene.render_view(rotate_y(yaw)) for yaw in yaws]
             scene.end_render()
