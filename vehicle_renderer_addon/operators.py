@@ -7,63 +7,19 @@ stringify them and break registration.
 
 import os
 import tempfile
-import threading
 import time
-import traceback
 
 import bpy
-import numpy as np
 from bpy.props import StringProperty
 from bpy.types import Operator
+from openrct2_object_common.blender.lights import lights_from_items
+from openrct2_object_common.blender.modal import RenderModalBase
 from openrct2_vehicle_generator.exporter import export_ride_test, export_ride_to
 from openrct2_vehicle_generator.loader import build_ride
-from openrct2_x7_renderer.constants import LightType
 from openrct2_x7_renderer.ray_trace import Context
-from openrct2_x7_renderer.types import Light
 
 from . import scene_to_ride
 from .progress_overlay import ProgressOverlay
-
-
-def _normalize(v):
-    arr = np.array(v, dtype=np.float64)
-    n = np.linalg.norm(arr)
-    return arr / n if n > 0 else arr
-
-
-def _default_lights() -> list[Light]:
-    # Hand-tuned rig matching the CLI's built-in default lighting
-    # (openrct2_x7_renderer.cli), used when the scene defines no custom lights.
-    return [
-        Light(LightType.DIFFUSE, 0, _normalize([0.0, -1.0, 0.0]), 0.1),
-        Light(LightType.DIFFUSE, 0, _normalize([0.0, 0.5, -1.0]), 0.8),
-        Light(LightType.SPECULAR, 1, _normalize([1.0, 1.65, -1.0]), 0.5),
-        Light(LightType.DIFFUSE, 1, _normalize([1.0, 1.7, -1.0]), 0.8),
-        Light(LightType.DIFFUSE, 0, np.array([0.0, 1.0, 0.0], dtype=np.float64), 0.45),
-        Light(LightType.DIFFUSE, 0, _normalize([-1.0, 0.85, 1.0]), 0.475),
-        Light(LightType.DIFFUSE, 0, _normalize([0.75, 0.4, -1.0]), 0.6),
-        Light(LightType.DIFFUSE, 0, _normalize([1.0, 0.25, 0.0]), 0.5),
-        Light(LightType.DIFFUSE, 0, _normalize([-1.0, -0.5, 0.0]), 0.1),
-    ]
-
-
-_LIGHT_TYPES = {"diffuse": LightType.DIFFUSE, "specular": LightType.SPECULAR}
-
-
-def _lights_from_scene(context) -> list[Light]:
-    """Custom rig from the ride settings, or the default lights if none defined."""
-    rs = context.scene.vg_ride
-    if not rs.lights:
-        return _default_lights()
-    return [
-        Light(
-            type=_LIGHT_TYPES[lt.type],
-            shadow=int(lt.shadow),
-            direction=_normalize(list(lt.direction)),
-            intensity=lt.strength,
-        )
-        for lt in rs.lights
-    ]
 
 
 def _build_ride_from_scene(context):
@@ -88,7 +44,9 @@ class VG_OT_test_render(Operator):
             return {"CANCELLED"}
 
         ctx = Context(
-            lights=_lights_from_scene(context), dither=True, upt=ride.units_per_tile
+            lights=lights_from_items(context.scene.vg_ride.lights),
+            dither=True,
+            upt=ride.units_per_tile,
         )
         tmp = tempfile.mkdtemp(prefix="vg_test_")
         try:
@@ -111,10 +69,14 @@ class VG_OT_test_render(Operator):
         return {"FINISHED"}
 
 
-class VG_OT_export_parkobj(Operator):
+class VG_OT_export_parkobj(RenderModalBase):
     bl_idname = "vg.export_parkobj"
     bl_label = "Export .parkobj"
     bl_description = "Render every sprite and write an OpenRCT2 .parkobj"
+
+    _status_verb = "Exporting .parkobj"
+    _invalid_prefix = "Invalid vehicle"
+    _clean_error_types = (scene_to_ride.SceneError,)
 
     filepath: StringProperty(subtype="FILE_PATH")
     filename_ext = ".parkobj"
@@ -128,82 +90,40 @@ class VG_OT_export_parkobj(Operator):
         context.window_manager.fileselect_add(self)
         return {"RUNNING_MODAL"}
 
-    def execute(self, context):
-        # Build the Ride on the main thread (it reads bpy data); the resulting
-        # meshes/preview are plain numpy, safe to render off-thread.
-        try:
-            ride = _build_ride_from_scene(context)
-        except scene_to_ride.SceneError as e:
-            self.report({"ERROR"}, str(e))
-            return {"CANCELLED"}
-        except Exception as e:
-            self.report({"ERROR"}, f"Invalid vehicle: {e}")
-            return {"CANCELLED"}
+    def _build(self, context):
+        return _build_ride_from_scene(context)
 
+    def _prepare(self, context, ride) -> None:
+        # Read lights on the main thread; the worker must not touch bpy data.
+        self._lights = lights_from_items(context.scene.vg_ride.lights)
         self._parkobj = bpy.path.abspath(self.filepath)
         self._work = tempfile.mkdtemp(prefix="vg_export_")
-        self._error: str | None = None
-        self._done = False
-        self._start_time = time.monotonic()
+        # In-viewport progress bar; the shared base also drives a status-bar
+        # percentage from the same set_progress() calls.
         self._overlay = ProgressOverlay()
-        # Read lights on the main thread; the worker must not touch bpy data.
-        lights = _lights_from_scene(context)
+        self._overlay.add()
 
+    def _render(self, ride) -> None:
         def on_progress(done: int, total: int) -> None:
             # Plain int writes from the worker; the modal timer reads them to
-            # repaint the bar. No lock needed for single-word assignments.
+            # repaint. No lock needed for single-word assignments.
+            self.set_progress(done, total)
             self._overlay.done = done
             self._overlay.total = total
 
-        def worker():
-            try:
-                ctx = Context(lights=lights, dither=True, upt=ride.units_per_tile)
-                export_ride_to(
-                    ride, ctx, self._parkobj, self._work, progress=on_progress
-                )
-            except Exception:
-                self._error = traceback.format_exc()
-            finally:
-                self._done = True
-
-        self._thread = threading.Thread(target=worker, daemon=True)
-        self._thread.start()
-
-        self._overlay.add()
-        self._set_status(context)
-        wm = context.window_manager
-        self._timer = wm.event_timer_add(0.1, window=context.window)
-        wm.modal_handler_add(self)
-        return {"RUNNING_MODAL"}
-
-    def modal(self, context, event):
-        if event.type == "TIMER":
-            if self._done:
-                return self._finish(context)
-            self._set_status(context)
-            self._overlay.tag_redraw(context)
-        return {"PASS_THROUGH"}
+        ctx = Context(lights=self._lights, dither=True, upt=ride.units_per_tile)
+        export_ride_to(ride, ctx, self._parkobj, self._work, progress=on_progress)
 
     def _set_status(self, context) -> None:
-        elapsed = int(time.monotonic() - self._start_time)
-        if self._overlay.total > 0:
-            pct = int(100 * self._overlay.done / self._overlay.total)
-            text = f"Exporting .parkobj... {pct}% ({elapsed}s)"
-        else:
-            text = f"Exporting .parkobj... ({elapsed}s)"
-        context.workspace.status_text_set(text)
+        super()._set_status(context)
+        self._overlay.tag_redraw(context)
 
     def _finish(self, context):
-        wm = context.window_manager
-        wm.event_timer_remove(self._timer)
         self._overlay.remove()
-        context.workspace.status_text_set(None)
         self._overlay.tag_redraw(context)
-        self._thread.join()
-        if self._error:
-            print(self._error)
-            self.report({"ERROR"}, "Export failed; see the system console for details.")
-            return {"CANCELLED"}
+        return super()._finish(context)
+
+    def _on_success(self, context):
         elapsed = int(time.monotonic() - self._start_time)
         self.report({"INFO"}, f"Exported {os.path.basename(self._parkobj)} in {elapsed}s")
         return {"FINISHED"}
