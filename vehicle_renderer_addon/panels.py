@@ -226,22 +226,70 @@ def _draw_object_settings(layout, obj):
         _draw_material_settings(box, mat.vg_material)
 
 
-class VG_PT_object_view3d(Panel):
-    """The active object's settings, in the N-panel's OpenRCT2 tab."""
+# --- Shared "Selected Object" container -------------------------------------
+# The vehicle and scenery add-ons each ship an identical copy of this trivial
+# parent panel and register it cooperatively (guarded by idname) so a single
+# "Selected Object" panel hosts whichever add-ons are installed. Each add-on
+# contributes a child sub-panel via ``bl_parent_id``; this parent owns only the
+# header. The two copies MUST keep the same ``bl_idname``.
+_SHARED_PARENT_IDNAME = "OPENRCT2_PT_selected_object"
 
+
+class OPENRCT2_PT_selected_object(Panel):
+    bl_idname = _SHARED_PARENT_IDNAME
     bl_label = "Selected Object"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "OpenRCT2"
     bl_order = 1
 
-    def draw(self, context):
-        layout = self.layout
+    @classmethod
+    def poll(cls, context):
         obj = context.object
-        if obj is None or obj.type != "MESH":
-            layout.label(text="Select a mesh object.", icon="INFO")
+        return obj is not None and obj.type == "MESH"
+
+    def draw(self, context):
+        pass
+
+
+def _register_shared_parent():
+    """Register the shared parent unless another add-on already did."""
+    if not hasattr(bpy.types, _SHARED_PARENT_IDNAME):
+        bpy.utils.register_class(OPENRCT2_PT_selected_object)
+
+
+def _unregister_shared_parent():
+    """Drop the shared parent only once no add-on's child still nests under it.
+
+    Call this *after* unregistering this add-on's own child panels, so the
+    scan below sees only the other add-on's remaining children.
+    """
+    cls = getattr(bpy.types, _SHARED_PARENT_IDNAME, None)
+    if cls is None:
+        return
+    for name in dir(bpy.types):
+        if getattr(getattr(bpy.types, name, None), "bl_parent_id", "") == _SHARED_PARENT_IDNAME:
             return
-        _draw_object_settings(layout, obj)
+    bpy.utils.unregister_class(cls)
+
+
+class VG_PT_object_view3d(Panel):
+    """The active object's vehicle settings, as a child of "Selected Object"."""
+
+    bl_label = "Vehicle"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "OpenRCT2"
+    bl_parent_id = _SHARED_PARENT_IDNAME
+    bl_order = 0
+
+    @classmethod
+    def poll(cls, context):
+        obj = context.object
+        return obj is not None and obj.type == "MESH" and hasattr(obj, "vg_object")
+
+    def draw(self, context):
+        _draw_object_settings(self.layout, context.object)
 
 
 _CLASSES = (
@@ -254,6 +302,7 @@ _CLASSES = (
 
 
 def register():
+    _register_shared_parent()
     for cls in _CLASSES:
         bpy.utils.register_class(cls)
 
@@ -261,3 +310,4 @@ def register():
 def unregister():
     for cls in reversed(_CLASSES):
         bpy.utils.unregister_class(cls)
+    _unregister_shared_parent()

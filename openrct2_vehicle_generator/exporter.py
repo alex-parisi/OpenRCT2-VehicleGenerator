@@ -3,145 +3,34 @@ Build object.json and assemble the .parkobj ZIP.
 """
 
 import json
+import logging
 import math
-import struct
 import zipfile
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+from openrct2_x7_renderer.geometry import rotate_x, rotate_y, rotate_z
+from openrct2_x7_renderer.image import write_png
+from openrct2_x7_renderer.images_dat import write_images_dat
+from openrct2_x7_renderer.ray_trace import Context, SceneBuilder
+from openrct2_x7_renderer.remap import REMAP_COLOR_RAMPS, REMAP_WINDOWS
 
 from .constants import (
+    CAR_SLOT_ABSENT,
     CATEGORY_NAMES,
     COLOR_NAMES,
     FRICTION_SOUND_IDS,
     CarIndex,
     RideFlag,
-    SpriteFlag,
     VehicleFlag,
+    frames_for,
 )
-from .image import write_png
-from .ray_trace import Context, render_view, rotate_x, rotate_y, rotate_z
-from .sprite_renderer import count_sprites, render_vehicle_frame
+from .sprite_renderer import render_vehicle_frame, sprite_group_counts
 from .types import Model, Ride
 
-
-def _emit_sprite_groups(sf: int, vf: int) -> dict[str, int]:
-    out: dict[str, int] = {}
-
-    def add(key: str, n: int) -> None:
-        out[key] = n
-
-    if sf & SpriteFlag.FLAT_SLOPE:
-        add("slopeFlat", 32)
-    if sf & SpriteFlag.GENTLE_SLOPE:
-        add("slopes12", 4)
-        add("slopes25", 32)
-    if sf & SpriteFlag.STEEP_SLOPE:
-        add("slopes42", 8)
-        add("slopes60", 32)
-    if sf & SpriteFlag.VERTICAL_SLOPE:
-        add("slopes75", 4)
-        add("slopes90", 32)
-        add("slopesLoop", 4)
-        add("slopeInverted", 4)
-    if sf & SpriteFlag.DIAGONAL_SLOPE:
-        add("slopes8", 4)
-        add("slopes16", 4)
-        add("slopes50", 4)
-    if sf & SpriteFlag.BANKING:
-        add("flatBanked22", 8)
-        add("flatBanked45", 32)
-    if sf & SpriteFlag.INLINE_TWIST:
-        add("flatBanked67", 4)
-        add("flatBanked90", 4)
-        add("inlineTwists", 4)
-    if sf & SpriteFlag.SLOPE_BANK_TRANSITION:
-        add("slopes12Banked22", 32)
-    if sf & SpriteFlag.DIAGONAL_BANK_TRANSITION:
-        add("slopes8Banked22", 4)
-    if sf & SpriteFlag.SLOPED_BANK_TRANSITION:
-        add("slopes25Banked22", 4)
-    if sf & SpriteFlag.DIAGONAL_SLOPED_BANK_TRANSITION:
-        add("slopes8Banked45", 4)
-        add("slopes16Banked22", 4)
-        add("slopes16Banked45", 4)
-    if sf & SpriteFlag.SLOPED_BANKED_TURN:
-        add("slopes25Banked45", 32)
-    if sf & SpriteFlag.BANKED_SLOPE_TRANSITION:
-        add("slopes12Banked45", 4)
-    if sf & SpriteFlag.ZERO_G_ROLL:
-        add("slopes25Banked67", 4)
-        add("slopes25Banked90", 4)
-        add("slopes25InlineTwists", 4)
-        add("slopes42Banked22", 4)
-        add("slopes42Banked45", 4)
-        add("slopes42Banked67", 4)
-        add("slopes42Banked90", 4)
-        add("slopes60Banked22", 8 if (sf & SpriteFlag.DIVE_LOOP) else 4)
-    if sf & SpriteFlag.DIVE_LOOP:
-        add("slopes50Banked45", 8)
-        add("slopes50Banked67", 8)
-        add("slopes50Banked90", 8)
-    if sf & SpriteFlag.CORKSCREW:
-        add("corkscrews", 4)
-    if vf & VehicleFlag.RESTRAINT_ANIMATION:
-        add("restraintAnimation", 4)
-    return out
-
-
-# OpenRCT2 G1 image flag bits
-_G1_FLAG_BMP = 0x0001
-
-
-def _write_images_dat(images: list, out_path: Path) -> None:
-    """
-    Write a sequence of IndexedImages as an OpenRCT2 `images.dat` (G1) blob.
-
-    Format (matches the vanilla parkobj's `images.dat`):
-      - Header (8 bytes): u32 num_entries, u32 total_pixel_data_size.
-      - num_entries * 16-byte G1 elements:
-          u32 offset (into the pixel data section),
-          i16 width, i16 height, i16 x_offset, i16 y_offset,
-          u16 flags, u16 zoom (we always write 0).
-      - Concatenated pixel data: each image is width*height bytes of
-        palette indices, with index 0 acting as transparent.
-
-    The matching `object.json` `images` entry is the single string
-    `"$LGX:images.dat[0..N-1]"`.
-    """
-    num = len(images)
-    offsets: list[int] = []
-    chunks: list[bytes] = []
-    cur = 0
-    for img in images:
-        pixels = img.pixels.tobytes()  # uint8 (H, W) row-major
-        assert len(pixels) == img.width * img.height, (
-            f"sprite pixel buffer size mismatch: "
-            f"got {len(pixels)}, expected {img.width}*{img.height}"
-        )
-        offsets.append(cur)
-        chunks.append(pixels)
-        cur += len(pixels)
-    total_pixel_size = cur
-
-    elements = bytearray()
-    for img, offset in zip(images, offsets, strict=False):
-        elements += struct.pack(
-            "<IhhhhHH",
-            offset,
-            int(img.width),
-            int(img.height),
-            int(img.x_offset),
-            int(img.y_offset),
-            _G1_FLAG_BMP,
-            0,
-        )
-
-    with open(out_path, "wb") as f:
-        f.write(struct.pack("<II", num, total_pixel_size))
-        f.write(bytes(elements))
-        f.writelines(chunks)
+log = logging.getLogger(__name__)
 
 
 def build_ride_json(ride: Ride) -> dict[str, Any]:
@@ -163,10 +52,10 @@ def build_ride_json(ride: Ride) -> dict[str, Any]:
         "defaultCar": ride.configuration[CarIndex.DEFAULT],
     }
     front = ride.configuration[CarIndex.FRONT]
-    if front != 0xFF:
+    if front != CAR_SLOT_ABSENT:
         properties["headCars"] = front
     rear = ride.configuration[CarIndex.REAR]
-    if rear != 0xFF:
+    if rear != CAR_SLOT_ABSENT:
         properties["tailCars"] = rear
 
     properties["buildMenuPriority"] = ride.build_menu_priority
@@ -202,7 +91,7 @@ def build_ride_json(ride: Ride) -> dict[str, Any]:
         car["effectVisual"] = vehicle.effect_visual
         car["drawOrder"] = vehicle.draw_order
 
-        car["spriteGroups"] = _emit_sprite_groups(ride.sprite_flags, vehicle.flags)
+        car["spriteGroups"] = sprite_group_counts(ride.sprite_flags, vehicle.flags)
 
         vf = vehicle.flags
         if vf & VehicleFlag.SECONDARY_REMAP:
@@ -216,7 +105,10 @@ def build_ride_json(ride: Ride) -> dict[str, Any]:
         for rider in vehicle.riders:
             pos_x = float(rider.meshes[0][0].position[0])
             position = int(round(32.0 * pos_x / ride.units_per_tile))
-            if vehicle.num_riders > 1:
+            # A 2-across row emits a left/right pair; a single-seat row emits one
+            # entry. Key off this row's own width, not the car's total seat count,
+            # so a car with several single-seat rows doesn't double its positions.
+            if len(rider.meshes) > 1:
                 loading.append(position - 1)
                 loading.append(position + 1)
             else:
@@ -235,8 +127,8 @@ def build_ride_json(ride: Ride) -> dict[str, Any]:
     return out
 
 
-def _add_model_to_context(
-    ride: Ride, context: Context, model: Model, frame: int, mask: int
+def _add_model_to_scene(
+    ride: Ride, builder: SceneBuilder, model: Model, frame: int, mask: int
 ) -> None:
     for mesh_frames in model.meshes:
         mf = mesh_frames[frame]
@@ -245,71 +137,101 @@ def _add_model_to_context(
         rx, ry, rz = mf.orientation * math.pi / 180.0
         matrix = rotate_y(rx) @ rotate_z(ry) @ rotate_x(rz)
         translation = mf.position.astype(np.float64)
-        context.add_model(ride.meshes[mf.mesh_index], matrix, translation, mask)
+        builder.add_model(ride.meshes[mf.mesh_index], matrix, translation, mask)
 
 
-def _render_sprites(ride: Ride, context: Context, object_dir: Path) -> list:
+def _render_sprites(
+    ride: Ride,
+    context: Context,
+    object_dir: Path,
+    progress: Callable[[int, int], None] | None = None,
+) -> list:
     """
     Render every sprite for the ride and write a single `images.dat`.
+
+    If ``progress`` is given it is called as ``progress(done, total)`` after each
+    rendered frame, where the unit of work is one ``render_vehicle_frame`` call.
     """
     all_images: list = []
 
     # Three preview entries
     all_images.extend([ride.preview] * 3)
 
+    # One unit of work per rendered frame (car frames plus a full frame set per
+    # rider), so the caller can drive a determinate progress bar.
+    total_steps = sum(
+        frames_for(v.flags) * (1 + len(v.riders)) for v in ride.vehicles
+    )
+    step = 0
+
+    def _tick() -> None:
+        nonlocal step
+        step += 1
+        if progress is not None:
+            progress(step, total_steps)
+
     for i, vehicle in enumerate(ride.vehicles):
         sf = ride.sprite_flags
         vf = vehicle.flags
-        num_frames = 4 if (vf & VehicleFlag.RESTRAINT_ANIMATION) else 1
-        num_car_images = count_sprites(sf, vf)
+        num_frames = frames_for(vf)
+        # Set by the loader via count_sprites; reused here so the declared count
+        # and the rendered set come from a single computation.
+        num_car_images = vehicle.num_sprites
         num_total = num_car_images * (1 + len(vehicle.riders))
 
         car_images: list = [None] * num_total
 
-        print(f"Rendering vehicle {i} car sprites")
+        log.info("Rendering vehicle %d car sprites", i)
         base = 0
         for frame in range(num_frames):
-            context.begin_render()
-            _add_model_to_context(ride, context, vehicle.model, frame, 0)
-            context.finalize_render()
-            frame_imgs = render_vehicle_frame(context, sf, frame)
+            builder = context.begin_render()
+            _add_model_to_scene(ride, builder, vehicle.model, frame, 0)
+            scene = builder.finalize()
+            frame_imgs = render_vehicle_frame(scene, sf, frame)
             for k, img in enumerate(frame_imgs):
                 car_images[base + k] = img
             base += len(frame_imgs)
-            context.end_render()
+            scene.end_render()
+            _tick()
 
         for j, rider in enumerate(vehicle.riders):
-            print(f"Rendering vehicle {i} peep sprites {j}")
+            log.info("Rendering vehicle %d peep sprites %d", i, j)
             base = 0
             for frame in range(num_frames):
-                context.begin_render()
-                _add_model_to_context(ride, context, vehicle.model, frame, 1)
+                builder = context.begin_render()
+                _add_model_to_scene(ride, builder, vehicle.model, frame, 1)
                 for k in range(j):
-                    _add_model_to_context(ride, context, vehicle.riders[k], frame, 1)
-                _add_model_to_context(ride, context, rider, frame, 0)
-                context.finalize_render()
-                frame_imgs = render_vehicle_frame(context, sf, frame)
+                    _add_model_to_scene(ride, builder, vehicle.riders[k], frame, 1)
+                _add_model_to_scene(ride, builder, rider, frame, 0)
+                scene = builder.finalize()
+                frame_imgs = render_vehicle_frame(scene, sf, frame)
                 offset = (j + 1) * num_car_images + base
                 for k, img in enumerate(frame_imgs):
                     car_images[offset + k] = img
                 base += len(frame_imgs)
-                context.end_render()
+                scene.end_render()
+                _tick()
 
         all_images.extend(car_images)
 
     out_path = object_dir / "images.dat"
-    _write_images_dat(all_images, out_path)
-    print(f"wrote {out_path} ({len(all_images)} sprites, {out_path.stat().st_size / 1024:.1f} KB)")
+    write_images_dat(all_images, out_path)
+    log.info(
+        "wrote %s (%d sprites, %.1f KB)",
+        out_path,
+        len(all_images),
+        out_path.stat().st_size / 1024,
+    )
     return [f"$LGX:images.dat[0..{len(all_images) - 1}]"]
 
 
-def _make_parkobj(ride: Ride, object_dir: Path, output_path: Path) -> None:
+def _make_parkobj(object_dir: Path, output_path: Path) -> None:
     with zipfile.ZipFile(output_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         zf.write(object_dir / "object.json", "object.json")
         zf.write(object_dir / "images.dat", "images.dat")
 
 
-def _clean_working_dir(ride: Ride, object_dir: Path) -> None:
+def _clean_working_dir(object_dir: Path) -> None:
     for p in (object_dir / "object.json", object_dir / "images.dat"):
         p.unlink(missing_ok=True)
     # Also sweep any leftover per-PNG output from older runs.
@@ -325,9 +247,13 @@ def export_ride_to(
     parkobj_path: Path | str,
     work_dir: Path | str,
     skip_render: bool = False,
+    progress: Callable[[int, int], None] | None = None,
 ) -> None:
     """
     Render and assemble a .parkobj using explicit, caller-chosen paths.
+
+    ``progress``, if given, is forwarded to :func:`_render_sprites` and called
+    as ``progress(done, total)`` as rendering advances.
     """
     parkobj_path = Path(parkobj_path)
     work_dir = Path(work_dir)
@@ -342,15 +268,15 @@ def export_ride_to(
         if not isinstance(images_json, list):
             raise RuntimeError('Property "images" is not an array')
     else:
-        _clean_working_dir(ride, work_dir)
-        images_json = _render_sprites(ride, context, work_dir)
+        _clean_working_dir(work_dir)
+        images_json = _render_sprites(ride, context, work_dir, progress)
 
     ride_json["images"] = images_json
 
     (work_dir / "object.json").write_text(json.dumps(ride_json, indent=4))
 
     parkobj_path.parent.mkdir(parents=True, exist_ok=True)
-    _make_parkobj(ride, work_dir, parkobj_path)
+    _make_parkobj(work_dir, parkobj_path)
 
 
 def export_ride(
@@ -366,20 +292,42 @@ def export_ride(
     )
 
 
+def _preview_remap_overrides(ride: Ride) -> dict[int, tuple[int, ...]]:
+    """Map the ride's first colour preset onto the renderer's remap regions.
+
+    A preview render normally shows the raw remap windows — the greyscale
+    "company colour" ramps OpenRCT2 repaints at draw time. Substituting the
+    first preset's colours (region 1 = main, 2 = additional 1, 3 = additional 2)
+    lets the preview show the vehicle in its default repaint colours. Returns an
+    empty dict when the ride defines no presets, leaving the windows untouched.
+    """
+    if not ride.colors:
+        return {}
+    preset = ride.colors[0]
+    return {
+        region: REMAP_COLOR_RAMPS[COLOR_NAMES[color_index]]
+        for region, color_index in zip(sorted(REMAP_WINDOWS), preset, strict=False)
+    }
+
+
 def export_ride_test(ride: Ride, context: Context, test_dir: Path | str = "test") -> None:
-    """Single-viewpoint render for fast iteration."""
+    """Single-viewpoint render for fast iteration.
+
+    Recolours the preview using the ride's first colour preset so the remap
+    windows show their repaint colours; with no presets the windows are left raw.
+    """
+    context.remap_overrides = _preview_remap_overrides(ride)
     test_dir = Path(test_dir)
     test_dir.mkdir(parents=True, exist_ok=True)
     for i, vehicle in enumerate(ride.vehicles):
-        vf = vehicle.flags
-        num_frames = 4 if (vf & VehicleFlag.RESTRAINT_ANIMATION) else 1
+        num_frames = frames_for(vehicle.flags)
         for j in range(num_frames):
-            print(f"Rendering vehicle {i} frame {j}")
-            context.begin_render()
-            _add_model_to_context(ride, context, vehicle.model, j, 0)
+            log.info("Rendering vehicle %d frame %d", i, j)
+            builder = context.begin_render()
+            _add_model_to_scene(ride, builder, vehicle.model, j, 0)
             for rider in vehicle.riders:
-                _add_model_to_context(ride, context, rider, j, 0)
-            context.finalize_render()
-            img = render_view(context, rotate_y(math.pi))
-            context.end_render()
+                _add_model_to_scene(ride, builder, rider, j, 0)
+            scene = builder.finalize()
+            img = scene.render_view(rotate_y(math.pi))
+            scene.end_render()
             write_png(img, test_dir / f"car_{i}_{j}.png")

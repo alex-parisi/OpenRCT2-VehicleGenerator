@@ -1,19 +1,22 @@
-blender_addon/wheels/
-x7_renderer/.cache/
+# Bundled wheels staged for the Blender add-on (downloaded; not committed)
+vehicle_renderer_addon/wheels/
 
 uv.lock
 .idea/
 
+.coverage
+
 *.DS_Store
 
-# Python / uv
+# Blender autosave backups
+*.blend1
+
+# Python / uv / build
 .venv/
 __pycache__/
 *.pyc
-
-# scikit-build-core build artifacts
 build/
-*.so
+dist/
 
 *.zip
 object/

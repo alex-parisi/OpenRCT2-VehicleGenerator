@@ -2,8 +2,10 @@
 """
 One-time extraction of track type → vehicle sprite requirements from objects-master.
 
-Run this whenever objects-master is updated:
-    python build_track_types.py ~/Downloads/objects-master track_types.json
+Run this whenever objects-master is updated; write to the add-on's bundled copy
+(the single source of truth, read at runtime and shipped in the extension zip):
+    python build_track_types.py ~/Downloads/objects-master \
+        vehicle_renderer_addon/track_types.json
 """
 
 import json
@@ -120,7 +122,7 @@ def _extract_car(car: dict) -> tuple[list[str], list[str]]:
 def _extract_all_cars(cars: list[dict]) -> tuple[list[str], list[dict]]:
     """Return (project_sprites, per_car_info) across all car definitions.
 
-    project_sprites is the union of every car's sprite flags — all cars ride
+    project_sprites is the union of every car's sprite flags; all cars ride
     the same track so they're almost always identical, but taking the union is
     the safe default.
     """

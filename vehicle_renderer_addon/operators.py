@@ -1,6 +1,6 @@
 """Blender operators: fast test render and the threaded .parkobj export.
 
-NOTE: no ``from __future__ import annotations`` — the operators declare bpy
+NOTE: no ``from __future__ import annotations``; the operators declare bpy
 properties (``filepath``/``filter_glob``) as annotations, and PEP 563 would
 stringify them and break registration.
 """
@@ -15,15 +15,14 @@ import bpy
 import numpy as np
 from bpy.props import StringProperty
 from bpy.types import Operator
-from openrct2_vehicle_generator.constants import LIGHT_DIFFUSE, LIGHT_SPECULAR
 from openrct2_vehicle_generator.exporter import export_ride_test, export_ride_to
 from openrct2_vehicle_generator.loader import build_ride
-from openrct2_vehicle_generator.ray_trace import Context
-from openrct2_vehicle_generator.types import Light
+from openrct2_x7_renderer.constants import LightType
+from openrct2_x7_renderer.ray_trace import Context
+from openrct2_x7_renderer.types import Light
 
 from . import scene_to_ride
-
-_SPINNER_FRAMES = "|/-\\"
+from .progress_overlay import ProgressOverlay
 
 
 def _normalize(v):
@@ -33,21 +32,22 @@ def _normalize(v):
 
 
 def _default_lights() -> list[Light]:
-    # Same hand-tuned rig as the CLI's __main__._default_lights.
+    # Hand-tuned rig matching the CLI's built-in default lighting
+    # (openrct2_x7_renderer.cli), used when the scene defines no custom lights.
     return [
-        Light(LIGHT_DIFFUSE, 0, _normalize([0.0, -1.0, 0.0]), 0.1),
-        Light(LIGHT_DIFFUSE, 0, _normalize([0.0, 0.5, -1.0]), 0.8),
-        Light(LIGHT_SPECULAR, 1, _normalize([1.0, 1.65, -1.0]), 0.5),
-        Light(LIGHT_DIFFUSE, 1, _normalize([1.0, 1.7, -1.0]), 0.8),
-        Light(LIGHT_DIFFUSE, 0, np.array([0.0, 1.0, 0.0], dtype=np.float64), 0.45),
-        Light(LIGHT_DIFFUSE, 0, _normalize([-1.0, 0.85, 1.0]), 0.475),
-        Light(LIGHT_DIFFUSE, 0, _normalize([0.75, 0.4, -1.0]), 0.6),
-        Light(LIGHT_DIFFUSE, 0, _normalize([1.0, 0.25, 0.0]), 0.5),
-        Light(LIGHT_DIFFUSE, 0, _normalize([-1.0, -0.5, 0.0]), 0.1),
+        Light(LightType.DIFFUSE, 0, _normalize([0.0, -1.0, 0.0]), 0.1),
+        Light(LightType.DIFFUSE, 0, _normalize([0.0, 0.5, -1.0]), 0.8),
+        Light(LightType.SPECULAR, 1, _normalize([1.0, 1.65, -1.0]), 0.5),
+        Light(LightType.DIFFUSE, 1, _normalize([1.0, 1.7, -1.0]), 0.8),
+        Light(LightType.DIFFUSE, 0, np.array([0.0, 1.0, 0.0], dtype=np.float64), 0.45),
+        Light(LightType.DIFFUSE, 0, _normalize([-1.0, 0.85, 1.0]), 0.475),
+        Light(LightType.DIFFUSE, 0, _normalize([0.75, 0.4, -1.0]), 0.6),
+        Light(LightType.DIFFUSE, 0, _normalize([1.0, 0.25, 0.0]), 0.5),
+        Light(LightType.DIFFUSE, 0, _normalize([-1.0, -0.5, 0.0]), 0.1),
     ]
 
 
-_LIGHT_TYPES = {"diffuse": LIGHT_DIFFUSE, "specular": LIGHT_SPECULAR}
+_LIGHT_TYPES = {"diffuse": LightType.DIFFUSE, "specular": LightType.SPECULAR}
 
 
 def _lights_from_scene(context) -> list[Light]:
@@ -87,7 +87,7 @@ class VG_OT_test_render(Operator):
             self.report({"ERROR"}, f"Invalid vehicle: {e}")
             return {"CANCELLED"}
 
-        ctx = Context.make(
+        ctx = Context(
             lights=_lights_from_scene(context), dither=True, upt=ride.units_per_tile
         )
         tmp = tempfile.mkdtemp(prefix="vg_test_")
@@ -145,14 +145,22 @@ class VG_OT_export_parkobj(Operator):
         self._error: str | None = None
         self._done = False
         self._start_time = time.monotonic()
-        self._spinner_step = 0
+        self._overlay = ProgressOverlay()
         # Read lights on the main thread; the worker must not touch bpy data.
         lights = _lights_from_scene(context)
 
+        def on_progress(done: int, total: int) -> None:
+            # Plain int writes from the worker; the modal timer reads them to
+            # repaint the bar. No lock needed for single-word assignments.
+            self._overlay.done = done
+            self._overlay.total = total
+
         def worker():
             try:
-                ctx = Context.make(lights=lights, dither=True, upt=ride.units_per_tile)
-                export_ride_to(ride, ctx, self._parkobj, self._work)
+                ctx = Context(lights=lights, dither=True, upt=ride.units_per_tile)
+                export_ride_to(
+                    ride, ctx, self._parkobj, self._work, progress=on_progress
+                )
             except Exception:
                 self._error = traceback.format_exc()
             finally:
@@ -161,10 +169,9 @@ class VG_OT_export_parkobj(Operator):
         self._thread = threading.Thread(target=worker, daemon=True)
         self._thread.start()
 
+        self._overlay.add()
+        self._set_status(context)
         wm = context.window_manager
-        wm.progress_begin(0, 1)
-        context.window.cursor_modal_set("WAIT")
-        self._set_status(context, _SPINNER_FRAMES[0], 0)
         self._timer = wm.event_timer_add(0.1, window=context.window)
         wm.modal_handler_add(self)
         return {"RUNNING_MODAL"}
@@ -173,25 +180,25 @@ class VG_OT_export_parkobj(Operator):
         if event.type == "TIMER":
             if self._done:
                 return self._finish(context)
-            self._spinner_step += 1
-            glyph = _SPINNER_FRAMES[self._spinner_step % len(_SPINNER_FRAMES)]
-            elapsed = int(time.monotonic() - self._start_time)
-            self._set_status(context, glyph, elapsed)
+            self._set_status(context)
+            self._overlay.tag_redraw(context)
         return {"PASS_THROUGH"}
 
-    def _set_status(self, context, glyph: str, elapsed: int) -> None:
-        text = f"{glyph} Exporting .parkobj... {elapsed}s"
+    def _set_status(self, context) -> None:
+        elapsed = int(time.monotonic() - self._start_time)
+        if self._overlay.total > 0:
+            pct = int(100 * self._overlay.done / self._overlay.total)
+            text = f"Exporting .parkobj... {pct}% ({elapsed}s)"
+        else:
+            text = f"Exporting .parkobj... ({elapsed}s)"
         context.workspace.status_text_set(text)
-        # status_text_set alone doesn't always trigger a redraw; nudge the
-        # progress widget so the header repaints each tick.
-        context.window_manager.progress_update((self._spinner_step % 20) / 20.0)
 
     def _finish(self, context):
         wm = context.window_manager
         wm.event_timer_remove(self._timer)
-        wm.progress_end()
-        context.window.cursor_modal_restore()
+        self._overlay.remove()
         context.workspace.status_text_set(None)
+        self._overlay.tag_redraw(context)
         self._thread.join()
         if self._error:
             print(self._error)

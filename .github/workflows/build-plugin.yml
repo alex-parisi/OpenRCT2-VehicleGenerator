@@ -1,8 +1,10 @@
 name: build-plugin
 
-# Build the self-contained, Embree-vendored renderer wheels (cp311 + cp313 per
-# platform), then package the Blender add-on into per-platform extension zips.
-# Triggered manually or on a tag.
+# Package the vehicle_renderer_addon Blender add-on into per-platform extension
+# zips. The renderer is now the external PyPI package openrct2-x7-renderer
+# (prebuilt Embree-vendored wheels), so there's no native build here: we build
+# this repo's pure-Python front-end wheel, fetch the renderer + numpy/pillow/pyyaml
+# from PyPI, bundle them, and let Blender zip it. Triggered manually or on a tag.
 on:
   workflow_dispatch:
   push:
@@ -10,101 +12,14 @@ on:
       - "v*"
 
 env:
-  EMBREE_VERSION: "4.4.1"
   # Blender used only to PACKAGE the extension (it just zips the wheels; any
   # 4.2+ works). Confirmed present at download.blender.org.
   BLENDER_SERIES: "4.5"
   BLENDER_VERSION: "4.5.4"
 
 jobs:
-  build-wheels:
-    name: ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            name: linux-x86_64
-          - os: macos-14
-            name: macos-arm64
-          - os: windows-latest
-            name: windows-x64
-    steps:
-      - uses: actions/checkout@v4
-
-      # Pin the project version from the tag (or 0.0.0 for manual runs) so the
-      # built wheels carry the release version. Cross-platform Python is already
-      # on every runner; no setup-python needed.
-      - name: Pin version from tag
-        shell: bash
-        run: |
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            VERSION="${GITHUB_REF_NAME#v}"
-          else
-            VERSION="0.0.0"
-          fi
-          python scripts/ci/set_version.py "$VERSION"
-
-      # Linux Embree is fetched inside the manylinux container by
-      # scripts/ci/install_embree_linux.sh (wired via [tool.cibuildwheel.linux]
-      # before-all). macOS/Windows build on the host, so fetch Embree here and
-      # export the paths cibuildwheel forwards into the build.
-      - name: Install Embree (macOS)
-        if: runner.os == 'macOS'
-        shell: bash
-        run: |
-          EMB="$GITHUB_WORKSPACE/embree"
-          BASE="https://github.com/RenderKit/embree/releases/download"
-          curl -fL -o embree.zip "$BASE/v$EMBREE_VERSION/embree-$EMBREE_VERSION.arm64.macosx.zip"
-          mkdir -p "$EMB"
-          unzip -q embree.zip -d "$EMB"
-          # Releases unzip into a versioned subdir; flatten if so.
-          inner=$(find "$EMB" -maxdepth 1 -mindepth 1 -type d -name 'embree*' | head -n1)
-          [ -n "$inner" ] && cp -R "$inner"/* "$EMB/" || true
-          echo "EMBREE_ROOT=$EMB" >> "$GITHUB_ENV"
-          echo "CMAKE_PREFIX_PATH=$EMB" >> "$GITHUB_ENV"
-          echo "DYLD_FALLBACK_LIBRARY_PATH=$EMB/lib" >> "$GITHUB_ENV"
-
-      - name: Install Embree (Windows)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          EMB="$GITHUB_WORKSPACE/embree"
-          BASE="https://github.com/RenderKit/embree/releases/download"
-          curl -fL -o embree.zip "$BASE/v$EMBREE_VERSION/embree-$EMBREE_VERSION.x64.windows.zip"
-          mkdir -p "$EMB"
-          unzip -q embree.zip -d "$EMB"
-          inner=$(find "$EMB" -maxdepth 1 -mindepth 1 -type d -name 'embree*' | head -n1)
-          [ -n "$inner" ] && cp -R "$inner"/* "$EMB/" || true
-          # GITHUB_ENV wants native (back-slash) paths on Windows.
-          echo "EMBREE_ROOT=$GITHUB_WORKSPACE\\embree" >> "$GITHUB_ENV"
-          echo "CMAKE_PREFIX_PATH=$GITHUB_WORKSPACE\\embree" >> "$GITHUB_ENV"
-
-      # Forward EMBREE_VERSION into the manylinux container for the
-      # before-all script.
-      - name: Configure cibuildwheel env passthrough (Linux)
-        if: runner.os == 'Linux'
-        shell: bash
-        run: echo "CIBW_ENVIRONMENT_PASS_LINUX=EMBREE_VERSION" >> "$GITHUB_ENV"
-
-      - name: Build wheels
-        uses: pypa/cibuildwheel@v2.21
-        # Per-platform config (build selection, Embree paths, repair commands)
-        # lives in [tool.cibuildwheel] in pyproject.toml.
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: wheels-${{ matrix.name }}
-          path: ./wheelhouse/*.whl
-
-  # Assemble the final, installable Blender extension: gather the renderer
-  # wheels from every matrix job, bundle the dependency wheels, regenerate the
-  # manifest, and build one zip per platform. This runs on Linux only -- the
-  # extension build just packages files, so it needs no per-OS runner.
   package-extension:
     name: package-extension
-    needs: build-wheels
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -115,9 +30,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      # Same version pin as build-wheels: collect_wheels.py sources the version
-      # from pyproject.toml when it regenerates the manifest's wheel list, and
-      # the manifest's own `version` field must match the release.
+      # Pin the project version from the tag (or 0.0.0 for manual runs) so the
+      # front-end wheel + manifest carry the release version.
       - name: Pin version from tag
         shell: bash
         run: |
@@ -128,23 +42,25 @@ jobs:
           fi
           python scripts/ci/set_version.py "$VERSION"
 
-      # Renderer wheels (cp311 + cp313 x 3 platforms) from the matrix jobs.
-      - name: Download renderer wheels
-        uses: actions/download-artifact@v4
-        with:
-          pattern: wheels-*
-          path: renderer-wheels
-          merge-multiple: true
+      # `build` makes the wheel; numpy/pillow/pyyaml are imported by
+      # collect_wheels.py to pin the bundled dep versions.
+      - name: Install tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install build "numpy>=1.26" "pillow>=10.0" "pyyaml>=6.0"
 
-      # Stage renderer wheels, fetch the dependency wheels for every target, and
-      # regenerate the manifest's wheel list using the same script run locally.
+      # This repo's pure-Python front-end wheel (py3-none-any, all platforms).
+      - name: Build front-end wheel
+        run: python -m build --wheel --outdir dist
+
+      # Stage the add-on's wheels/: drop in the front-end wheel, then let
+      # collect_wheels.py download the renderer + deps from PyPI for every target
+      # and regenerate the manifest's wheel list.
       - name: Bundle wheels + regenerate manifest
         run: |
-          mkdir -p blender_addon/wheels
-          cp renderer-wheels/*.whl blender_addon/wheels/
-          python -m pip install --upgrade pip
-          pip install "numpy>=1.26" "pillow>=10.0" "pyyaml>=6.0"
-          python scripts/collect_wheels.py
+          mkdir -p vehicle_renderer_addon/wheels
+          cp dist/openrct2_vehiclegenerator-*.whl vehicle_renderer_addon/wheels/
+          python scripts/collect_wheels.py --addon vehicle
 
       - name: Install Blender runtime libs
         run: |
@@ -164,21 +80,21 @@ jobs:
       - name: Build per-platform extensions
         run: |
           xvfb-run -a blender --version
-          mkdir -p dist
+          mkdir -p out
           xvfb-run -a blender --command extension build \
-            --source-dir blender_addon --split-platforms --output-dir dist
-          ls -lh dist
+            --source-dir vehicle_renderer_addon --split-platforms --output-dir out
+          ls -lh out
 
       - uses: actions/upload-artifact@v4
         with:
           name: blender-extension
-          path: dist/*.zip
+          path: out/*.zip
 
       - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/*.zip \
+          gh release create "$GITHUB_REF_NAME" out/*.zip \
             --title "$GITHUB_REF_NAME" --generate-notes \
-          || gh release upload "$GITHUB_REF_NAME" dist/*.zip --clobber
+          || gh release upload "$GITHUB_REF_NAME" out/*.zip --clobber

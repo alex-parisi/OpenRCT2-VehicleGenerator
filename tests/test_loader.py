@@ -8,10 +8,10 @@ from openrct2_vehicle_generator.constants import Category, SpriteFlag
 from openrct2_vehicle_generator.loader import (
     LoadError,
     build_ride,
-    load_lights,
     load_ride,
 )
-from openrct2_vehicle_generator.mesh import load_mesh
+from openrct2_x7_renderer.lights import load_lights
+from openrct2_x7_renderer.mesh import load_mesh
 
 ALL_SPRITE_FLAGS = (1 << len(SpriteFlag)) - 1
 
@@ -202,7 +202,6 @@ def test_build_ride_matches_load_ride(tmp_path):
     assert via_build.id == via_load.id
     assert via_build.ride_type == via_load.ride_type
     assert via_build.sprite_flags == via_load.sprite_flags
-    assert via_build.num_sprites == via_load.num_sprites
     assert len(via_build.meshes) == len(via_load.meshes) == 1
     assert len(via_build.vehicles) == len(via_load.vehicles) == 1
     assert via_build.vehicles[0].num_sprites == via_load.vehicles[0].num_sprites
@@ -246,3 +245,105 @@ def test_load_lights_shadow_defaults_false():
 def test_load_lights_rejects_unknown_type():
     with pytest.raises(LoadError):
         load_lights([{"type": "glow", "shadow": False, "direction": [0, 1, 0], "strength": 1.0}])
+
+
+# ---------------------------------------------------------------------------
+# Validation / error paths
+# ---------------------------------------------------------------------------
+
+
+def _vehicle(**overrides):
+    base = {"model": {"mesh_index": 0}, "mass": 100, "spacing": 2.0, "draw_order": 1}
+    base.update(overrides)
+    return base
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        pytest.param({"running_sound": 5}, id="enum-not-a-string"),
+        pytest.param({"flags": "no_collision_crashes"}, id="ride-flags-not-a-list"),
+        pytest.param({"flags": [123]}, id="ride-flags-non-string-tag"),
+        pytest.param({"units_per_tile": 0}, id="units-per-tile-not-positive"),
+        pytest.param({"configuration": {"default": "x"}}, id="config-default-not-int"),
+        pytest.param({"configuration": {"default": 0, "front": "x"}}, id="config-front-not-int"),
+        pytest.param({"default_colors": "x"}, id="colors-not-an-array"),
+        pytest.param({"default_colors": ["x"]}, id="colors-element-not-an-array"),
+        pytest.param({"vehicles": "x"}, id="vehicles-not-an-array"),
+    ],
+)
+def test_ride_level_validation_errors(tmp_path, overrides):
+    with pytest.raises(LoadError):
+        load_ride(_make_ride(tmp_path, **overrides))
+
+
+@pytest.mark.parametrize(
+    "vehicle",
+    [
+        pytest.param({"mass": 100, "spacing": 2.0, "draw_order": 1}, id="model-missing"),
+        pytest.param(_vehicle(model=[123]), id="model-elem-not-a-dict"),
+        pytest.param(_vehicle(model={}), id="mesh-index-missing"),
+        pytest.param(_vehicle(model={"mesh_index": [0.5]}), id="mesh-index-not-int"),
+        pytest.param(_vehicle(model={"mesh_index": 5}), id="mesh-index-out-of-bounds"),
+        pytest.param(
+            _vehicle(model={"mesh_index": 0, "position": "x"}), id="position-not-an-array"
+        ),
+        pytest.param(
+            _vehicle(model={"mesh_index": 0, "position": [1, 2]}), id="position-wrong-length"
+        ),
+        pytest.param(_vehicle(riders=5), id="riders-not-an-array"),
+    ],
+)
+def test_vehicle_level_validation_errors(tmp_path, vehicle):
+    with pytest.raises(LoadError):
+        load_ride(_make_ride(tmp_path, vehicles=[vehicle]))
+
+
+def test_mesh_index_count_must_match_frame_count(tmp_path):
+    # restraint_animation => 4 frames; a 2-element mesh_index list is neither 1
+    # nor 4 and must be rejected.
+    vehicle = _vehicle(flags=["restraint_animation"], model={"mesh_index": [0, 0]})
+    with pytest.raises(LoadError):
+        load_ride(_make_ride(tmp_path, vehicles=[vehicle]))
+
+
+def test_orientation_per_frame_length_mismatch(tmp_path):
+    # A 1-frame vehicle with a 2-element per-frame orientation list is invalid.
+    vehicle = _vehicle(model={"mesh_index": 0, "orientation": [[0, 0, 0], [0, 1, 0]]})
+    with pytest.raises(LoadError):
+        load_ride(_make_ride(tmp_path, vehicles=[vehicle]))
+
+
+def test_explicit_version_is_used(tmp_path):
+    ride = load_ride(_make_ride(tmp_path, version="3.4"))
+    assert ride.version == "3.4"
+
+
+def test_banking_with_gentle_implies_slope_bank_transition(tmp_path):
+    ride = load_ride(_make_ride(tmp_path, sprites=["banked_turns", "gentle_slopes"]))
+    assert ride.sprite_flags & SpriteFlag.SLOPE_BANK_TRANSITION
+
+
+def test_sloped_banked_turn_implies_transitions(tmp_path):
+    ride = load_ride(_make_ride(tmp_path, sprites=["banked_turns", "banked_sloped_turns"]))
+    assert ride.sprite_flags & SpriteFlag.SLOPED_BANK_TRANSITION
+    assert ride.sprite_flags & SpriteFlag.BANKED_SLOPE_TRANSITION
+
+
+def test_front_rear_configuration_maps_car_slots(tmp_path):
+    ride = load_ride(
+        _make_ride(
+            tmp_path,
+            configuration={"default": 0, "front": 1, "rear": 4},
+        )
+    )
+    # configuration order is [default, front, second, rear, third].
+    assert ride.configuration == [0, 1, 0xFF, 4, 0xFF]
+
+
+@pytest.mark.parametrize("slot", ["second", "third"])
+def test_unsupported_configuration_slots_rejected(tmp_path, slot):
+    # `second`/`third` map to engine slots the exporter can't emit yet, so the
+    # loader rejects them instead of silently dropping the value.
+    with pytest.raises(LoadError, match="not yet supported"):
+        load_ride(_make_ride(tmp_path, configuration={"default": 0, slot: 2}))

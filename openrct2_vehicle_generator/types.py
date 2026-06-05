@@ -1,27 +1,27 @@
 """
-Dataclasses
+Vehicle-specific dataclasses. Shared rendering primitives (MeshFrame, Model,
+IndexedImage, MAX_FRAMES) live in openrct2_x7_renderer.types.
 """
 
 from dataclasses import dataclass, field
 from typing import Any
 
-import numpy as np
+from openrct2_x7_renderer.types import (
+    IndexedImage,
+    MeshFrame,
+    Model,
+)
 
-from .constants import TILE_SIZE
+from .constants import CAR_SLOT_ABSENT, CONFIGURATION_SLOTS, MAX_FRAMES, TILE_SIZE
 
-MAX_FRAMES = 4
-
-
-@dataclass
-class MeshFrame:
-    mesh_index: int = -1
-    position: np.ndarray = field(default_factory=lambda: np.zeros(3, dtype=np.float64))
-    orientation: np.ndarray = field(default_factory=lambda: np.zeros(3, dtype=np.float64))
-
-
-@dataclass
-class Model:
-    meshes: list[list[MeshFrame]] = field(default_factory=list)
+__all__ = [
+    "MAX_FRAMES",
+    "IndexedImage",
+    "MeshFrame",
+    "Model",
+    "Vehicle",
+    "Ride",
+]
 
 
 @dataclass
@@ -38,27 +38,6 @@ class Vehicle:
 
 
 @dataclass
-class IndexedImage:
-    """8-bit palette image. Pixel value 0 is transparent."""
-
-    width: int
-    height: int
-    x_offset: int
-    y_offset: int
-    pixels: np.ndarray  # uint8 (height, width)
-
-    @classmethod
-    def blank(cls, width: int, height: int, x_offset: int = 0, y_offset: int = 0) -> "IndexedImage":
-        return cls(
-            width=width,
-            height=height,
-            x_offset=x_offset,
-            y_offset=y_offset,
-            pixels=np.zeros((height, width), dtype=np.uint8),
-        )
-
-
-@dataclass
 class Ride:
     id: str = ""
     original_id: str = ""
@@ -69,8 +48,10 @@ class Ride:
     version: str = "1.0"
     ride_type: str = ""
 
-    # default, front, second, rear, third  (0xFF means absent).
-    configuration: list[int] = field(default_factory=lambda: [0xFF] * 5)
+    # default, front, second, rear, third  (CAR_SLOT_ABSENT means absent).
+    configuration: list[int] = field(
+        default_factory=lambda: [CAR_SLOT_ABSENT] * CONFIGURATION_SLOTS
+    )
 
     # Model units per tile: the scale that maps OBJ-space units onto one
     # OpenRCT2 tile. Drives both the render projection (sprite size) and the
@@ -88,18 +69,9 @@ class Ride:
     running_sound: int = 0
     secondary_sound: int = 0
     sprite_flags: int = 0
-    num_sprites: int = 0
 
     colors: list[list[int]] = field(default_factory=list)
     meshes: list[Any] = field(default_factory=list)  # list[Mesh]
     vehicles: list[Vehicle] = field(default_factory=list)
 
     preview: IndexedImage | None = None
-
-
-@dataclass
-class Light:
-    type: int  # LIGHT_HEMI / LIGHT_DIFFUSE / LIGHT_SPECULAR
-    shadow: int
-    direction: np.ndarray
-    intensity: float
