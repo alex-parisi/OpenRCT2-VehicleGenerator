@@ -105,8 +105,8 @@ may be a superset of exactly what you ticked (that's expected).
 | **Max Cars / Train** | `max_cars` | `8` | Most cars a train can have (≥ 1). |
 | **Zero Cars** | `zero_cars` | `0` | Cars at the **front** of the train that carry no riders (engines, decorative locomotives, leading dummy cars). They're still rendered, but the engine won't seat peeps in them. Leave at `0` for a train where every car holds riders. |
 | **Build Menu Priority** | `build_menu_priority` | `0` | Ordering weight in the vehicle build menu (≥ 0). Hard to derive from scratch; copy the value from a vanilla vehicle of the same track type. |
-| **Running Sound** | `running_sound` | *(first in list)* | The friction/rolling sound. Options: `wooden_old`, `wooden`, `steel`, `steel_smooth`, `train`, `engine`. |
-| **Secondary Sound** | `secondary_sound` | *(first in list)* | The secondary effect sound. Options: `scream1`, `scream2`, `scream3`, `bell`. |
+| **Running Sound** | `running_sound` | *(first in list)* | The friction/rolling sound. Options: `wooden_old`, `wooden`, `steel`, `steel_smooth`, `waterslide`, `train`, `engine`. |
+| **Secondary Sound** | `secondary_sound` | *(first in list)* | The secondary effect sound. Options: `scream1`, `scream2`, `scream3`, `whistle`, `bell`. |
 
 **Ride Flags** (one checkbox each, all default **off**):
 
