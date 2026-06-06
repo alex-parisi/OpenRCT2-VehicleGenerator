@@ -3,14 +3,19 @@ Vehicle-specific dataclasses. Shared rendering primitives (MeshFrame, Model,
 IndexedImage, MAX_FRAMES) live in openrct2_x7_renderer.types.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING
 
 from openrct2_x7_renderer.types import (
     IndexedImage,
     MeshFrame,
     Model,
 )
+
+if TYPE_CHECKING:
+    from openrct2_x7_renderer.mesh import Mesh
 
 from .constants import CAR_SLOT_ABSENT, CONFIGURATION_SLOTS, MAX_FRAMES, TILE_SIZE
 
@@ -71,7 +76,7 @@ class Ride:
     sprite_flags: int = 0
 
     colors: list[list[int]] = field(default_factory=list)
-    meshes: list[Any] = field(default_factory=list)  # list[Mesh]
+    meshes: list[Mesh] = field(default_factory=list)
     vehicles: list[Vehicle] = field(default_factory=list)
 
     preview: IndexedImage | None = None

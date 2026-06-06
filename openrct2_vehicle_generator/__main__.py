@@ -6,6 +6,7 @@ Usage:
 
 import argparse
 import sys
+from typing import Any
 
 from openrct2_object_common.cli import make_context, output_directory_of, run_cli
 from openrct2_object_common.config import load_meshes, load_preview
@@ -15,7 +16,7 @@ from .exporter import export_ride, export_ride_test
 from .loader import build_ride
 
 
-def _render(args: argparse.Namespace, root: dict, lights: list[Light]) -> None:
+def _render(args: argparse.Namespace, root: dict[str, Any], lights: list[Light]) -> None:
     # run_cli already parsed the config into `root`; build straight from it
     # instead of re-reading the file via load_ride.
     ride = build_ride(root, load_meshes(root), load_preview(root))

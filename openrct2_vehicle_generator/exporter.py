@@ -8,15 +8,17 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 from openrct2_object_common.objectjson import object_json_header
-from openrct2_object_common.parkobj import assemble_parkobj, write_images_dat_lgx
+from openrct2_object_common.parkobj import (
+    assemble_parkobj,
+    combine_indexed_images,
+    write_images_dat_lgx,
+)
 from openrct2_object_common.placement import add_model_to_scene
 from openrct2_x7_renderer.geometry import rotate_y
 from openrct2_x7_renderer.image import write_png
 from openrct2_x7_renderer.ray_trace import Context
 from openrct2_x7_renderer.remap import REMAP_COLOR_RAMPS, REMAP_WINDOWS
-from openrct2_x7_renderer.types import IndexedImage
 
 from .constants import (
     CAR_SLOT_ABSENT,
@@ -133,14 +135,14 @@ def _render_sprites(
     context: Context,
     object_dir: Path,
     progress: Callable[[int, int], None] | None = None,
-) -> list:
+) -> list[str]:
     """
     Render every sprite for the ride and write a single `images.dat`.
 
     If ``progress`` is given it is called as ``progress(done, total)`` after each
     rendered frame, where the unit of work is one ``render_vehicle_frame`` call.
     """
-    all_images: list = []
+    all_images: list[Any] = []
 
     # Three preview entries
     all_images.extend([ride.preview] * 3)
@@ -167,7 +169,7 @@ def _render_sprites(
         num_car_images = vehicle.num_sprites
         num_total = num_car_images * (1 + len(vehicle.riders))
 
-        car_images: list = [None] * num_total
+        car_images: list[Any] = [None] * num_total
 
         log.info("Rendering vehicle %d car sprites", i)
         base = 0
@@ -181,6 +183,10 @@ def _render_sprites(
             base += len(frame_imgs)
             scene.end_render()
             _tick()
+
+        assert base == num_car_images, (
+            f"Vehicle {i} sprite count mismatch: rendered {base}, expected {num_car_images}"
+        )
 
         for j, rider in enumerate(vehicle.riders):
             log.info("Rendering vehicle %d peep sprites %d", i, j)
@@ -199,6 +205,11 @@ def _render_sprites(
                 base += len(frame_imgs)
                 scene.end_render()
                 _tick()
+
+            assert base == num_car_images, (
+                f"Vehicle {i} rider {j} sprite count mismatch: "
+                f"rendered {base}, expected {num_car_images}"
+            )
 
         all_images.extend(car_images)
 
@@ -273,39 +284,6 @@ def _preview_remap_overrides(ride: Ride) -> dict[int, tuple[int, ...]]:
         region: REMAP_COLOR_RAMPS[COLOR_NAMES[color_index]]
         for region, color_index in zip(sorted(REMAP_WINDOWS), preset, strict=False)
     }
-
-
-def combine_indexed_images(images: list[IndexedImage], columns: int = 2) -> IndexedImage:
-    """Tile IndexedImages into a single grid image, aligned by draw offset.
-
-    Each cell spans the union of every image's draw-offset bounding box, so a
-    shared sprite anchor lands at the same spot in every cell and the rotated
-    views line up. Cells fill left-to-right, top-to-bottom over a transparent
-    (palette index 0) background; ``columns`` is capped at the image count so a
-    single image doesn't leave a blank cell. Used to show all four rotated
-    preview directions in one image.
-    """
-    if not images:
-        return IndexedImage.blank(1, 1)
-    columns = max(1, min(columns, len(images)))
-    left = min(im.x_offset for im in images)
-    top = min(im.y_offset for im in images)
-    cell_w = max(im.x_offset + im.width for im in images) - left
-    cell_h = max(im.y_offset + im.height for im in images) - top
-    rows = math.ceil(len(images) / columns)
-    canvas = np.zeros((rows * cell_h, columns * cell_w), dtype=np.uint8)
-    for idx, im in enumerate(images):
-        row, col = divmod(idx, columns)
-        x = col * cell_w + (im.x_offset - left)
-        y = row * cell_h + (im.y_offset - top)
-        canvas[y : y + im.height, x : x + im.width] = im.pixels
-    return IndexedImage(
-        width=canvas.shape[1],
-        height=canvas.shape[0],
-        x_offset=0,
-        y_offset=0,
-        pixels=canvas,
-    )
 
 
 def export_ride_test(ride: Ride, context: Context, test_dir: Path | str = "test") -> None:

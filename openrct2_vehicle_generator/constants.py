@@ -10,14 +10,10 @@ https://github.com/X123M3-256/RCTGen
 from enum import IntEnum, IntFlag, auto
 
 from openrct2_x7_renderer.constants import (
+    MAX_FRAMES,
     TILE_SIZE,
     MaterialFlag,
 )
-
-# Max animation frames per mesh placement (the restraint-animation frame count).
-# Lived in openrct2_x7_renderer.types as MAX_FRAMES before the v0.2 renderer
-# rework dropped it; kept here as the vehicle front-end is its only consumer.
-MAX_FRAMES = 4
 
 __all__ = [
     # Re-exported shared rendering primitives.

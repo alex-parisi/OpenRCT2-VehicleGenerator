@@ -12,10 +12,11 @@ import zipfile
 
 import numpy as np
 import pytest
+from openrct2_object_common.parkobj import combine_indexed_images
+from openrct2_object_common.testing import FakeContext
 from openrct2_vehicle_generator.constants import CarIndex, Category, RunningSound
 from openrct2_vehicle_generator.exporter import (
     build_ride_json,
-    combine_indexed_images,
     export_ride,
     export_ride_test,
     export_ride_to,
@@ -24,46 +25,6 @@ from openrct2_vehicle_generator.loader import build_ride
 from openrct2_vehicle_generator.types import IndexedImage, MeshFrame, Model, Ride, Vehicle
 from openrct2_x7_renderer.mesh import load_mesh
 from openrct2_x7_renderer.remap import REMAP_COLOR_RAMPS
-
-
-class FakeScene:
-    """Stands in for a FinalizedScene; every view renders a 1x1 dummy."""
-
-    def __init__(self, events):
-        self._events = events
-
-    def render_view(self, _view):
-        return IndexedImage.blank(1, 1)
-
-    def end_render(self):
-        self._events.append("end")
-
-
-class FakeBuilder:
-    """Stands in for a SceneBuilder, recording add_model/finalize calls."""
-
-    def __init__(self, events):
-        self._events = events
-
-    def add_model(self, mesh, matrix, translation, mask):
-        self._events.append(("add", mask))
-        return self
-
-    def finalize(self):
-        self._events.append("finalize")
-        return FakeScene(self._events)
-
-
-class FakeContext:
-    """Records the render lifecycle calls without touching Embree."""
-
-    def __init__(self):
-        self.events = []
-
-    def begin_render(self):
-        self.events.append("begin")
-        return FakeBuilder(self.events)
-
 
 _OBJ = "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n"
 

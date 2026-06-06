@@ -20,6 +20,7 @@ from openrct2_object_common.config import (
     require_number,
     require_string,
 )
+from openrct2_x7_renderer.mesh import Mesh
 
 from .constants import (
     CAR_SLOT_ABSENT,
@@ -136,7 +137,7 @@ def _load_model(value: Any, num_meshes: int, num_frames: int) -> Model:
     return Model(meshes=meshes_out)
 
 
-def _load_vehicle(value: dict, ride: Ride) -> Vehicle:
+def _load_vehicle(value: dict[str, Any], ride: Ride) -> Vehicle:
     v = Vehicle()
     v.spacing = require_number(value, "spacing")
     v.mass = require_int(value, "mass")
@@ -162,7 +163,9 @@ def _load_vehicle(value: dict, ride: Ride) -> Vehicle:
     return v
 
 
-def build_ride(config: dict, meshes: list, preview: IndexedImage | None = None) -> Ride:
+def build_ride(
+    config: dict[str, Any], meshes: list[Mesh], preview: IndexedImage | None = None
+) -> Ride:
     """
     Build a Ride from an already-parsed config dict + in-memory meshes.
     """

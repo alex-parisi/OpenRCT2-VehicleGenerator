@@ -21,6 +21,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 import numpy as np
+from numpy.typing import NDArray
 from openrct2_x7_renderer.geometry import rotate_x, rotate_y, rotate_z
 from openrct2_x7_renderer.ray_trace import FinalizedScene
 from openrct2_x7_renderer.types import IndexedImage
@@ -516,7 +517,7 @@ def sprite_group_counts(sprite_flags: int, vehicle_flags: int) -> dict[str, int]
     return out
 
 
-def _rotation_views(rot: _Rot) -> list[np.ndarray]:
+def _rotation_views(rot: _Rot) -> list[NDArray[np.float64]]:
     """
     The `rot.num_frames` yaw-stepped view matrices for a (pitch, roll, yaw)
     orientation, in sprite-index order.
@@ -525,20 +526,20 @@ def _rotation_views(rot: _Rot) -> list[np.ndarray]:
     pitch = float(np.float32(rot.pitch))
     roll = float(np.float32(rot.roll))
     yaw_base = float(np.float32(rot.yaw))
-    out: list[np.ndarray] = []
+    out: list[NDArray[np.float64]] = []
     for i in range(rot.num_frames):
         yaw = yaw_base + (2.0 * i * math.pi) / rot.num_frames
         out.append(rotate_y(yaw) @ rotate_z(pitch) @ rotate_x(roll))
     return out
 
 
-def _frame_views(sprite_flags: int, frame: int) -> list[np.ndarray]:
+def _frame_views(sprite_flags: int, frame: int) -> list[NDArray[np.float64]]:
     """Every view matrix for this vehicle frame, in sprite-index order."""
     if frame > 0:
         log.info("Rendering restraint animation frame %d", frame)
         return _rotation_views(_Rot(_RESTRAINT_PER_FRAME, 0, 0, 0))
 
-    views: list[np.ndarray] = []
+    views: list[NDArray[np.float64]] = []
     for group in _base_render_plan(sprite_flags):
         log.info(group.log_message)
         for r in group.rotations:
@@ -546,7 +547,7 @@ def _frame_views(sprite_flags: int, frame: int) -> list[np.ndarray]:
     return views
 
 
-def _render_views(scene: FinalizedScene, views: list[np.ndarray]) -> list[IndexedImage]:
+def _render_views(scene: FinalizedScene, views: list[NDArray[np.float64]]) -> list[IndexedImage]:
     """Render `views` against the finalized scene, in order.
 
     Each `render_view` is independent and only reads the shared scene, so they

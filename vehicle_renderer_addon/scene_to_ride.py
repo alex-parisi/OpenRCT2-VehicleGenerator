@@ -25,17 +25,19 @@ import os
 import tempfile
 
 import bpy
-import numpy as np
-from mathutils import Matrix, Vector
+from mathutils import Vector
+from openrct2_object_common.blender.mesh_extract import (
+    BASIS,
+    SceneError,
+    extract_mesh,
+    load_preview,
+    material_base,
+    object_position,
+)
 from openrct2_vehicle_generator.constants import MaterialFlag
-from openrct2_x7_renderer.image import quantize_to_indexed, read_png
 from openrct2_x7_renderer.mesh import Material, Mesh, load_texture
-from openrct2_x7_renderer.types import IndexedImage
 
 from . import props
-
-# Blender (x, y, z) -> OBJ (x, z, -y).
-_BASIS = Matrix(((1.0, 0.0, 0.0), (0.0, 0.0, 1.0), (0.0, -1.0, 0.0)))
 
 _REGION_MAP = {
     "NONE": (0, 0),
@@ -47,33 +49,6 @@ _REGION_MAP = {
 }
 
 _RESTRAINT_FRAMES = 4
-
-
-class SceneError(Exception):
-    """Raised when the scene can't be turned into a valid ride."""
-
-
-def _base_color(bmat) -> tuple[float, float, float]:
-    """The material's flat RGB colour.
-
-    Prefer the Principled BSDF ``Base Color`` (what users actually set in the
-    shader editor) and fall back to ``diffuse_color`` (the viewport display
-    colour). ``diffuse_color`` alone is wrong for almost every authored
-    material: it stays at Blender's default 0.8 grey unless explicitly touched,
-    so reading it made every untextured material render the same grey. If the
-    Base Color input is textured (linked), there's no flat value to read, so we
-    fall back to the viewport colour as well.
-    """
-    if getattr(bmat, "use_nodes", False) and bmat.node_tree is not None:
-        for node in bmat.node_tree.nodes:
-            if node.type != "BSDF_PRINCIPLED":
-                continue
-            base = node.inputs.get("Base Color")
-            if base is not None and not base.is_linked:
-                c = base.default_value
-                return (c[0], c[1], c[2])
-    col = bmat.diffuse_color
-    return (col[0], col[1], col[2])
 
 
 def _base_color_image(bmat):
@@ -136,40 +111,9 @@ def _load_bpy_image(img):
 
 
 def _material_from_bpy(bmat) -> Material:
-    m = Material()
-    if bmat is None:
-        return m
-    s = getattr(bmat, "vg_material", None)
-
-    # Diffuse colour: the add-on's explicit picker wins; otherwise fall back to
-    # the Principled BSDF Base Color
-    # Specular is driven entirely by the add-on's controls
-    if s is not None and s.use_color_override:
-        m.color = np.array(tuple(s.diffuse_color), dtype=np.float64)
-    else:
-        m.color = np.array(_base_color(bmat), dtype=np.float64)
-
-    intensity = float(s.specular_intensity) if s is not None else 0.5
-    m.specular_exponent = float(s.specular_exponent) if s is not None else 50.0
-    tint = tuple(s.specular_tint) if (s is not None and s.use_specular_tint) else (1.0, 1.0, 1.0)
-    m.specular_color = np.array(tint, dtype=np.float64) * intensity
-
+    m, s = material_base(bmat, prop_attr="vg_material", region_map=_REGION_MAP)
     if s is None:
         return m
-
-    flag, region = _REGION_MAP.get(s.region, (0, 0))
-    m.flags |= flag
-    m.region = region
-    if s.is_mask:
-        m.flags |= MaterialFlag.IS_MASK
-    if s.no_ao:
-        m.flags |= MaterialFlag.NO_AO
-    if s.edge:
-        m.flags |= MaterialFlag.BACKGROUND_AA
-    if s.dark_edge:
-        m.flags |= MaterialFlag.BACKGROUND_AA_DARK
-    if s.no_bleed:
-        m.flags |= MaterialFlag.NO_BLEED
 
     # The explicit Texture pointer wins; otherwise fall back to an image
     # texture wired into the Principled BSDF's Base Color.
@@ -181,61 +125,8 @@ def _material_from_bpy(bmat) -> Material:
     return m
 
 
-def _extract_mesh(obj, depsgraph) -> Mesh | None:
-    """Evaluate `obj`, bake its world rotation+scale + basis change, -> Mesh."""
-    eval_obj = obj.evaluated_get(depsgraph)
-    me = eval_obj.to_mesh()
-    try:
-        me.calc_loop_triangles()
-        tris = me.loop_triangles
-        if len(tris) == 0:
-            return None
-
-        slots = [s.material for s in obj.material_slots]
-        materials = [_material_from_bpy(bm) for bm in slots] or [Material()]
-        n_mats = len(materials)
-
-        linear = _BASIS @ obj.matrix_world.to_3x3()
-        normal_mat = linear.inverted_safe().transposed()
-
-        uv_layer = me.uv_layers.active
-        verts: list[tuple[float, float, float]] = []
-        norms: list[tuple[float, float, float]] = []
-        uvs: list[tuple[float, float]] = []
-        faces: list[tuple[int, int, int]] = []
-        face_mats: list[int] = []
-
-        for lt in tris:
-            corner = []
-            split_n = lt.split_normals
-            for k in range(3):
-                vidx = lt.vertices[k]
-                loop_idx = lt.loops[k]
-                co = linear @ me.vertices[vidx].co
-                n = (normal_mat @ Vector(split_n[k])).normalized()
-                uv = uv_layer.data[loop_idx].uv if uv_layer else (0.0, 0.0)
-                verts.append((co.x, co.y, co.z))
-                norms.append((n.x, n.y, n.z))
-                uvs.append((uv[0], uv[1]))
-                corner.append(len(verts) - 1)
-            faces.append((corner[0], corner[1], corner[2]))
-            face_mats.append(min(lt.material_index, n_mats - 1))
-
-        return Mesh(
-            vertices=np.array(verts, dtype=np.float32),
-            normals=np.array(norms, dtype=np.float32),
-            uvs=np.array(uvs, dtype=np.float32),
-            faces=np.array(faces, dtype=np.uint32),
-            face_materials=np.array(face_mats, dtype=np.uint32),
-            materials=materials,
-        )
-    finally:
-        eval_obj.to_mesh_clear()
-
-
-def _object_position(obj) -> list[float]:
-    p = _BASIS @ obj.matrix_world.to_translation()
-    return [float(p.x), float(p.y), float(p.z)]
+def _extract(obj, depsgraph) -> Mesh | None:
+    return extract_mesh(obj, depsgraph, _material_from_bpy)
 
 
 def _apply_offset(position, offset):
@@ -282,7 +173,7 @@ def _sample_keyframed_transform(
     try:
         scene.frame_set(frames[0])
         dg = bpy.context.evaluated_depsgraph_get()
-        rest_mesh = _extract_mesh(obj, dg)
+        rest_mesh = _extract(obj, dg)
         R_rest_inv = obj.evaluated_get(dg).matrix_world.to_3x3().inverted()
 
         positions: list[list[float]] = []
@@ -292,11 +183,11 @@ def _sample_keyframed_transform(
             dg = bpy.context.evaluated_depsgraph_get()
             M_f = obj.evaluated_get(dg).matrix_world
 
-            p = _BASIS @ M_f.to_translation()
+            p = BASIS @ M_f.to_translation()
             positions.append([float(p.x), float(p.y), float(p.z)])
 
             R_rel = M_f.to_3x3() @ R_rest_inv
-            R_obj = _BASIS @ R_rel @ _BASIS.transposed()
+            R_obj = BASIS @ R_rel @ BASIS.transposed()
             # Renderer applies rotate_y(a) @ rotate_z(b) @ rotate_x(c).
             # Blender's "YZX" Euler reconstructs as Ry(e.y) @ Rz(e.z) @ Rx(e.x),
             # so emit angles in that order.
@@ -312,22 +203,6 @@ def _sample_keyframed_transform(
     return rest_mesh, positions, orientations
 
 
-def _load_preview(filepath) -> IndexedImage | None:
-    if not filepath:
-        return None
-    path = bpy.path.abspath(filepath)
-    if not path or not os.path.exists(path):
-        return None
-    # An already-paletted RCT2 PNG is used verbatim (indices are RCT2 indices);
-    # anything else (RGB/JPEG/oversized) is resized and quantized to the palette.
-    try:
-        return read_png(path)
-    except Exception:
-        pass
-    try:
-        return quantize_to_indexed(path)
-    except Exception:
-        return None
 
 
 # Slot identifier -> the key the loader expects inside `configuration`.
@@ -382,14 +257,14 @@ def _build_vehicle(
                 obj, scene, _RESTRAINT_FRAMES
             )
         else:
-            mesh = _extract_mesh(obj, depsgraph)
+            mesh = _extract(obj, depsgraph)
         if mesh is None:
             continue
         idx = len(meshes)
         meshes.append(mesh)
 
         if role == "BODY":
-            pos = _object_position(obj)
+            pos = object_position(obj)
             body_entries.append({"mesh_index": idx, "position": pos, "orientation": [0, 0, 0]})
         elif role == "RESTRAINT":
             has_restraint = True
@@ -400,7 +275,7 @@ def _build_vehicle(
                     "orientation": kf_orientations,
                 })
             else:
-                pos = _object_position(obj)
+                pos = object_position(obj)
                 swing = float(obj.vg_object.restraint_swing_deg)
                 orient = [
                     [0.0, -swing * f / (_RESTRAINT_FRAMES - 1), 0.0]
@@ -408,7 +283,7 @@ def _build_vehicle(
                 ]
                 body_entries.append({"mesh_index": idx, "position": pos, "orientation": orient})
         elif role == "RIDER":
-            pos = _object_position(obj)
+            pos = object_position(obj)
             rider_entries.append((
                 int(obj.vg_object.rider_number),
                 obj.name,
@@ -485,7 +360,7 @@ def build_config_and_meshes(context):
         for ct in assigned_types:
             if ct.collection is None:
                 raise SceneError(f"Car type '{ct.name}' has no Collection assigned.")
-            off = _BASIS @ Vector(tuple(ct.offset))
+            off = BASIS @ Vector(tuple(ct.offset))
             vehicle = _build_vehicle(
                 ct.collection.all_objects,
                 mass=int(ct.mass),
@@ -556,4 +431,4 @@ def build_config_and_meshes(context):
         "vehicles": vehicles,
     }
 
-    return config, meshes, _load_preview(rs.preview)
+    return config, meshes, load_preview(rs.preview)

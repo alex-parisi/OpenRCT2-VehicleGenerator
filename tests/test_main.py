@@ -98,3 +98,24 @@ def test_main_end_to_end_through_run_cli(monkeypatch, tmp_path):
     )
     assert cli.main([str(cfg)]) == 0
     assert seen["ran"] is True
+
+
+def test_dunder_main_guard_invokes_sys_exit(monkeypatch):
+    # Cover the `sys.exit(main())` body inside `if __name__ == "__main__":`.
+    # runpy re-executes __main__.py with __name__ == "__main__", so the guard
+    # fires.  We patch run_cli (imported by the module at execution time) to
+    # return a known code and capture sys.exit so the process doesn't actually
+    # exit.
+    import runpy
+    import sys
+
+    exits = []
+    monkeypatch.setattr(sys, "exit", exits.append)
+
+    import openrct2_object_common.cli as _cli
+    monkeypatch.setattr(_cli, "run_cli", lambda prog, argv, render: 7)
+
+    sys.modules.pop("openrct2_vehicle_generator.__main__", None)
+    runpy.run_module("openrct2_vehicle_generator", run_name="__main__")
+
+    assert exits == [7]
