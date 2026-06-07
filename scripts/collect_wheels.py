@@ -7,18 +7,21 @@ So everything the add-on imports must be vendored as a wheel for each platform
 and Python version Blender ships, or it fails to import (e.g. "No module named
 'PIL'").
 
-The add-on bundles three kinds of wheel:
+The add-on bundles four kinds of wheel:
 
   1. The renderer (``openrct2-x7-renderer``): the external PyPI package with
      the Embree-vendored native extension. Platform- and Python-specific;
      downloaded here straight from PyPI (no CI build needed).
-  2. The dependency wheels (numpy, Pillow, PyYAML). Platform- and Python-
+  2. The shared layer (``OpenRCT2-ObjectCommon``): the external PyPI package
+     both generators import. Pure-Python (``py3-none-any``, one wheel for every
+     target); downloaded from PyPI.
+  3. The dependency wheels (numpy, Pillow, PyYAML). Platform- and Python-
      specific; downloaded from PyPI.
-  3. The front-end wheel (``openrct2_vehiclegenerator``): this repo, now
+  4. The front-end wheel (``openrct2_vehiclegenerator``): this repo, now
      pure-Python (``py3-none-any``, one wheel for every target). Built separately
      with ``uv build --wheel`` and placed in ``<addon>/wheels/`` before this runs.
 
-This script downloads (1) and (2) for all targets, then rewrites the manifest's
+This script downloads (1), (2), and (3) for all targets, then rewrites the manifest's
 ``wheels = [...]`` to list every wheel present in ``<addon>/wheels/`` (including
 the pre-placed front-end wheel).
 
@@ -38,8 +41,10 @@ from _buildlib import (
     ADDONS,
     DEPS,
     FRONTEND_PREFIX,
+    OBJECTCOMMON_PREFIX,
     RENDERER_PREFIX,
     REPO,
+    objectcommon_spec,
     pip_download_cmd,
     renderer_spec,
     run,
@@ -81,15 +86,22 @@ def ensure_pip() -> None:
 
 
 def download_specs() -> list[str]:
-    # Renderer pinned to the bundled release; deps pinned to the versions
-    # resolved in this env so they match what the renderer was built against.
-    return [renderer_spec()] + [f"{name}=={md.version(name)}" for name in DEPS]
+    # Renderer + shared layer pinned to the bundled releases; deps pinned to the
+    # versions resolved in this env so they match what the renderer was built
+    # against.
+    return [renderer_spec(), objectcommon_spec()] + [
+        f"{name}=={md.version(name)}" for name in DEPS
+    ]
 
 
 def is_managed_wheel(name: str) -> bool:
-    """True for wheels this script downloads (renderer + deps), not the front-end."""
+    """True for wheels this script downloads (renderer + shared layer + deps), not the front-end."""
     low = name.lower()
-    return low.startswith(f"{RENDERER_PREFIX}-") or any(low.startswith(f"{d}-") for d in DEPS)
+    return (
+        low.startswith(f"{RENDERER_PREFIX}-")
+        or low.startswith(f"{OBJECTCOMMON_PREFIX}-")
+        or any(low.startswith(f"{d}-") for d in DEPS)
+    )
 
 
 def clear_managed_wheels() -> None:
@@ -140,11 +152,13 @@ def main() -> None:
     write_manifest(all_wheels)
 
     renderer = [n for n in all_wheels if n.lower().startswith(f"{RENDERER_PREFIX}-")]
+    objectcommon = [n for n in all_wheels if n.lower().startswith(f"{OBJECTCOMMON_PREFIX}-")]
     deps = [n for n in all_wheels if any(n.lower().startswith(f"{d}-") for d in DEPS)]
     frontend = [n for n in all_wheels if n.lower().startswith(f"{FRONTEND_PREFIX}-")]
     print(
         f"\nManifest updated: {len(set(all_wheels))} wheels "
-        f"({len(renderer)} renderer + {len(frontend)} front-end + {len(deps)} deps)."
+        f"({len(renderer)} renderer + {len(objectcommon)} shared + "
+        f"{len(frontend)} front-end + {len(deps)} deps)."
     )
     if not frontend:
         print(

@@ -25,6 +25,15 @@ RENDERER_DIST = "openrct2-x7-renderer"
 RENDERER_PREFIX = "openrct2_x7_renderer"
 RENDERER_VERSION = "0.3.1"
 
+# Shared layer (openrct2_object_common): PyPI dist name, wheel-filename prefix,
+# and the exact version to bundle. Pure Python (py3-none-any), so one wheel
+# covers every target. Downloaded from PyPI alongside the renderer. Keep
+# OBJECTCOMMON_VERSION in step with the floor in pyproject.toml's
+# `OpenRCT2-ObjectCommon>=...` dependency.
+OBJECTCOMMON_DIST = "OpenRCT2-ObjectCommon"
+OBJECTCOMMON_PREFIX = "openrct2_objectcommon"
+OBJECTCOMMON_VERSION = "0.1.2"
+
 # This repo's pure-Python front-end wheel (built + placed by the caller).
 FRONTEND_PREFIX = "openrct2_vehiclegenerator"
 
@@ -47,6 +56,11 @@ def run(cmd: list[str], *, capture: bool = False) -> str:
 def renderer_spec() -> str:
     """The pinned ``dist==version`` requirement for the bundled renderer."""
     return f"{RENDERER_DIST}=={RENDERER_VERSION}"
+
+
+def objectcommon_spec() -> str:
+    """The pinned ``dist==version`` requirement for the bundled shared layer."""
+    return f"{OBJECTCOMMON_DIST}=={OBJECTCOMMON_VERSION}"
 
 
 def pip_download_cmd(

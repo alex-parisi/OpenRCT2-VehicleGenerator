@@ -7,8 +7,9 @@ produces a single-platform zip you can install into your local Blender right now
 
   1. Build this repo's pure-Python front-end wheel (``openrct2_vehiclegenerator``,
      ``py3-none-any``) with `uv build --wheel`.
-  2. Download the ``openrct2-x7-renderer`` wheel + numpy/pillow/pyyaml from PyPI
-     for your platform and your Blender's CPython.
+  2. Download the ``openrct2-x7-renderer`` wheel, the ``OpenRCT2-ObjectCommon``
+     shared layer, + numpy/pillow/pyyaml from PyPI for your platform and your
+     Blender's CPython.
   3. Stage the add-on with a local-only manifest (just this platform + these
      wheels) and run `blender --command extension build`.
 
@@ -37,6 +38,7 @@ from _buildlib import (
     DEPS,
     FRONTEND_PREFIX,
     REPO,
+    objectcommon_spec,
     one_renderer_wheel,
     pip_download_cmd,
     renderer_spec,
@@ -124,7 +126,7 @@ def download_pkgs(out_dir: Path, py_version: str, abi: str, pip_platforms: list[
             py_version=py_version,
             abi=abi,
             platform_tags=pip_platforms,
-            specs=[renderer_spec(), *dep_specs()],
+            specs=[renderer_spec(), objectcommon_spec(), *dep_specs()],
         )
     )
 
