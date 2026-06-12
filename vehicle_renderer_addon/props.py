@@ -416,10 +416,40 @@ for _prefix, _names in FLAG_GROUPS.items():
         )
 
 
-_CLASSES = (VGColorPreset, VGLight, VGMaterialSettings, VGObjectSettings, VGCarType, VGRideSettings)
+# VGLight (= SharedLight) is registered cooperatively, NOT in _CLASSES: Blender shares
+# the bundled openrct2_objectcommon wheel across the OpenRCT2 add-ons, so SharedLight is
+# one class object — whichever add-on loads first registers it, the rest must skip it
+# (else "already registered as a subclass 'SharedLight'"). Mirrors the shared parent
+# panel guard in panels.py.
+_CLASSES = (VGColorPreset, VGMaterialSettings, VGObjectSettings, VGCarType, VGRideSettings)
+
+_shared_light_owned = False
+
+
+def _register_shared_light():
+    """Register SharedLight unless another OpenRCT2 add-on already did.
+
+    Blender shares the bundled wheel, so ``VGLight`` is the very class object the
+    other add-ons register; ``is_registered`` is the reliable cross-add-on check
+    (the class is not exposed as ``bpy.types.SharedLight``).
+    """
+    global _shared_light_owned
+    if not VGLight.is_registered:
+        bpy.utils.register_class(VGLight)
+        _shared_light_owned = True
+
+
+def _unregister_shared_light():
+    """Drop SharedLight only if this add-on was the one that registered it."""
+    global _shared_light_owned
+    if _shared_light_owned:
+        bpy.utils.unregister_class(VGLight)
+        _shared_light_owned = False
 
 
 def register():
+    # SharedLight must exist before VGRideSettings' CollectionProperty(type=VGLight).
+    _register_shared_light()
     for cls in _CLASSES:
         bpy.utils.register_class(cls)
     Scene.vg_ride = PointerProperty(type=VGRideSettings)
@@ -433,3 +463,4 @@ def unregister():
     del Scene.vg_ride
     for cls in reversed(_CLASSES):
         bpy.utils.unregister_class(cls)
+    _unregister_shared_light()
