@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """Build the Blender extension fresh for THIS machine and its Blender.
 
-The renderer is now an external PyPI package (``openrct2-x7-renderer``) shipping
-prebuilt, Embree-vendored wheels, so there's nothing to compile here. This script
-produces a single-platform zip you can install into your local Blender right now:
+The renderer (``openrct2-x7-renderer``) and shared layer (``OpenRCT2-ObjectCommon``)
+ship released PyPI wheels, but inside the OpenRCT2-Tools meta-repo they are built
+from the local workspace sources so unreleased changes are picked up; outside the
+meta-repo the pinned PyPI releases are used instead. This script produces a
+single-platform zip you can install into your local Blender right now:
 
   1. Build this repo's pure-Python front-end wheel (``openrct2_vehiclegenerator``,
      ``py3-none-any``) with `uv build --wheel`.
-  2. Download the ``openrct2-x7-renderer`` wheel, the ``OpenRCT2-ObjectCommon``
-     shared layer, + numpy/pillow/pyyaml from PyPI for your platform and your
-     Blender's CPython.
+  2. Acquire the renderer wheel + the ``OpenRCT2-ObjectCommon`` shared layer (from
+     the workspace, or PyPI) and numpy/pillow/pyyaml from PyPI, for your platform
+     and your Blender's CPython. A workspace-built renderer is delocated so Embree
+     is vendored into the wheel.
   3. Stage the add-on with a local-only manifest (just this platform + these
      wheels) and run `blender --command extension build`.
 
@@ -38,10 +41,8 @@ from _buildlib import (
     DEPS,
     FRONTEND_PREFIX,
     REPO,
-    objectcommon_spec,
+    acquire_inrepo_wheels,
     one_renderer_wheel,
-    pip_download_cmd,
-    renderer_spec,
     run,
     set_toml_array,
     wheels_block,
@@ -117,17 +118,21 @@ def build_frontend_wheel(out_dir: Path) -> Path:
     return wheels[0]
 
 
-def download_pkgs(out_dir: Path, py_version: str, abi: str, pip_platforms: list[str]) -> None:
-    """Download the renderer wheel + deps from PyPI for the target platform/Python."""
-    run(
-        pip_download_cmd(
-            ["uv", "run", "--with", "pip", "python", "-m", "pip"],
-            dest=out_dir,
-            py_version=py_version,
-            abi=abi,
-            platform_tags=pip_platforms,
-            specs=[renderer_spec(), objectcommon_spec(), *dep_specs()],
-        )
+def acquire_packages(out_dir: Path, py_version: str, abi: str, pip_platforms: list[str]) -> None:
+    """Stage the renderer, shared layer, and deps into `out_dir`.
+
+    In the meta-repo the renderer + shared layer are built from the local
+    workspace sources (so unreleased changes ship); a standalone checkout / CI
+    falls back to the pinned PyPI releases. Deps always come from PyPI. See
+    `_buildlib.acquire_inrepo_wheels`.
+    """
+    acquire_inrepo_wheels(
+        ["uv", "run", "--with", "pip", "python", "-m", "pip"],
+        dest=out_dir,
+        py_version=py_version,
+        abi=abi,
+        platform_tags=pip_platforms,
+        dep_specs=dep_specs(),
     )
 
 
@@ -159,8 +164,7 @@ def verify_wheel(wheel: Path) -> None:
             str(wheel),
             "python",
             "-c",
-            "import openrct2_x7_renderer._x7_renderer as n;"
-            "print('embree ok:', n.LIGHT_DIFFUSE)",
+            "import openrct2_x7_renderer._x7_renderer as n;print('embree ok:', n.LIGHT_DIFFUSE)",
         ]
     )
 
@@ -182,9 +186,7 @@ def main() -> None:
         action="store_true",
         help="skip the standalone import check of the renderer wheel",
     )
-    ap.add_argument(
-        "--addon", choices=ADDONS, default="vehicle", help="which add-on to build"
-    )
+    ap.add_argument("--addon", choices=ADDONS, default="vehicle", help="which add-on to build")
     args = ap.parse_args()
     addon_dir = REPO / ADDONS[args.addon]
 
@@ -202,7 +204,7 @@ def main() -> None:
         stage.mkdir()
 
         build_frontend_wheel(wheels)
-        download_pkgs(wheels, py_version, abi, pip_platforms)
+        acquire_packages(wheels, py_version, abi, pip_platforms)
         if not args.no_verify:
             verify_wheel(one_renderer_wheel(wheels))
         stage_addon(stage, wheels, manifest_platform, addon_dir)

@@ -55,8 +55,12 @@ class VG_PT_ride(Panel):
             box.prop(rs, "units_per_tile")
 
         box = layout.box()
-        box.label(text="Sprites", icon="IMAGE_DATA")
+        box.label(text="Dither", icon="MOD_NOISE")
         box.prop(rs, "dither")
+        box.prop(rs, "dither_stability")
+
+        box = layout.box()
+        box.label(text="Sprites", icon="IMAGE_DATA")
         box.prop(rs, "sprites_all")
         if not rs.sprites_all:
             grid = box.grid_flow(row_major=True, columns=2, even_columns=True)
@@ -217,8 +221,13 @@ def _draw_object_settings(layout, obj):
         return
     if len(obj.material_slots) > 1:
         box.template_list(
-            "MATERIAL_UL_matslots", "", obj, "material_slots",
-            obj, "active_material_index", rows=2,
+            "MATERIAL_UL_matslots",
+            "",
+            obj,
+            "material_slots",
+            obj,
+            "active_material_index",
+            rows=2,
         )
     mat = obj.active_material
     if mat is None:

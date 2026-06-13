@@ -196,8 +196,7 @@ class VGMaterialSettings(PropertyGroup):
     specular_exponent: FloatProperty(
         name="Specular Exponent",
         description=(
-            "Phong specular exponent: tightness of the highlight "
-            "(higher = smaller, sharper)"
+            "Phong specular exponent: tightness of the highlight (higher = smaller, sharper)"
         ),
         default=50.0,
         min=1.0,
@@ -360,12 +359,23 @@ class VGRideSettings(PropertyGroup):
     dither: EnumProperty(
         name="Dither",
         description=(
-            "Palette dithering mode. Bayer stays stable across a vehicle's "
-            "animation frames; Floyd-Steinberg has higher fidelity but its "
-            "pattern shifts per frame"
+            "Palette dithering mode. Bayer and Blue noise stay stable across a "
+            "vehicle's animation frames; Floyd-Steinberg has higher fidelity but "
+            "its pattern shifts per frame"
         ),
         items=DITHER_MODE_ITEMS,
         default=DEFAULT_DITHER_MODE,
+    )
+    dither_stability: FloatProperty(
+        name="Dither Stability",
+        description=(
+            "Temporal-stability deadband in palette units. Shading changes smaller "
+            "than this quantise identically between frames, reducing dither "
+            "'swimming' in animations; 0 disables it"
+        ),
+        default=0.0,
+        min=0.0,
+        soft_max=16.0,
     )
     sprites_all: BoolProperty(
         name="All Sprite Groups",
