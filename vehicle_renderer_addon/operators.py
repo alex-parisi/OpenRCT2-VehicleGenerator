@@ -45,7 +45,7 @@ class VG_OT_test_render(Operator):
 
         ctx = Context(
             lights=lights_from_items(context.scene.vg_ride.lights),
-            dither=True,
+            dither=context.scene.vg_ride.dither,
             upt=ride.units_per_tile,
         )
         tmp = tempfile.mkdtemp(prefix="vg_test_")
@@ -94,8 +94,9 @@ class VG_OT_export_parkobj(RenderModalBase):
         return _build_ride_from_scene(context)
 
     def _prepare(self, context, ride) -> None:
-        # Read lights on the main thread; the worker must not touch bpy data.
+        # Read scene data on the main thread; the worker must not touch bpy data.
         self._lights = lights_from_items(context.scene.vg_ride.lights)
+        self._dither = context.scene.vg_ride.dither
         self._parkobj = bpy.path.abspath(self.filepath)
         self._work = tempfile.mkdtemp(prefix="vg_export_")
         # In-viewport progress bar; the shared base also drives a status-bar
@@ -111,7 +112,7 @@ class VG_OT_export_parkobj(RenderModalBase):
             self._overlay.done = done
             self._overlay.total = total
 
-        ctx = Context(lights=self._lights, dither=True, upt=ride.units_per_tile)
+        ctx = Context(lights=self._lights, dither=self._dither, upt=ride.units_per_tile)
         export_ride_to(ride, ctx, self._parkobj, self._work, progress=on_progress)
 
     def _set_status(self, context) -> None:

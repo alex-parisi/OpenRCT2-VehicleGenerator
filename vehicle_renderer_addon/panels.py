@@ -56,6 +56,7 @@ class VG_PT_ride(Panel):
 
         box = layout.box()
         box.label(text="Sprites", icon="IMAGE_DATA")
+        box.prop(rs, "dither")
         box.prop(rs, "sprites_all")
         if not rs.sprites_all:
             grid = box.grid_flow(row_major=True, columns=2, even_columns=True)
